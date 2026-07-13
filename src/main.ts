@@ -963,6 +963,7 @@ const server = startHttpServer({
   logger,
   allowedOrigins: config.allowedOrigins,
   enableHsts: config.appEnv === "production" && config.publicHttps,
+  trustedProxies: config.trustedProxyIps,
   wsUpgrade: (request, clientIp) =>
     handleWsUpgrade(request, {
       clientIp,
@@ -992,6 +993,7 @@ logger.info("server started", {
   wsHeartbeatIntervalMs: config.wsHeartbeatIntervalMs,
   wsIdleTimeoutMs: config.wsIdleTimeoutMs,
   publicHttps: config.publicHttps,
+  trustedProxyIps: config.trustedProxyIps,
 });
 
 let dbClosed = false;

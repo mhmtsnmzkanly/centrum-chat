@@ -59,6 +59,7 @@ variables into your shell yourself, or run the server directly with
 | `DATABASE_PATH`                            | no       | `./storage/database/centrumchat.sqlite` | Parent directory is created automatically                                                              |
 | `MEDIA_ROOT`                               | no       | `./storage`                             | Upload root; files land under `profile/` (avatars), `cover/`, and `attachments/` subfolders            |
 | `ALLOWED_ORIGINS`                          | no       | empty                                   | Comma-separated extra browser origins allowed for CORS/WS Origin checks; same-origin is always allowed |
+| `TRUSTED_PROXY_IPS`                        | no       | empty                                   | Comma-separated proxy IPs/CIDRs whose `X-Forwarded-For` is honored; empty = socket peer is the client  |
 | `JWT_SECRET`                               | **yes**  | —                                       | HS256 signing key for access tokens. Generate with `openssl rand -hex 32`                              |
 | `PUBLIC_BASE_URL`                          | no       | `http://localhost:8080`                 | Used for verification/reset/email-change links; must be explicit HTTPS in production                   |
 | `ACCESS_TOKEN_TTL_SECONDS`                 | no       | `900` (15 min)                          | Access tokens stay short-lived even when remember-me is enabled                                        |
@@ -104,6 +105,9 @@ process; the timer is stopped during graceful shutdown.
 Transport hardening in the current build:
 
 - deny-by-default CORS and explicit browser `Origin` validation for WebSocket upgrades
+- trusted-proxy client-IP resolution: `X-Forwarded-For` is honored only when the direct socket peer
+  is listed in `TRUSTED_PROXY_IPS` (right-to-left chain walk, IPv4/IPv6, fail-safe to the socket
+  IP); spoofed forwarded headers from untrusted peers are ignored
 - baseline security headers on every HTTP response, plus a CSP on HTML responses
 - HSTS emitted only in production when `PUBLIC_HTTPS=true`; forwarded headers never affect that
   decision

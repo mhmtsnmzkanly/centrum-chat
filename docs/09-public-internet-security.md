@@ -9,8 +9,15 @@ verifiable in code and tests.
 - CORS is deny-by-default. Same-origin requests are always allowed; additional browser origins must
   be listed explicitly in `ALLOWED_ORIGINS`.
 - WebSocket upgrades validate the browser `Origin` header before a socket exists.
-- The server uses the real peer address supplied by Deno for IP-scoped limits and logging. It does
-  not trust `X-Forwarded-For`, `Forwarded`, or similar proxy headers in this build.
+- Client IPs for IP-scoped limits and logging come from a central trusted-proxy policy
+  (`src/shared/security/clientIp.ts`): by default the real socket peer is used and no forwarded
+  header is trusted. When the direct peer is listed in `TRUSTED_PROXY_IPS` (exact IPs or CIDR
+  blocks), `X-Forwarded-For` is resolved right-to-left — entries added by trusted proxies are
+  skipped and the nearest untrusted entry is the client. Malformed or empty chain entries, and
+  chains consisting solely of trusted proxies, fall back to the socket IP. `CF-Connecting-IP`,
+  `X-Real-IP`, `Forwarded`, `Host`, and `Origin` are never used as an IP authority; IPv4-mapped
+  IPv6 peers are normalized and IPv6 output is canonicalized so one client cannot occupy several
+  rate-limit buckets through alternative spellings.
 - Baseline HTTP security headers are applied centrally to all non-101 responses, and HTML responses
   receive a fixed CSP tuned to the shipped frontend.
 - `Strict-Transport-Security: max-age=15552000; includeSubDomains` is emitted only when

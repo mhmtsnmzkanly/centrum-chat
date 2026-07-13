@@ -1,4 +1,5 @@
 import { parseAllowedOrigins } from "../security/originPolicy.ts";
+import { createTrustedProxyMatcher } from "../security/clientIp.ts";
 
 export interface Config {
   readonly appEnv: "development" | "test" | "production";
@@ -40,6 +41,8 @@ export interface Config {
   readonly publicHttps: boolean;
   readonly sessionCleanupIntervalMs: number;
   readonly revokedSessionRetentionMs: number;
+  /** Socket peers allowed to speak for clients via X-Forwarded-For (IPs or CIDR blocks). */
+  readonly trustedProxyIps: readonly string[];
 }
 
 function requireEnv(key: string): string {
@@ -112,6 +115,19 @@ function parseCaptchaAdapter(raw: string): Config["captchaAdapter"] {
 function parseAppEnv(raw: string): Config["appEnv"] {
   if (raw === "development" || raw === "test" || raw === "production") return raw;
   throw new Error(`APP_ENV must be one of development|test|production, got: ${raw}`);
+}
+
+function parseTrustedProxyIps(raw: string): readonly string[] {
+  const entries = raw.split(",").map((entry) => entry.trim()).filter((entry) => entry !== "");
+  try {
+    // Built once here purely as validation: a typo must fail the boot, not silently
+    // disable (or widen) forwarded-header trust at runtime.
+    createTrustedProxyMatcher(entries);
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String(error);
+    throw new Error(`TRUSTED_PROXY_IPS is invalid: ${message}`);
+  }
+  return entries;
 }
 
 function validateProductionConfig(config: Config): void {
@@ -257,6 +273,7 @@ export function loadConfig(): Config {
       "REVOKED_SESSION_RETENTION_MS",
       2_592_000_000,
     ),
+    trustedProxyIps: parseTrustedProxyIps(optionalEnv("TRUSTED_PROXY_IPS", "")),
   };
   validateProductionConfig(config);
   return config;

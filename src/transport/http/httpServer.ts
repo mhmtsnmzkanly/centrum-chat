@@ -5,6 +5,10 @@ import { translateError } from "../../application/middleware/errorBoundary.ts";
 import type { ProtocolCodec } from "../../protocol/protocolCodec.ts";
 import type { Logger } from "../../shared/logging/logger.ts";
 import { applySecurityHeaders } from "../../shared/security/securityHeaders.ts";
+import {
+  createTrustedProxyMatcher,
+  resolveClientIpFromRequest,
+} from "../../shared/security/clientIp.ts";
 
 export interface HttpServerDeps {
   readonly host: string;
@@ -14,6 +18,10 @@ export interface HttpServerDeps {
   readonly logger: Logger;
   readonly allowedOrigins?: readonly string[];
   readonly enableHsts?: boolean;
+  /** Socket peers allowed to speak for clients via X-Forwarded-For (IPs or CIDR blocks).
+   * Empty/absent = never trust forwarded headers; every request is keyed by its socket
+   * peer. See `src/shared/security/clientIp.ts` for the full trust model. */
+  readonly trustedProxies?: readonly string[];
   /** Handles `GET /ws`; the WebSocket upgrade is a transport-layer concern, not an
    * ordinary JSON route, so it's recognized here before falling through to RouteRegistry. */
   readonly wsUpgrade?: (request: Request, clientIp: string) => Response | Promise<Response>;
@@ -32,10 +40,17 @@ export function startHttpServer(deps: HttpServerDeps): Deno.HttpServer {
     wsUpgrade,
     enableHsts = false,
   } = deps;
+  const trustedProxyMatcher = createTrustedProxyMatcher(deps.trustedProxies ?? []);
   return Deno.serve({ hostname: host, port }, async (request, info) => {
     const startedAt = Date.now();
     const url = new URL(request.url);
-    const clientIp = info.remoteAddr.hostname;
+    // The one place a client IP is derived; HTTP routes, rate-limit keys, and the WS
+    // upgrade (per-IP connection quota) all receive this resolved value.
+    const clientIp = resolveClientIpFromRequest(
+      request,
+      info.remoteAddr.hostname,
+      trustedProxyMatcher,
+    );
     const preflightResponse = buildPreflightResponse(request, allowedOrigins);
     if (preflightResponse) {
       return finalizeResponse(

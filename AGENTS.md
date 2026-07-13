@@ -289,8 +289,12 @@ Invariants that must never be weakened:
 
 ### HTTP (`src/transport/http/httpServer.ts` + `src/application/http/`)
 
-- Client IP is `info.remoteAddr.hostname` — the real socket peer. **No forwarded-header parsing
-  exists anywhere**; do not add trust for `X-Forwarded-For` without an explicit proxy design.
+- Client IP is resolved centrally in `httpServer.ts` via the trusted-proxy policy in
+  `src/shared/security/clientIp.ts`: the socket peer is the client unless that peer is listed in
+  `TRUSTED_PROXY_IPS` (IPs/CIDRs), in which case `X-Forwarded-For` is walked right-to-left and the
+  nearest untrusted entry wins; malformed/empty chains fall back to the socket IP.
+  `CF-Connecting-IP`/`X-Real-IP` are never consulted. The resolved value feeds HTTP routes, IP-keyed
+  rate limits, and the WS per-IP quota. **Do not parse forwarded headers anywhere else.**
 - Deny-by-default CORS (`src/application/http/cors.ts`); same-origin always allowed; extra origins
   only via `ALLOWED_ORIGINS`.
 - Security headers on every response (`src/shared/security/securityHeaders.ts`): nosniff, DENY
