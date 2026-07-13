@@ -226,6 +226,257 @@ diğer kullanıcıların salt okunur eriştiği kanal türü veya kanal ayarı e
 
 - 2026-07-13 — Model: GPT-5 Codex — Planlama listesine eklendi; henüz başlanmadı.
 
+## Arayüz ve erişilebilirlik
+
+### Bağlantı durumu şeridi
+
+**Açıklama:** WebSocket bağlantısının bağlanıyor, bağlı, yeniden bağlanıyor ve çevrimdışı
+durumlarının sohbet arayüzünde kalıcı ancak dikkat dağıtmayan bir şeritle gösterilmesi; kullanıcıya
+gerekli olduğunda elle yeniden deneme eylemi sunulması. Mevcut otomatik reconnect davranışı
+korunmalı ve şerit bağlantı gerçekten düzeldiğinde kendiliğinden kapanmalıdır.
+
+**Öncelik:** Yüksek
+
+**Efor:** Orta
+
+#### Durum
+
+`Bekliyor`
+
+- 2026-07-14 — Model: GPT-5 Codex — Mevcut istemcide otomatik reconnect bulunduğu ancak durumun
+  kullanıcıya görünür olmadığı doğrulanarak planlama listesine eklendi.
+
+### Mesaj gönderim durumları ve yeniden deneme
+
+**Açıklama:** Gönderilen mesajların istemcide `Gönderiliyor`, `Gönderildi` ve `Gönderilemedi`
+durumlarıyla gösterilmesi; başarısız mesajın içeriği kaybedilmeden yeniden denenebilmesi. Geçici
+istemci kimliği ile sunucunun kalıcı mesaj kimliği güvenli biçimde eşleştirilmeli ve tekrar deneme
+aynı mesajın yanlışlıkla iki kez oluşturulmasına yol açmamalıdır.
+
+**Öncelik:** Yüksek
+
+**Efor:** Orta
+
+#### Durum
+
+`Bekliyor`
+
+- 2026-07-14 — Model: GPT-5 Codex — Mevcut gönderim hatalarının yalnızca console'a yazıldığı ve
+  kullanıcıya tekrar deneme imkânı verilmediği doğrulanarak planlama listesine eklendi.
+
+### Okunmamış mesaj ayıracı ve ilk okunmamış mesaja atlama
+
+**Açıklama:** Konuşma açıldığında son okuma noktasından sonraki ilk mesajın önünde `Yeni mesajlar`
+ayıracı gösterilmesi; kullanıcının ilk veya sonraki okunmamış mesaja tek eylemle atlayabilmesi.
+Okuma imleci sunucu tarafındaki yetkili read-state verisine dayanmalı, yalnız istemci saatinden veya
+yerel sayaçtan türetilmemelidir.
+
+**Öncelik:** Yüksek
+
+**Efor:** Yüksek
+
+#### Durum
+
+`Bekliyor`
+
+- 2026-07-14 — Model: GPT-5 Codex — Mevcut unread badge ve `room.markRead` davranışının bulunduğu,
+  ancak ilk okunmamış mesaj konumu ile konuşma içi ayıracın bulunmadığı doğrulanarak eklendi.
+
+### Aşağı kaydırma yeni mesaj sayacı
+
+**Açıklama:** Kullanıcı mesaj akışının sonunda değilken gelen yeni mesajların sayısının mevcut aşağı
+kaydırma butonundaki badge üzerinde gösterilmesi; butona basıldığında sona gidilmesi ve sayacın
+sıfırlanması. Konuşma değişiminde eski konuşmanın sayacı yeni konuşmaya taşınmamalıdır.
+
+**Öncelik:** Yüksek
+
+**Efor:** Düşük
+
+#### Durum
+
+`Bekliyor`
+
+- 2026-07-14 — Model: GPT-5 Codex — `scrollFabBadge` işaretlemesinin mevcut olduğu fakat istemci
+  kodunda sayacı güncelleyen davranış bulunmadığı doğrulanarak planlama listesine eklendi.
+
+### Komut paleti ve hızlı geçiş
+
+**Açıklama:** `Ctrl/Command + K` ile açılan ortak bir komut paletinden kanal, grup, DM, kullanıcı,
+ayar ve izin verilen temel eylemlere klavyeyle erişilebilmesi. Sonuçlar mevcut yetkilendirme ve
+görünürlük sınırlarına uymalı; arayüzde gösterilen komutlar sunucu yetkilendirmesinin yerine
+geçmemelidir.
+
+**Öncelik:** Orta
+
+**Efor:** Orta
+
+#### Durum
+
+`Bekliyor`
+
+- 2026-07-14 — Model: GPT-5 Codex — Çalışan istemcide genel amaçlı komut paleti veya hızlı konuşma
+  değiştirici bulunmadığı doğrulanarak planlama listesine eklendi.
+
+### Konuşma favorileri ve kişisel sıralama
+
+**Açıklama:** Kullanıcının kanal, grup ve DM'leri favorileyebilmesi; konuşma bölümlerini daraltması
+ve favoriler içinde kişisel bir sıralama belirleyebilmesi. Tercihler hesaba bağlı saklanmalı,
+konuşmaya erişim kalktığında stale favoriler güvenli biçimde temizlenmelidir.
+
+**Öncelik:** Orta
+
+**Efor:** Orta
+
+#### Durum
+
+`Bekliyor`
+
+- 2026-07-14 — Model: GPT-5 Codex — Mevcut hedef seçicide arama bulunduğu, ancak favorileme,
+  kişisel sıralama ve bölüm daraltma seçeneklerinin bulunmadığı doğrulanarak eklendi.
+
+### Genel klavye kısayolları
+
+**Açıklama:** Konuşmalar arasında gezinme, arama açma, aktif mesaja cevap verme veya düzenleme,
+okunmuş işaretleme ve composer'a odaklanma gibi sık kullanılan işlemler için klavye kısayolları
+eklenmesi; kısayolların listelendiği erişilebilir bir yardım penceresi sunulması. Form alanlarında
+yazı yazarken çakışan global kısayollar çalışmamalıdır.
+
+**Öncelik:** Orta
+
+**Efor:** Orta
+
+#### Durum
+
+`Bekliyor`
+
+- 2026-07-14 — Model: GPT-5 Codex — Composer Enter davranışı dışında kapsamlı bir klavye kısayol
+  sistemi bulunmadığı doğrulanarak planlama listesine eklendi.
+
+### Panodan dosya ve görsel yapıştırma
+
+**Açıklama:** Composer odaktayken panodaki görsel veya dosyanın `Ctrl/Command + V` ile mevcut güvenli
+attachment yükleme akışına eklenmesi; metin yapıştırma davranışının bozulmaması ve kullanıcı
+onayından önce dosyanın otomatik gönderilmemesi.
+
+**Öncelik:** Orta
+
+**Efor:** Düşük
+
+#### Durum
+
+`Bekliyor`
+
+- 2026-07-14 — Model: GPT-5 Codex — Dosya seçimi, sürükle-bırak ve URL'den alma bulunduğu; doğrudan
+  Clipboard API/paste dosya akışının bulunmadığı doğrulanarak eklendi.
+
+### Devam eden yüklemeyi iptal etme
+
+**Açıklama:** Dosya yükleme ilerleme arayüzüne iptal eylemi eklenmesi; istemcinin aktif
+`XMLHttpRequest` isteğini durdurması ve sunucuda dosya ya da attachment satırı oluşmuşsa mevcut
+temizlik kurallarıyla orphan veri bırakılmaması. İptal ve gerçek ağ hatası kullanıcıya farklı
+durumlar olarak gösterilmelidir.
+
+**Öncelik:** Orta
+
+**Efor:** Düşük
+
+#### Durum
+
+`Bekliyor`
+
+- 2026-07-14 — Model: GPT-5 Codex — XHR upload progress göstergesinin bulunduğu, fakat aktif
+  yüklemeyi iptal eden bir kontrol bulunmadığı doğrulanarak planlama listesine eklendi.
+
+### Mesaj yoğunluğu ve ardışık mesaj gruplama
+
+**Açıklama:** Kullanıcının rahat ve kompakt mesaj yoğunluğu arasında seçim yapabilmesi; aynı
+kullanıcının kısa aralıklarla gönderdiği ardışık mesajlarda tekrar eden avatar, ad ve boşlukların
+görsel olarak gruplanması. Tarih ayraçları, cevaplar, sistem mesajları ve farklı günler grup sınırı
+oluşturmalıdır.
+
+**Öncelik:** Orta
+
+**Efor:** Orta
+
+#### Durum
+
+`Bekliyor`
+
+- 2026-07-14 — Model: GPT-5 Codex — Gelen/giden mesaj sınıfları ve tarih ayraçları mevcut olsa da
+  yoğunluk tercihi ile aynı yazara ait ardışık mesaj gruplaması bulunmadığı doğrulanarak eklendi.
+
+### Sistem temasını takip etme
+
+**Açıklama:** Mevcut açık ve koyu tema seçeneklerine `Sistem` seçeneği eklenmesi; işletim sistemi
+tema değişikliklerinin `prefers-color-scheme` üzerinden canlı uygulanması. Kullanıcının açık veya
+koyu temayı elle seçmesi sistem takibini devre dışı bırakmalıdır.
+
+**Öncelik:** Orta
+
+**Efor:** Düşük
+
+#### Durum
+
+`Bekliyor`
+
+- 2026-07-14 — Model: GPT-5 Codex — Chat ve Control Center'da açık/koyu tema bulunduğu, ancak
+  gerçek bir `Sistem` modu bulunmadığı doğrulanarak planlama listesine eklendi.
+
+### Erişilebilirlik tercihleri
+
+**Açıklama:** Yazı boyutu, yüksek kontrast ve azaltılmış animasyon tercihlerinin eklenmesi; yeni
+mesajlar ile bağlantı/gönderim durumlarının ekran okuyuculara uygun canlı bölgeler üzerinden
+duyurulması. Klavye odağı, modal focus yönetimi ve renk dışındaki durum göstergeleri chat ile
+Control Center'da birlikte test edilmelidir.
+
+**Öncelik:** Yüksek
+
+**Efor:** Orta
+
+#### Durum
+
+`Bekliyor`
+
+- 2026-07-14 — Model: GPT-5 Codex — Temel `focus-visible` stilleri ve bazı ARIA etiketleri mevcut;
+  kullanıcıya ait yazı boyutu, yüksek kontrast, reduced-motion ve canlı mesaj tercihleri bulunmadığı
+  doğrulanarak eklendi.
+
+### Mobil uzun basma mesaj eylem paneli
+
+**Açıklama:** Dokunmatik cihazlarda bir mesaja uzun basıldığında reaksiyon, cevapla, kopyala,
+raporla ve yetkiye göre düzenle/sil eylemlerinin erişilebilir bir bottom-sheet içinde gösterilmesi.
+Tarayıcının metin seçimi ve ekran okuyucu alternatifleri korunmalı; yalnız hover'a bağımlı kontrol
+kalmamalıdır.
+
+**Öncelik:** Orta
+
+**Efor:** Orta
+
+#### Durum
+
+`Bekliyor`
+
+- 2026-07-14 — Model: GPT-5 Codex — Mobil uyumlu modal ve emoji picker bulunduğu, ancak mesaj
+  eylemleri için uzun basma/bottom-sheet akışı bulunmadığı doğrulanarak planlama listesine eklendi.
+
+### Konuşma boş ve hata durumları
+
+**Açıklama:** Mesajsız kanal, grup veya DM; arama sonucu bulunamaması; geçmişin yüklenememesi ve
+erişimin kaldırılması gibi durumlar için açıklayıcı, eylem odaklı ve erişilebilir boş/hata
+görünümleri hazırlanması. Yeniden deneme yalnız güvenli ve idempotent okuma işlemlerinde
+sunulmalıdır.
+
+**Öncelik:** Orta
+
+**Efor:** Düşük
+
+#### Durum
+
+`Bekliyor`
+
+- 2026-07-14 — Model: GPT-5 Codex — Genel splash ve toast yapıları mevcut olsa da konuşma ve arama
+  bazında tutarlı boş/hata bileşenleri bulunmadığı doğrulanarak planlama listesine eklendi.
+
 ## Sohbet
 
 ### Mesaj thread'leri
