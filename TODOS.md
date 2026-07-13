@@ -1217,6 +1217,119 @@ kendi bildirimlerinin etkilenmesi.
 
 - 2026-07-13 — Model: GPT-5 Codex — Planlama listesine eklendi; henüz başlanmadı.
 
+### Birleşik aktivite gelen kutusu
+
+**Açıklama:** Mention, doğrudan mesaj, yanıt, reaksiyon, grup daveti ve sistem/güvenlik
+bildirimlerinin tek bir aktivite gelen kutusunda gösterilmesi; kullanıcının `Tümü`, `Okunmamış`,
+`Mention ve yanıtlar`, `Reaksiyonlar` ve `Davetler` gibi kararlı türlere göre filtreleyebilmesi.
+Filtreler yalnız kullanıcının kendi bildirimlerini göstermeli ve bilinmeyen yeni türler güvenli bir
+genel görünümle desteklenmelidir.
+
+**Öncelik:** Yüksek
+
+**Efor:** Orta
+
+#### Durum
+
+`Bekliyor`
+
+- 2026-07-14 — Model: GPT-5 Codex — Mevcut notification list/mark-read altyapısının bulunduğu,
+  ancak türlere ayrılmış birleşik aktivite gelen kutusu bulunmadığı doğrulanarak planlama listesine
+  eklendi.
+
+### Mesaj yanıtı bildirimleri
+
+**Açıklama:** Bir kullanıcıya ait mesaja başka bir kullanıcı cevap verdiğinde kaynak mesaj sahibine
+ayrı bir `reply` bildirimi oluşturulması; kişinin kendine cevabı, engellenmiş etkileşimler ve
+konuşma bildirim tercihleri dikkate alınmalıdır. Yanıt aynı zamanda mention içeriyorsa aynı olay
+için mükerrer bildirim üretilmemelidir.
+
+**Öncelik:** Yüksek
+
+**Efor:** Orta
+
+#### Durum
+
+`Bekliyor`
+
+- 2026-07-14 — Model: GPT-5 Codex — Mevcut notification türlerinin `mention`, `dm`,
+  `group_invite` ve `reaction` ile sınırlı olduğu; doğrudan reply bildirimi bulunmadığı doğrulanarak
+  eklendi.
+
+### Bildirimden hedef içeriğe güvenli geçiş
+
+**Açıklama:** Bildirime basıldığında ilgili konuşmanın açılması, gerekiyorsa mesaj çevresinin
+yüklenmesi ve hedef mesajın vurgulanması; ardından bildirimin okunmuş işaretlenmesi. Kullanıcı artık
+konuşmaya erişemiyorsa, mesaj silinmişse veya hedef yoksa içerik sızdırmadan açıklayıcı fallback
+gösterilmelidir. Bu iş mesaj kalıcı bağlantısı altyapısıyla ortak hedef çözümleme kullanmalıdır.
+
+**Öncelik:** Yüksek
+
+**Efor:** Orta
+
+#### Durum
+
+`Bekliyor`
+
+- 2026-07-14 — Model: GPT-5 Codex — Notification DTO'sunda `conversationId` ve `messageId`
+  bulunmasına rağmen tüm bildirim türleri için ortak, yetki kontrollü hedefe gitme akışı
+  bulunmadığı doğrulanarak planlama listesine eklendi.
+
+### Bildirim gruplama ve mükerrerleri birleştirme
+
+**Açıklama:** Aynı mesajdaki kısa süreli reaksiyonlar, aynı konuşmadan gelen yoğun DM bildirimleri
+ve aynı hedefe ait tekrar eden olayların tek bir özet bildirim altında gruplanması. Gruplama
+sunucuda kararlı kimlik ve zaman penceresiyle yapılmalı; unread sayısı gerçek olay ve görünür grup
+sayısı ayrımını doğru yönetmelidir.
+
+**Öncelik:** Orta
+
+**Efor:** Orta
+
+#### Durum
+
+`Bekliyor`
+
+- 2026-07-14 — Model: GPT-5 Codex — Mevcut sistemin her notification olayını ayrı satır olarak
+  oluşturduğu ve burst/dedup gruplaması bulunmadığı doğrulanarak planlama listesine eklendi.
+
+### Bildirim sayfalama ve saklama politikası
+
+**Açıklama:** Notification listesinin kararlı cursor tabanlı sayfalama ile yüklenmesi; istemcinin
+eski bildirimleri kademeli getirmesi ve veritabanında okunmuş/eski bildirimler için açık bir saklama
+ve temizleme politikası uygulanması. Temizlik unread bildirimleri yanlışlıkla silmemeli ve sorgular
+uygun indekslerle sınırlandırılmalıdır.
+
+**Öncelik:** Yüksek
+
+**Efor:** Orta
+
+#### Durum
+
+`Bekliyor`
+
+- 2026-07-14 — Model: GPT-5 Codex — `notification.list` çağrısının kullanıcıya ait sonuçları tek
+  seferde döndürdüğü, cursor/limit ve kalıcı retention politikası bulunmadığı doğrulanarak eklendi.
+
+### Konuşmalar arası okunmamış navigasyonu
+
+**Açıklama:** Kullanıcının sıradaki veya önceki okunmamış kanal, grup ya da DM'e tek eylemle
+geçebilmesi; konuşma açıldığında ilk okunmamış mesaja atlama işiyle birlikte çalışması. Sıralama
+favori/kişisel konuşma düzenini gözetmeli, sessize alınmış konuşmalar için davranış açıkça
+belirlenmeli ve klavye kısayollarına bağlanabilmelidir.
+
+**Öncelik:** Yüksek
+
+**Efor:** Orta
+
+#### Durum
+
+`Bekliyor`
+
+- 2026-07-14 — Model: GPT-5 Codex — Konuşma badge'leri mevcut ve konuşma içi ilk unread işi
+  planlı; farklı konuşmalar arasında sonraki/önceki unread navigasyonu bulunmadığı doğrulanarak
+  planlama listesine eklendi.
+
 ## Güvenlik ve hesaplar
 
 ### Güvenli gerçek istemci IP aktarımı
