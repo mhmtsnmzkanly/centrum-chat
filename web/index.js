@@ -249,10 +249,53 @@ function parseJwt(token) {
   }
 }
 
+// Exchange the stored refresh token for a fresh token pair. Returns false when
+// the server rejects the refresh (revoked/expired session); throws on network
+// failure so callers can distinguish "logged out" from "temporarily offline".
+async function tryRefreshTokens() {
+  const tokens = TOKENS.get();
+  if (!tokens?.refreshToken) return false;
+  const rememberedMode = TOKENS.isRemembered();
+  const response = await fetch("/api/auth/refresh", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ refreshToken: tokens.refreshToken }),
+  });
+  const data = response.ok ? await response.json() : null;
+  if (!data?.success) return false;
+  TOKENS.set(
+    { accessToken: data.data.accessToken, refreshToken: data.data.refreshToken },
+    rememberedMode,
+  );
+  return true;
+}
+
+// Return a usable access token, proactively refreshing when it is expired or
+// about to expire. Chat traffic is WS-only, so apiFetch's 401-refresh path may
+// never run during a long session — without this, every reconnect handshake
+// would present the same expired token forever. Returns null only when the
+// server rejected the refresh (the session is really over); network failures
+// fall back to the stored token so the caller's retry loop can try again.
+const TOKEN_EXPIRY_MARGIN_MS = 60_000;
+
+async function ensureFreshAccessToken() {
+  const tokens = TOKENS.get();
+  if (!tokens?.accessToken) return null;
+  const expMs = (parseJwt(tokens.accessToken)?.exp || 0) * 1000;
+  if (expMs - Date.now() > TOKEN_EXPIRY_MARGIN_MS) return tokens.accessToken;
+  try {
+    if (await tryRefreshTokens()) {
+      return TOKENS.get()?.accessToken ?? null;
+    }
+    return null;
+  } catch {
+    return tokens.accessToken;
+  }
+}
+
 // HTTP Client (Bearer header + one-shot refresh retry on 401)
 async function apiFetch(url, options = {}) {
-  let tokens = TOKENS.get();
-  const rememberedMode = TOKENS.isRemembered();
+  const tokens = TOKENS.get();
   options.headers = options.headers || {};
   if (tokens?.accessToken) {
     options.headers["Authorization"] = `Bearer ${tokens.accessToken}`;
@@ -271,29 +314,19 @@ async function apiFetch(url, options = {}) {
   }
 
   if (response.status === 401 && tokens?.refreshToken) {
+    let refreshed = false;
     try {
-      const refreshResp = await fetch("/api/auth/refresh", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ refreshToken: tokens.refreshToken }),
-      });
-      const refreshData = refreshResp.ok ? await refreshResp.json() : null;
-      if (refreshData?.success) {
-        tokens = {
-          accessToken: refreshData.data.accessToken,
-          refreshToken: refreshData.data.refreshToken,
-        };
-        TOKENS.set(tokens, rememberedMode);
-        options.headers["Authorization"] = `Bearer ${tokens.accessToken}`;
-        response = await fetch(url, options);
-      } else {
-        clearAuthenticatedState("Session expired. Please log in again.", "warning");
-        throw makeClientError("UNAUTHORIZED", "Session expired. Please log in again.");
-      }
+      refreshed = await tryRefreshTokens();
     } catch (refreshErr) {
       clearAuthenticatedState("Session expired. Please log in again.", "warning");
       throw refreshErr;
     }
+    if (!refreshed) {
+      clearAuthenticatedState("Session expired. Please log in again.", "warning");
+      throw makeClientError("UNAUTHORIZED", "Session expired. Please log in again.");
+    }
+    options.headers["Authorization"] = `Bearer ${TOKENS.get().accessToken}`;
+    response = await fetch(url, options);
   }
 
   let responseJson;
@@ -322,22 +355,19 @@ class WebSocketClient {
     this.listeners = new Map();
     this.requestIdCounter = 0;
     this.reconnectTimer = null;
+    this.reconnectAttempts = 0;
     this.isConnecting = false;
     this.readyPromise = null;
     this.hadConnection = false;
     this.onReconnect = null;
   }
 
-  connect() {
+  async connect() {
     if (
       this.socket &&
       (this.socket.readyState === WebSocket.CONNECTING || this.socket.readyState === WebSocket.OPEN)
     ) {
       return this.socket.readyState === WebSocket.OPEN ? Promise.resolve() : this.readyPromise;
-    }
-    const tokens = TOKENS.get();
-    if (!tokens?.accessToken) {
-      return Promise.reject(new Error("Authentication is required for WebSocket requests."));
     }
 
     if (this.isConnecting && this.readyPromise) return this.readyPromise;
@@ -347,15 +377,35 @@ class WebSocketClient {
       this.resolveReady = resolve;
       this.rejectReady = reject;
     });
+    const readyPromise = this.readyPromise;
+    // Timer-driven retries don't await connect(); avoid unhandled rejections.
+    readyPromise.catch(() => {});
+
+    const accessToken = await ensureFreshAccessToken();
+
+    // disconnect() may have run while the refresh was in flight.
+    if (this.readyPromise !== readyPromise) return readyPromise;
+
+    if (!accessToken) {
+      this.failConnect(new Error("Authentication is required for WebSocket requests."));
+      // A stored token that can no longer be refreshed means the session was
+      // revoked/expired server-side — stop retrying and go back to sign-in.
+      if (TOKENS.get()) {
+        clearAuthenticatedState("Session expired. Please log in again.", "warning");
+      }
+      return readyPromise;
+    }
+
     const protocol = window.location.protocol === "https:" ? "wss:" : "ws:";
     const wsUrl = `${protocol}//${window.location.host}/ws?token=${
-      encodeURIComponent(tokens.accessToken)
+      encodeURIComponent(accessToken)
     }`;
 
     this.socket = new WebSocket(wsUrl);
 
     this.socket.onopen = () => {
       this.isConnecting = false;
+      this.reconnectAttempts = 0;
       if (this.reconnectTimer) {
         clearTimeout(this.reconnectTimer);
         this.reconnectTimer = null;
@@ -398,20 +448,49 @@ class WebSocketClient {
       this.resolveReady = null;
       this.rejectReady = null;
       this.rejectAllPendingRequests(new Error("WebSocket connection closed."));
-      const tokens = TOKENS.get();
-      if (tokens?.accessToken && !this.reconnectTimer) {
-        this.reconnectTimer = setTimeout(() => {
-          this.reconnectTimer = null;
-          this.connect();
-        }, 5000);
-      }
+      this.scheduleReconnect();
     };
 
     this.socket.onerror = (err) => {
       console.error("WebSocket error:", err);
     };
 
-    return this.readyPromise;
+    return readyPromise;
+  }
+
+  failConnect(error) {
+    this.isConnecting = false;
+    this.rejectReady?.(error);
+    this.resolveReady = null;
+    this.rejectReady = null;
+    this.readyPromise = null;
+  }
+
+  // Exponential backoff with jitter: ~1s after the first drop, doubling to a
+  // 30s ceiling. A successful open — or reconnectNow() — resets the counter.
+  scheduleReconnect() {
+    if (this.reconnectTimer) return;
+    if (!TOKENS.get()?.accessToken) return;
+    const backoffMs = Math.min(30_000, 1000 * 2 ** this.reconnectAttempts);
+    const delayMs = backoffMs * (0.5 + Math.random() * 0.5);
+    this.reconnectAttempts += 1;
+    this.reconnectTimer = setTimeout(() => {
+      this.reconnectTimer = null;
+      this.connect().catch(() => {});
+    }, delayMs);
+  }
+
+  // Skip any pending backoff delay and retry right away (network back online,
+  // tab foregrounded again).
+  reconnectNow() {
+    if (this.socket && this.socket.readyState === WebSocket.OPEN) return;
+    if (!TOKENS.get()?.accessToken) return;
+    if (this.reconnectTimer) {
+      clearTimeout(this.reconnectTimer);
+      this.reconnectTimer = null;
+    }
+    this.reconnectAttempts = 0;
+    this.connect().catch(() => {});
   }
 
   disconnect() {
@@ -419,6 +498,7 @@ class WebSocketClient {
       clearTimeout(this.reconnectTimer);
       this.reconnectTimer = null;
     }
+    this.reconnectAttempts = 0;
     this.hadConnection = false;
     if (this.socket) {
       const socket = this.socket;
@@ -506,6 +586,15 @@ const wsClient = new WebSocketClient();
 // Transport heartbeat: answer internally, without UI effects or pending-request bookkeeping.
 wsClient.addEventListener("system.ping", () => {
   wsClient.sendFireAndForget("system.pong", {});
+});
+
+// Reconnect immediately when connectivity returns or the tab is foregrounded,
+// instead of sitting out the remaining backoff delay.
+window.addEventListener("online", () => {
+  if (store.get("session.loggedIn")) wsClient.reconnectNow();
+});
+document.addEventListener("visibilitychange", () => {
+  if (!document.hidden && store.get("session.loggedIn")) wsClient.reconnectNow();
 });
 
 // Wire-shape -> view-model mappers. `users` store map is keyed by USER ID everywhere.
@@ -836,6 +925,22 @@ function sendTypingStop(conversationId) {
 }
 
 // ── Computed Properties ───────────────────────────────────────────
+// NOTE: computed callbacks receive NO arguments — always read via store.get.
+
+// Factory for the many one-liner computeds that just compare a store value
+// ("is this tab active?") and yield a class string or boolean.
+function computedMatch(target, dep, value, whenTrue, whenFalse = "") {
+  store.computed(target, [dep], () => store.get(dep) === value ? whenTrue : whenFalse);
+}
+
+// Factory for background-image styles derived from an avatar url.
+function computedAvatarStyle(target, dep) {
+  store.computed(target, [dep], () => {
+    const url = store.get(dep);
+    return url ? `url('${url}') center/cover no-repeat` : "";
+  });
+}
+
 store.computed("activeDestLabel", ["activeDest", "groupList", "resolvedDms"], () => {
   const dest = store.get("activeDest");
   if (!dest) return "";
@@ -879,15 +984,13 @@ store.computed(
     const query = (store.get("searchState.userQuery") || "").trim();
     const currentUser = store.get("session.user");
 
-    let list = resolvedDms;
-    if (query) {
-      list = store.get("searchState.searchResults") || [];
-    }
+    const list = query ? (store.get("searchState.searchResults") || []) : resolvedDms;
+    const dmByUserId = new Map(resolvedDms.map((d) => [d.id, d]));
 
     return list
       .filter((u) => !currentUser || u.id !== currentUser.id)
       .map((u) => {
-        const conversationId = u.conversationId || resolvedDms.find((d) => d.id === u.id)?.conversationId || null;
+        const conversationId = u.conversationId || dmByUserId.get(u.id)?.conversationId || null;
         return {
           ...u,
           conversationId,
@@ -918,7 +1021,6 @@ store.computed(
   },
 );
 
-// NOTE: computed callbacks receive NO arguments — always read via store.get.
 store.computed("session.user.statusClass", ["session.user.status"], () => {
   return store.get("session.user.status") || "offline";
 });
@@ -944,40 +1046,22 @@ store.computed(
   },
 );
 
-store.computed(
-  "session.user.avatarStyle",
-  ["session.user.avatarUrl"],
-  () => {
-    const url = store.get("session.user.avatarUrl");
-    if (!url) return "";
-    return `url('${url}') center/cover no-repeat`;
-  },
-);
+computedAvatarStyle("session.user.avatarStyle", "session.user.avatarUrl");
+computedAvatarStyle("typingState.avatarStyle", "typingState.avatarUrl");
+computedAvatarStyle("visitorProfile.avatarStyle", "visitorProfile.avatarUrl");
 
-store.computed("typingState.avatarStyle", ["typingState.avatarUrl"], () => {
-  const url = store.get("typingState.avatarUrl");
-  if (!url) return "";
-  return `url('${url}') center/cover no-repeat`;
-});
-
-store.computed("visitorProfile.avatarStyle", ["visitorProfile.avatarUrl"], () => {
-  const url = store.get("visitorProfile.avatarUrl");
-  if (!url) return "";
-  return `url('${url}') center/cover no-repeat`;
-});
+function totalNotificationCount() {
+  const notifs = store.get("notifications");
+  return notifs ? Object.values(notifs).reduce((sum, n) => sum + (n || 0), 0) : 0;
+}
 
 store.computed("headerNotifBadge.text", ["notifications"], () => {
-  const notifs = store.get("notifications");
-  if (!notifs) return "0";
-  const total = Object.values(notifs).reduce((sum, n) => sum + (n || 0), 0);
+  const total = totalNotificationCount();
   return total > 99 ? "99+" : String(total);
 });
 
 store.computed("headerNotifBadge.class", ["notifications"], () => {
-  const notifs = store.get("notifications");
-  if (!notifs) return "d-none";
-  const total = Object.values(notifs).reduce((sum, n) => sum + (n || 0), 0);
-  return total > 0 ? "" : "d-none";
+  return totalNotificationCount() > 0 ? "" : "d-none";
 });
 
 store.computed("activeGroupBadge.visible", ["activeDest"], () => {
@@ -1021,54 +1105,18 @@ store.computed("attachedFilePreview", ["chatForm.attachedFileDetails"], () => {
   return details ? [details] : [];
 });
 
-store.computed(
-  "preferencesForm.appearanceTabClass",
-  ["preferencesForm.activeTab"],
-  () => store.get("preferencesForm.activeTab") === "appearance" ? "active" : "",
-);
-store.computed(
-  "preferencesForm.privacyTabClass",
-  ["preferencesForm.activeTab"],
-  () => store.get("preferencesForm.activeTab") === "privacy" ? "active" : "",
-);
-store.computed(
-  "preferencesForm.securityTabClass",
-  ["preferencesForm.activeTab"],
-  () => store.get("preferencesForm.activeTab") === "security" ? "active" : "",
-);
+computedMatch("preferencesForm.appearanceTabClass", "preferencesForm.activeTab", "appearance", "active");
+computedMatch("preferencesForm.privacyTabClass", "preferencesForm.activeTab", "privacy", "active");
+computedMatch("preferencesForm.securityTabClass", "preferencesForm.activeTab", "security", "active");
 
-store.computed(
-  "preferencesForm.lightThemeClass",
-  ["preferencesForm.theme"],
-  () => store.get("preferencesForm.theme") === "light" ? "active-theme" : "",
-);
-store.computed(
-  "preferencesForm.darkThemeClass",
-  ["preferencesForm.theme"],
-  () => store.get("preferencesForm.theme") === "dark" ? "active-theme" : "",
-);
+computedMatch("preferencesForm.lightThemeClass", "preferencesForm.theme", "light", "active-theme");
+computedMatch("preferencesForm.darkThemeClass", "preferencesForm.theme", "dark", "active-theme");
 
-store.computed(
-  "themeIcon",
-  ["prefs.theme"],
-  () => store.get("prefs.theme") === "dark" ? "bi-sun" : "bi-moon-stars",
-);
+computedMatch("themeIcon", "prefs.theme", "dark", "bi-sun", "bi-moon-stars");
 
-store.computed(
-  "searchState.channelsClass",
-  ["searchState.activeTab"],
-  () => store.get("searchState.activeTab") === "channels" ? "active" : "",
-);
-store.computed(
-  "searchState.groupsClass",
-  ["searchState.activeTab"],
-  () => store.get("searchState.activeTab") === "groups" ? "active" : "",
-);
-store.computed(
-  "searchState.usersClass",
-  ["searchState.activeTab"],
-  () => store.get("searchState.activeTab") === "users" ? "active" : "",
-);
+computedMatch("searchState.channelsClass", "searchState.activeTab", "channels", "active");
+computedMatch("searchState.groupsClass", "searchState.activeTab", "groups", "active");
+computedMatch("searchState.usersClass", "searchState.activeTab", "users", "active");
 
 store.computed(
   "searchState.barClass",
@@ -1077,21 +1125,9 @@ store.computed(
 );
 
 // data-show booleans for the destination dropdown tab panels
-store.computed(
-  "searchState.showChannels",
-  ["searchState.activeTab"],
-  () => store.get("searchState.activeTab") === "channels",
-);
-store.computed(
-  "searchState.showGroups",
-  ["searchState.activeTab"],
-  () => store.get("searchState.activeTab") === "groups",
-);
-store.computed(
-  "searchState.showUsers",
-  ["searchState.activeTab"],
-  () => store.get("searchState.activeTab") === "users",
-);
+computedMatch("searchState.showChannels", "searchState.activeTab", "channels", true, false);
+computedMatch("searchState.showGroups", "searchState.activeTab", "groups", true, false);
+computedMatch("searchState.showUsers", "searchState.activeTab", "users", true, false);
 
 store.computed(
   "visitorProfile.hasMutualGroups",
@@ -1101,7 +1137,8 @@ store.computed(
 
 // Message row view-model builder. All fields are rendered statically inside the
 // live <for data-diff="replace"> loop, so every field must be precomputed here.
-function decorateMessage(msg, currentUser, activeDest, roomMsgs, usersMap, groupList) {
+// `context` carries per-render lookups shared across the whole message list.
+function decorateMessage(msg, { currentUser, usersMap, messagesById, activeGroup }) {
   const author = (msg.authorId && usersMap[msg.authorId]) || {};
   const isOutgoing = !!(currentUser && msg.authorId === currentUser.id);
 
@@ -1140,12 +1177,8 @@ function decorateMessage(msg, currentUser, activeDest, roomMsgs, usersMap, group
     activeClass: (currentUser && userIds.includes(currentUser.id)) ? "user-reacted" : "",
   }));
 
-  const parentMsg = msg.replyTo ? roomMsgs.find((m) => m.id === msg.replyTo) : null;
+  const parentMsg = msg.replyTo ? messagesById.get(msg.replyTo) : null;
   const parentAuthor = parentMsg && parentMsg.authorId ? usersMap[parentMsg.authorId] : null;
-
-  const activeGroup = activeDest.type === "group"
-    ? (groupList || []).find((g) => g.id === activeDest.value)
-    : null;
 
   return {
     ...msg,
@@ -1195,24 +1228,31 @@ store.computed("activeMessages", [
   const decorated = [];
   let lastDateLabel = "";
 
+  // Today/yesterday boundaries and per-render lookup tables are computed once,
+  // not per message.
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  const yesterday = new Date(today);
+  yesterday.setDate(today.getDate() - 1);
+
   const formatDateSep = (isoStr) => {
     const d = new Date(isoStr);
     if (isNaN(d)) return null;
-    const today = new Date();
-    today.setHours(0, 0, 0, 0);
-    const yesterday = new Date(today);
-    yesterday.setDate(today.getDate() - 1);
-    const msgDay = new Date(d);
-    msgDay.setHours(0, 0, 0, 0);
-    if (msgDay.getTime() === today.getTime()) return "Today";
-    if (msgDay.getTime() === yesterday.getTime()) return "Yesterday";
+    const msgDayMs = new Date(d).setHours(0, 0, 0, 0);
+    if (msgDayMs === today.getTime()) return "Today";
+    if (msgDayMs === yesterday.getTime()) return "Yesterday";
     return d.toLocaleDateString("en-US", { weekday: "long", month: "short", day: "numeric" });
   };
 
-  const currentUser = store.get("session.user");
   const activeDest = store.get("activeDest");
-  const usersMap = store.get("users") || {};
-  const groupList = store.get("groupList") || [];
+  const decorateContext = {
+    currentUser: store.get("session.user"),
+    usersMap: store.get("users") || {},
+    messagesById: new Map(msgs.map((m) => [m.id, m])),
+    activeGroup: activeDest.type === "group"
+      ? (store.get("groupList") || []).find((g) => g.id === activeDest.value)
+      : null,
+  };
 
   for (const msg of msgs) {
     const dateLabel = msg.isoTimestamp ? formatDateSep(msg.isoTimestamp) : null;
@@ -1236,7 +1276,7 @@ store.computed("activeMessages", [
         reactionBadges: [],
       });
     } else {
-      decorated.push(decorateMessage(msg, currentUser, activeDest, msgs, usersMap, groupList));
+      decorated.push(decorateMessage(msg, decorateContext));
     }
   }
 
@@ -1292,15 +1332,21 @@ store.subscribe("session.user", (user) => {
   }
 });
 
+// Browsers cap the number of live AudioContexts, so one shared context serves
+// every beep (it is only resumed, never closed).
+let beepContext = null;
+
 function playBeep() {
   try {
     const prefs = store.get("prefs");
     if (!prefs?.sound) return;
 
-    const AudioContext = window.AudioContext || window.webkitAudioContext;
-    if (!AudioContext) return;
+    const AudioContextCtor = window.AudioContext || window.webkitAudioContext;
+    if (!AudioContextCtor) return;
 
-    const ctx = new AudioContext();
+    beepContext ??= new AudioContextCtor();
+    const ctx = beepContext;
+    if (ctx.state === "suspended") ctx.resume().catch(() => {});
     const osc = ctx.createOscillator();
     const gain = ctx.createGain();
 
@@ -1338,6 +1384,45 @@ function hideModal(id) {
   }, 400);
 }
 
+// Upload modal overlay (progress + success states), shared by the file-picker
+// and fetch-from-URL upload paths.
+const UploadOverlay = {
+  els() {
+    return {
+      container: document.getElementById("uploadStatusContainer"),
+      progressBar: document.getElementById("uploadProgressBar"),
+      progressPercent: document.getElementById("uploadProgressPercent"),
+      workingState: document.querySelector(".upload-state-working"),
+      successState: document.getElementById("uploadStateSuccess"),
+      statusMsg: document.querySelector(".upload-status-message"),
+    };
+  },
+  showWorking(message, percentLabel = "0%", width = "0%") {
+    const els = this.els();
+    if (!els.container) return false;
+    els.container.classList.remove("d-none");
+    els.workingState?.classList.remove("d-none");
+    els.successState?.classList.add("d-none");
+    if (els.statusMsg) els.statusMsg.textContent = message;
+    if (els.progressBar) els.progressBar.style.width = width;
+    if (els.progressPercent) els.progressPercent.textContent = percentLabel;
+    return true;
+  },
+  setProgress(percent) {
+    const els = this.els();
+    if (els.progressBar) els.progressBar.style.width = `${percent}%`;
+    if (els.progressPercent) els.progressPercent.textContent = `${percent}%`;
+  },
+  showSuccess() {
+    const els = this.els();
+    els.workingState?.classList.add("d-none");
+    els.successState?.classList.remove("d-none");
+  },
+  hide() {
+    this.els().container?.classList.add("d-none");
+  },
+};
+
 // The destination dropdown uses data-bs-auto-close="outside" so in-menu tab
 // clicks and search typing don't dismiss it; selecting an item closes it here.
 function closeDestinationDropdown() {
@@ -1364,12 +1449,26 @@ async function openDmWithUser(userId) {
     }
   }
 
-  store.set("activeDest", { type: "dm", value: conversationId });
-  store.set("activeDestKey", `dm_${conversationId}`);
-  store.set(`notifications.dm_${conversationId}`, 0);
-  store.set("typingState.active", false);
+  setActiveDestination("dm", conversationId);
   await loadConversationHistory({ type: "dm", value: conversationId }, conversationId);
   markConversationAsRead(conversationId);
+}
+
+// Replace the session user with a freshly mapped wire profile, remembering the
+// last status the server confirmed (consumed by the presence-sync subscriber).
+function applySessionProfile(profileWire) {
+  const profile = MAPPERS.profile(profileWire);
+  store.set("session.user", { ...profile, lastSyncedStatus: profile.status });
+  return profile;
+}
+
+// Switch the visible room: update both destination atoms, clear the room's
+// unread badge, and drop any stale typing indicator from the previous room.
+function setActiveDestination(type, value) {
+  store.set("activeDest", { type, value });
+  store.set("activeDestKey", `${type}_${value}`);
+  store.set(`notifications.${type}_${value}`, 0);
+  store.set("typingState.active", false);
 }
 
 function seedPreferencesForm(prefs) {
@@ -1406,8 +1505,7 @@ function clearAuthenticatedState(message = null, toastType = "info") {
   store.set("messages", {});
   store.set("groupList", []);
   store.set("notifications", {});
-  store.set("activeDest", { type: "channel", value: "general" });
-  store.set("activeDestKey", "channel_general");
+  setActiveDestination("channel", "general");
   handlers.showSignInTab();
   if (message) {
     ToastService.show(message, toastType);
@@ -1491,8 +1589,7 @@ async function handleSecurityQueryParams() {
 
 // Post-auth bootstrap shared by sign-in, sign-up and session restore
 async function afterLogin(profileWire) {
-  const profile = MAPPERS.profile(profileWire);
-  store.set("session.user", { ...profile, lastSyncedStatus: profile.status });
+  applySessionProfile(profileWire);
   store.set("session.loggedIn", true);
 
   await wsClient.connect();
@@ -1523,6 +1620,90 @@ async function afterLogin(profileWire) {
     } catch (err) {
       console.error("Deferred email change completion failed:", err);
     }
+  }
+}
+
+// Presentation constants for the visitor-profile status badge.
+const STATUS_BADGES = {
+  online: {
+    dot: "#10B981",
+    text: "Online",
+    class: "status-badge-online",
+    glow: "rgba(16, 185, 129, 0.4)",
+  },
+  idle: {
+    dot: "#F59E0B",
+    text: "Idle",
+    class: "status-badge-idle",
+    glow: "rgba(245, 158, 11, 0.4)",
+  },
+  dnd: {
+    dot: "#EF4444",
+    text: "Do Not Disturb",
+    class: "status-badge-dnd",
+    glow: "rgba(239, 68, 68, 0.4)",
+  },
+  offline: {
+    dot: "#9CA3AF",
+    text: "Offline",
+    class: "status-badge-offline",
+    glow: "rgba(156, 163, 175, 0)",
+  },
+};
+
+// Load a user's profile into visitorProfile state and open the profile modal.
+// Shared by the message header click, group-member list, and reaction popover.
+async function openUserProfileById(userId) {
+  if (!userId) return;
+  const currentUser = store.get("session.user");
+
+  try {
+    const profileRes = await wsClient.request("profile.get", { userId });
+    const profile = MAPPERS.profile(profileRes.profile);
+    const isSelf = !!(currentUser && profile.id === currentUser.id);
+    const st = STATUS_BADGES[profile.status] || STATUS_BADGES.offline;
+
+    // Mutual groups: probe each of my groups' member lists for the target user.
+    let mutualGroups = [];
+    if (!isSelf) {
+      const groups = store.get("groupList") || [];
+      const results = await Promise.all(groups.map(async (g) => {
+        try {
+          const res = await wsClient.request("group.members", { groupId: g.id });
+          return res.members.some((m) => m.id === profile.id) ? { id: g.id, name: g.name } : null;
+        } catch {
+          return null;
+        }
+      }));
+      mutualGroups = results.filter(Boolean);
+    }
+
+    store.set("visitorProfile", {
+      id: profile.id,
+      username: profile.username,
+      displayName: profile.displayName,
+      bio: profile.bio,
+      avatarUrl: profile.avatarUrl,
+      statusColor: st.dot,
+      statusGlow: st.glow,
+      statusBadgeClass: st.class,
+      statusText: st.text,
+      joinedDate: profile.joinedDate,
+      messagesSent: profile.messagesSent,
+      reactionsAdded: profile.reactionsAdded,
+      repliesMade: profile.repliesMade,
+      isPremium: !!profile.isPremium,
+      mutualGroups,
+      mutualGroupsCount: mutualGroups.length,
+      coverStyle: coverStyleFor(profile.coverUrl, profile.coverIndex),
+      nameColor: profile.nameColor || "var(--text-dark)",
+      isSelf,
+      handleDisplay: `@${profile.username}`,
+    });
+
+    showModal("visitorProfileModal");
+  } catch (err) {
+    console.error("View profile failed:", err);
   }
 }
 
@@ -1705,11 +1886,7 @@ const handlers = {
   async selectChannel(e, el) {
     e?.preventDefault?.();
     const slug = el.getAttribute("data-id");
-    store.set("activeDest", { type: "channel", value: slug });
-    store.set("activeDestKey", `channel_${slug}`);
-    store.set(`notifications.channel_${slug}`, 0);
-
-    store.set("typingState.active", false);
+    setActiveDestination("channel", slug);
     closeDestinationDropdown();
     const chan = (store.get("channelList") || []).find((c) => c.slug === slug);
     if (chan) {
@@ -1721,11 +1898,7 @@ const handlers = {
   async selectGroup(e, el) {
     e?.preventDefault?.();
     const groupId = el.getAttribute("data-id");
-    store.set("activeDest", { type: "group", value: groupId });
-    store.set("activeDestKey", `group_${groupId}`);
-    store.set(`notifications.group_${groupId}`, 0);
-
-    store.set("typingState.active", false);
+    setActiveDestination("group", groupId);
     closeDestinationDropdown();
     await loadConversationHistory({ type: "group", value: groupId }, groupId);
     markConversationAsRead(groupId);
@@ -1770,10 +1943,7 @@ const handlers = {
         displayName,
         bio: bio || CONFIG.defaultBio,
       });
-      store.set("session.user", {
-        ...MAPPERS.profile(profileRes.profile),
-        lastSyncedStatus: profileRes.profile.status,
-      });
+      applySessionProfile(profileRes.profile);
       store.set("session.isEditingProfile", false);
       ToastService.show("Profile updated successfully.", "success");
     } catch (err) {
@@ -1792,10 +1962,7 @@ const handlers = {
 
     try {
       const profileRes = await wsClient.request("profile.update", { avatarSeed: seed });
-      store.set("session.user", {
-        ...MAPPERS.profile(profileRes.profile),
-        lastSyncedStatus: profileRes.profile.status,
-      });
+      applySessionProfile(profileRes.profile);
       ToastService.show("Avatar regenerated successfully.", "success");
     } catch (err) {
       console.error("Avatar rotate failed:", err);
@@ -2013,10 +2180,7 @@ const handlers = {
         nameColor: updatedColor,
         isPremium,
       });
-      store.set("session.user", {
-        ...MAPPERS.profile(profileRes.profile),
-        lastSyncedStatus: profileRes.profile.status,
-      });
+      applySessionProfile(profileRes.profile);
 
       const prefsRes = await wsClient.request("preferences.update", {
         sound: !!store.get("preferencesForm.sound"),
@@ -2060,11 +2224,7 @@ const handlers = {
   },
 
   triggerFileAttach() {
-    const modalEl = document.getElementById("uploadAttachmentModal");
-    if (modalEl) {
-      const bsModal = new bootstrap.Modal(modalEl);
-      bsModal.show();
-    }
+    showModal("uploadAttachmentModal");
   },
 
   clickHiddenUploadInput() {
@@ -2074,24 +2234,9 @@ const handlers = {
 
   async modalUploadFile(file) {
     if (!file) return;
+    if (!UploadOverlay.showWorking("Uploading file...")) return;
 
-    const statusContainer = document.getElementById("uploadStatusContainer");
-    const progressBar = document.getElementById("uploadProgressBar");
-    const progressPercent = document.getElementById("uploadProgressPercent");
-    const successState = document.getElementById("uploadStateSuccess");
-    const workingState = document.querySelector(".upload-state-working");
-    const statusMsg = document.querySelector(".upload-status-message");
-
-    if (!statusContainer || !progressBar || !progressPercent) return;
-
-    // Show overlay
-    statusContainer.classList.remove("d-none");
-    workingState.classList.remove("d-none");
-    successState.classList.add("d-none");
-    statusMsg.textContent = "Uploading file...";
-    progressBar.style.width = "0%";
-    progressPercent.textContent = "0%";
-
+    // XMLHttpRequest instead of fetch: upload progress events need xhr.upload.
     const xhr = new XMLHttpRequest();
     xhr.open("POST", "/api/media/upload");
 
@@ -2102,62 +2247,49 @@ const handlers = {
 
     xhr.upload.addEventListener("progress", (e) => {
       if (e.lengthComputable) {
-        const percent = Math.round((e.loaded / e.total) * 100);
-        progressBar.style.width = `${percent}%`;
-        progressPercent.textContent = `${percent}%`;
+        UploadOverlay.setProgress(Math.round((e.loaded / e.total) * 100));
       }
     });
 
     xhr.onload = () => {
-      if (xhr.status >= 200 && xhr.status < 300) {
-        try {
-          const res = JSON.parse(xhr.responseText);
-          const data = res.data || {};
-          const attachmentId = data.attachmentId;
-          const isImage = file.type.startsWith("image/");
-          
-          const tokens = TOKENS.get();
-          const tokenParam = tokens?.accessToken ? `?token=${encodeURIComponent(tokens.accessToken)}` : "";
-          const url = `/media/${attachmentId}${tokenParam}`;
-
-          store.set("chatForm.attachedFileDetails", {
-            name: file.name,
-            size: file.size,
-            type: file.type,
-            isImage,
-            url,
-            sizeFormatted: HELPERS.formatBytes(file.size),
-          });
-          store.set("chatForm.attachedFileId", attachmentId);
-
-          // Show success state
-          workingState.classList.add("d-none");
-          successState.classList.remove("d-none");
-
-          setTimeout(() => {
-            const modalEl = document.getElementById("uploadAttachmentModal");
-            if (modalEl) {
-              const bsModal = bootstrap.Modal.getInstance(modalEl);
-              if (bsModal) bsModal.hide();
-            }
-            // Reset overlay
-            statusContainer.classList.add("d-none");
-          }, 1000);
-
-        } catch (err) {
-          console.error("Parse error:", err);
-          ToastService.show("Upload complete, but failed to parse response.", "error");
-          statusContainer.classList.add("d-none");
-        }
-      } else {
+      if (xhr.status < 200 || xhr.status >= 300) {
         ToastService.show("Upload failed. Please try again.", "error");
-        statusContainer.classList.add("d-none");
+        UploadOverlay.hide();
+        return;
+      }
+      try {
+        const res = JSON.parse(xhr.responseText);
+        const attachmentId = res.data?.attachmentId;
+        const freshTokens = TOKENS.get();
+        const tokenParam = freshTokens?.accessToken
+          ? `?token=${encodeURIComponent(freshTokens.accessToken)}`
+          : "";
+
+        store.set("chatForm.attachedFileDetails", {
+          name: file.name,
+          size: file.size,
+          type: file.type,
+          isImage: file.type.startsWith("image/"),
+          url: `/media/${attachmentId}${tokenParam}`,
+          sizeFormatted: HELPERS.formatBytes(file.size),
+        });
+        store.set("chatForm.attachedFileId", attachmentId);
+
+        UploadOverlay.showSuccess();
+        setTimeout(() => {
+          hideModal("uploadAttachmentModal");
+          UploadOverlay.hide();
+        }, 1000);
+      } catch (err) {
+        console.error("Parse error:", err);
+        ToastService.show("Upload complete, but failed to parse response.", "error");
+        UploadOverlay.hide();
       }
     };
 
     xhr.onerror = () => {
       ToastService.show("Network error during upload.", "error");
-      statusContainer.classList.add("d-none");
+      UploadOverlay.hide();
     };
 
     const formData = new FormData();
@@ -2167,55 +2299,36 @@ const handlers = {
 
   async uploadFromUrl() {
     const urlInput = document.getElementById("uploadUrlInput");
-    if (!urlInput || !urlInput.value.trim()) {
+    const url = urlInput?.value.trim();
+    if (!url) {
       ToastService.show("Please enter a valid URL.", "warning");
       return;
     }
-    const url = urlInput.value.trim();
 
-    const statusContainer = document.getElementById("uploadStatusContainer");
-    const workingState = document.querySelector(".upload-state-working");
-    const successState = document.getElementById("uploadStateSuccess");
-    const statusMsg = document.querySelector(".upload-status-message");
-    const progressBar = document.getElementById("uploadProgressBar");
-    const progressPercent = document.getElementById("uploadProgressPercent");
-
-    if (statusContainer) {
-      statusContainer.classList.remove("d-none");
-      workingState.classList.remove("d-none");
-      successState.classList.add("d-none");
-      statusMsg.textContent = "Fetching file from URL...";
-      progressBar.style.width = "50%";
-      progressPercent.textContent = "Connecting...";
-    }
+    UploadOverlay.showWorking("Fetching file from URL...", "Connecting...", "50%");
 
     try {
       const res = await fetch(url);
       if (!res.ok) throw new Error("Fetch failed");
       const blob = await res.blob();
-      
+
       let filename = "pasted-file";
       try {
-        const u = new URL(url);
-        const parts = u.pathname.split("/");
-        const lastPart = parts[parts.length - 1];
-        if (lastPart && lastPart.includes(".")) {
-          filename = lastPart;
-        } else {
-          const ext = blob.type.split("/")[1] || "bin";
-          filename = `pasted-file.${ext}`;
-        }
-      } catch (_) {}
+        const lastPart = new URL(url).pathname.split("/").pop();
+        filename = lastPart && lastPart.includes(".")
+          ? lastPart
+          : `pasted-file.${blob.type.split("/")[1] || "bin"}`;
+      } catch (_) { /* keep the default name */ }
 
-      const file = new File([blob], filename, { type: blob.type });
-      urlInput.value = ""; 
-      
-      handlers.modalUploadFile(file);
-
+      urlInput.value = "";
+      handlers.modalUploadFile(new File([blob], filename, { type: blob.type }));
     } catch (err) {
       console.error("Failed to fetch URL:", err);
-      ToastService.show("Failed to retrieve file from URL. (CORS restriction or invalid link)", "error");
-      if (statusContainer) statusContainer.classList.add("d-none");
+      ToastService.show(
+        "Failed to retrieve file from URL. (CORS restriction or invalid link)",
+        "error",
+      );
+      UploadOverlay.hide();
     }
   },
 
@@ -2310,13 +2423,8 @@ const handlers = {
   },
 
   deleteMsg(e, el) {
-    const msgId = el.getAttribute("data-id");
-    store.set("session.messageToDeleteId", msgId);
-    const modalEl = document.getElementById("deleteMessageConfirmModal");
-    if (modalEl) {
-      const bsModal = new bootstrap.Modal(modalEl);
-      bsModal.show();
-    }
+    store.set("session.messageToDeleteId", el.getAttribute("data-id"));
+    showModal("deleteMessageConfirmModal");
   },
 
   async confirmDeleteMsg() {
@@ -2326,11 +2434,7 @@ const handlers = {
       await wsClient.request("message.delete", { messageId: msgId, confirm: true });
       ToastService.show("Message deleted.", "info");
 
-      const modalEl = document.getElementById("deleteMessageConfirmModal");
-      if (modalEl) {
-        const bsModal = bootstrap.Modal.getInstance(modalEl);
-        if (bsModal) bsModal.hide();
-      }
+      hideModal("deleteMessageConfirmModal");
     } catch (err) {
       console.error("Message deletion failed:", err);
       ToastService.show("Failed to delete message.", "error");
@@ -2485,85 +2589,7 @@ const handlers = {
   },
 
   async viewUserProfile(e, el) {
-    const userId = el.getAttribute("data-user-id");
-    if (!userId) return;
-    const currentUser = store.get("session.user");
-
-    try {
-      const profileRes = await wsClient.request("profile.get", { userId });
-      const profile = MAPPERS.profile(profileRes.profile);
-      const isSelf = !!(currentUser && profile.id === currentUser.id);
-
-      const statusMap = {
-        online: {
-          dot: "#10B981",
-          text: "Online",
-          class: "status-badge-online",
-          glow: "rgba(16, 185, 129, 0.4)",
-        },
-        idle: {
-          dot: "#F59E0B",
-          text: "Idle",
-          class: "status-badge-idle",
-          glow: "rgba(245, 158, 11, 0.4)",
-        },
-        dnd: {
-          dot: "#EF4444",
-          text: "Do Not Disturb",
-          class: "status-badge-dnd",
-          glow: "rgba(239, 68, 68, 0.4)",
-        },
-        offline: {
-          dot: "#9CA3AF",
-          text: "Offline",
-          class: "status-badge-offline",
-          glow: "rgba(156, 163, 175, 0)",
-        },
-      };
-      const st = statusMap[profile.status] || statusMap.offline;
-
-      // Mutual groups: probe each of my groups' member lists for the target user.
-      let mutualGroups = [];
-      if (!isSelf) {
-        const groups = store.get("groupList") || [];
-        const results = await Promise.all(groups.map(async (g) => {
-          try {
-            const res = await wsClient.request("group.members", { groupId: g.id });
-            return res.members.some((m) => m.id === profile.id) ? { id: g.id, name: g.name } : null;
-          } catch {
-            return null;
-          }
-        }));
-        mutualGroups = results.filter(Boolean);
-      }
-
-      store.set("visitorProfile", {
-        id: profile.id,
-        username: profile.username,
-        displayName: profile.displayName,
-        bio: profile.bio,
-        avatarUrl: profile.avatarUrl,
-        statusColor: st.dot,
-        statusGlow: st.glow,
-        statusBadgeClass: st.class,
-        statusText: st.text,
-        joinedDate: profile.joinedDate,
-        messagesSent: profile.messagesSent,
-        reactionsAdded: profile.reactionsAdded,
-        repliesMade: profile.repliesMade,
-        isPremium: !!profile.isPremium,
-        mutualGroups,
-        mutualGroupsCount: mutualGroups.length,
-        coverStyle: coverStyleFor(profile.coverUrl, profile.coverIndex),
-        nameColor: profile.nameColor || "var(--text-dark)",
-        isSelf,
-        handleDisplay: `@${profile.username}`,
-      });
-
-      showModal("visitorProfileModal");
-    } catch (err) {
-      console.error("View profile failed:", err);
-    }
+    await openUserProfileById(el.getAttribute("data-user-id"));
   },
 
   openPrefsFromProfile() {
@@ -2677,9 +2703,7 @@ const handlers = {
       const result = await wsClient.request("group.create", { name, memberIds });
       hideModal("createGroupModal");
 
-      store.set("activeDest", { type: "group", value: result.room.id });
-      store.set("activeDestKey", `group_${result.room.id}`);
-      store.set(`notifications.group_${result.room.id}`, 0);
+      setActiveDestination("group", result.room.id);
 
       await loadInitialData();
 
@@ -2775,8 +2799,7 @@ const handlers = {
 
       hideModal("groupMembersModal");
 
-      store.set("activeDest", { type: "channel", value: "general" });
-      store.set("activeDestKey", "channel_general");
+      setActiveDestination("channel", "general");
 
       await loadInitialData();
     } catch (err) {
@@ -2789,11 +2812,7 @@ const handlers = {
     const userId = el.getAttribute("data-user-id");
     hideModal("groupMembersModal");
 
-    setTimeout(() => {
-      const dummySpan = document.createElement("span");
-      dummySpan.setAttribute("data-user-id", userId);
-      handlers.viewUserProfile(null, dummySpan);
-    }, 300);
+    setTimeout(() => openUserProfileById(userId), 300);
   },
 
   toggleEmojiPicker() {
@@ -2996,9 +3015,7 @@ function showReactionUsersPopover(anchorEl, emoji, userIds) {
     popover.classList.remove("visible");
     setTimeout(() => {
       popover.remove();
-      const dummy = document.createElement("div");
-      dummy.setAttribute("data-user-id", uid);
-      handlers.viewUserProfile(null, dummy);
+      openUserProfileById(uid);
     }, 180);
   });
 
@@ -3016,6 +3033,32 @@ function showReactionUsersPopover(anchorEl, emoji, userIds) {
   }, 50);
 }
 
+// ── Message-map store updates ────────────────────────────────────
+// The "messages" map is replaced wholesale (new object identity) so computeds
+// depending on it re-run, but only the touched room's array is copied —
+// untouched rooms keep their existing array references.
+function setRoomMessages(destKey, msgs) {
+  store.set("messages", { ...(store.get("messages") || {}), [destKey]: msgs });
+}
+
+function appendRoomMessage(destKey, message) {
+  const rooms = store.get("messages") || {};
+  setRoomMessages(destKey, [...(rooms[destKey] || []), message]);
+}
+
+// Find a message by id across all rooms and merge `patch` into it.
+function patchMessageById(messageId, patch) {
+  const rooms = store.get("messages") || {};
+  for (const [key, msgs] of Object.entries(rooms)) {
+    const idx = msgs.findIndex((m) => m.id === messageId);
+    if (idx === -1) continue;
+    const next = [...msgs];
+    next[idx] = { ...msgs[idx], ...patch };
+    store.set("messages", { ...rooms, [key]: next });
+    return;
+  }
+}
+
 // Helper to mark the latest message of a room as read
 function markConversationAsRead(conversationId) {
   const key = store.get("activeDestKey");
@@ -3026,17 +3069,35 @@ function markConversationAsRead(conversationId) {
   }
 }
 
+// There is no profile.updated push in the protocol, so other users' profile
+// changes (name color, premium, avatar) become visible by refetching authors
+// as their messages arrive. Concurrent fetches for the same user share one
+// request, but a fresh call always refetches — deliberately, so those
+// changes show up immediately.
+const inflightProfileFetches = new Map();
+
+function refreshUserProfile(userId) {
+  if (!userId) return Promise.resolve();
+  const inflight = inflightProfileFetches.get(userId);
+  if (inflight) return inflight;
+  const request = (async () => {
+    try {
+      const res = await wsClient.request("profile.get", { userId });
+      store.set(`users.${userId}`, MAPPERS.profile(res.profile));
+    } catch (err) {
+      console.warn(`Failed to fetch profile for user ${userId}:`, err);
+    } finally {
+      inflightProfileFetches.delete(userId);
+    }
+  })();
+  inflightProfileFetches.set(userId, request);
+  return request;
+}
+
 // Fetch any profiles referenced by messages that we don't know yet
 async function ensureUsersKnown(userIds) {
   const unknown = [...new Set(userIds.filter((id) => id && !store.get(`users.${id}`)))];
-  await Promise.all(unknown.map(async (id) => {
-    try {
-      const res = await wsClient.request("profile.get", { userId: id });
-      store.set(`users.${id}`, MAPPERS.profile(res.profile));
-    } catch (err) {
-      console.warn(`Failed to fetch profile for user ${id}:`, err);
-    }
-  }));
+  await Promise.all(unknown.map(refreshUserProfile));
 }
 
 // Helper to load room history
@@ -3048,12 +3109,7 @@ async function loadConversationHistory(dest, conversationId) {
 
     await ensureUsersKnown(messages.map((m) => m.authorId));
 
-    const key = `${dest.type}_${dest.value}`;
-    const allMsgs = Object.fromEntries(
-      Object.entries(store.get("messages") || {}).map(([k, v]) => [k, [...v]]),
-    );
-    allMsgs[key] = messages;
-    store.set("messages", allMsgs);
+    setRoomMessages(`${dest.type}_${dest.value}`, messages);
   } catch (err) {
     console.error("Failed to load message history:", err);
   }
@@ -3082,19 +3138,7 @@ async function initApp() {
   }
 
   try {
-    const rememberedMode = TOKENS.isRemembered();
-    const refreshResp = await fetch("/api/auth/refresh", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ refreshToken: tokens.refreshToken }),
-    });
-    const refreshData = refreshResp.ok ? await refreshResp.json() : null;
-    if (refreshData?.success) {
-      TOKENS.set({
-        accessToken: refreshData.data.accessToken,
-        refreshToken: refreshData.data.refreshToken,
-      }, rememberedMode);
-    } else {
+    if (!(await tryRefreshTokens())) {
       clearAuthenticatedState();
       hideSplashLoader();
       return;
@@ -3118,33 +3162,31 @@ async function initApp() {
 
 async function loadInitialData() {
   try {
-    const channelsResult = await wsClient.request("channel.list", {});
-    const rooms = channelsResult.channels.map(MAPPERS.conversation);
-    store.set("channelList", rooms);
+    const [channelsResult, groupsResult, dmsResult] = await Promise.all([
+      wsClient.request("channel.list", {}),
+      wsClient.request("group.list", {}),
+      wsClient.request("dm.list", {}),
+    ]);
+    store.set("channelList", channelsResult.channels.map(MAPPERS.conversation));
+    store.set("groupList", groupsResult.groups.map(MAPPERS.conversation));
 
-    const groupsResult = await wsClient.request("group.list", {});
-    const groups = groupsResult.groups.map(MAPPERS.conversation);
-    store.set("groupList", groups);
-
-    const dmsResult = await wsClient.request("dm.list", {});
     const dmRooms = dmsResult.rooms.map(MAPPERS.conversation);
-
     const currentUser = store.get("session.user");
-    const resolvedDms = [];
 
-    for (const dmRoom of dmRooms) {
+    // Resolve every DM partner in parallel; failures drop that room only.
+    const resolvedDms = (await Promise.all(dmRooms.map(async (dmRoom) => {
       try {
         const membersResult = await wsClient.request("group.members", { groupId: dmRoom.id });
         const partner = membersResult.members.find((m) => m.id !== currentUser.id);
-        if (partner) {
-          const summary = MAPPERS.userSummary(partner);
-          store.set(`users.${partner.id}`, { ...store.get(`users.${partner.id}`), ...summary });
-          resolvedDms.push({ ...summary, conversationId: dmRoom.id });
-        }
+        if (!partner) return null;
+        const summary = MAPPERS.userSummary(partner);
+        store.set(`users.${partner.id}`, { ...store.get(`users.${partner.id}`), ...summary });
+        return { ...summary, conversationId: dmRoom.id };
       } catch (err) {
         console.error(`Failed to resolve members for DM room ${dmRoom.id}:`, err);
+        return null;
       }
-    }
+    }))).filter(Boolean);
     store.set("resolvedDms", resolvedDms);
 
     const activeDest = store.get("activeDest");
@@ -3209,41 +3251,35 @@ function setupDragDropZone() {
   const modalFileInput = document.getElementById("modalFileInput");
   if (!dropZone) return;
 
-  // Prevent default drag behaviors
-  ['dragenter', 'dragover', 'dragleave', 'drop'].forEach(eventName => {
-    dropZone.addEventListener(eventName, preventDefaults, false);
-  });
+  // This runs on every modal open; without the guard the drop listeners stack
+  // and a single drop would upload the file once per previous open.
+  if (dropZone.dataset.dndReady) return;
+  dropZone.dataset.dndReady = "1";
 
-  function preventDefaults (e) {
+  const preventDefaults = (e) => {
     e.preventDefault();
     e.stopPropagation();
+  };
+
+  for (const eventName of ["dragenter", "dragover", "dragleave", "drop"]) {
+    dropZone.addEventListener(eventName, preventDefaults);
+  }
+  for (const eventName of ["dragenter", "dragover"]) {
+    dropZone.addEventListener(eventName, () => dropZone.classList.add("highlight"));
+  }
+  for (const eventName of ["dragleave", "drop"]) {
+    dropZone.addEventListener(eventName, () => dropZone.classList.remove("highlight"));
   }
 
-  // Highlight drop zone when item is dragged over it
-  ['dragenter', 'dragover'].forEach(eventName => {
-    dropZone.addEventListener(eventName, () => dropZone.classList.add('highlight'), false);
+  dropZone.addEventListener("drop", (e) => {
+    const file = e.dataTransfer.files[0];
+    if (file) handlers.modalUploadFile(file);
   });
 
-  ['dragleave', 'drop'].forEach(eventName => {
-    dropZone.addEventListener(eventName, () => dropZone.classList.remove('highlight'), false);
-  });
-
-  // Handle dropped files
-  dropZone.addEventListener('drop', (e) => {
-    const dt = e.dataTransfer;
-    const files = dt.files;
-    if (files.length > 0) {
-      handlers.modalUploadFile(files[0]);
-    }
-  }, false);
-
-  // Handle file select change
   if (modalFileInput) {
     modalFileInput.onchange = (e) => {
-      const files = e.target.files;
-      if (files.length > 0) {
-        handlers.modalUploadFile(files[0]);
-      }
+      const file = e.target.files[0];
+      if (file) handlers.modalUploadFile(file);
     };
   }
 }
@@ -3263,16 +3299,10 @@ wsClient.addEventListener("message.new", async (data) => {
   const currentUser = store.get("session.user");
   const isOwn = !!(currentUser && mapped.authorId === currentUser.id);
 
-  // Refetch the author's profile on every incoming message (not just unknown
-  // ones): there is no profile.updated push in the protocol, so this is where
-  // name-color/premium/avatar changes from other users become visible.
+  // Refresh the author's profile (TTL-cached) so name-color/premium/avatar
+  // changes from other users become visible — see refreshUserProfile.
   if (mapped.authorId && !isOwn) {
-    try {
-      const res = await wsClient.request("profile.get", { userId: mapped.authorId });
-      store.set(`users.${mapped.authorId}`, MAPPERS.profile(res.profile));
-    } catch {
-      // profile fetch is best-effort; the message still renders
-    }
+    await refreshUserProfile(mapped.authorId);
   }
 
   const msgDestKey = destKeyForConversation(mapped.conversationId);
@@ -3286,12 +3316,7 @@ wsClient.addEventListener("message.new", async (data) => {
     await loadInitialData();
   }
 
-  const allMsgs = Object.fromEntries(
-    Object.entries(store.get("messages") || {}).map(([k, v]) => [k, [...v]]),
-  );
-  if (!allMsgs[msgDestKey]) allMsgs[msgDestKey] = [];
-  allMsgs[msgDestKey].push(mapped);
-  store.set("messages", allMsgs);
+  appendRoomMessage(msgDestKey, mapped);
 
   if (activeDestKey === msgDestKey) {
     if (!isOwn) playBeep();
@@ -3307,17 +3332,7 @@ wsClient.addEventListener("message.new", async (data) => {
 
 wsClient.addEventListener("message.updated", (data) => {
   const mapped = MAPPERS.message(data.message);
-  const allMsgs = Object.fromEntries(
-    Object.entries(store.get("messages") || {}).map(([k, v]) => [k, [...v]]),
-  );
-  for (const key of Object.keys(allMsgs)) {
-    const idx = allMsgs[key].findIndex((m) => m.id === mapped.id);
-    if (idx !== -1) {
-      allMsgs[key][idx] = { ...allMsgs[key][idx], ...mapped };
-      break;
-    }
-  }
-  store.set("messages", allMsgs);
+  patchMessageById(mapped.id, mapped);
 });
 
 wsClient.addEventListener("reaction.updated", (data) => {
@@ -3329,20 +3344,9 @@ wsClient.addEventListener("reaction.updated", (data) => {
 
   // Reaction user ids may be unknown to us (e.g. someone we've never seen); make
   // sure the popover/badges can resolve them later.
-  const allIds = Object.values(mappedReactions).flat();
-  ensureUsersKnown(allIds);
+  ensureUsersKnown(Object.values(mappedReactions).flat());
 
-  const allMsgs = Object.fromEntries(
-    Object.entries(store.get("messages") || {}).map(([k, v]) => [k, [...v]]),
-  );
-  for (const key of Object.keys(allMsgs)) {
-    const idx = allMsgs[key].findIndex((m) => m.id === messageId);
-    if (idx !== -1) {
-      allMsgs[key][idx] = { ...allMsgs[key][idx], reactions: mappedReactions };
-      break;
-    }
-  }
-  store.set("messages", allMsgs);
+  patchMessageById(messageId, { reactions: mappedReactions });
 });
 
 wsClient.addEventListener("presence.updated", (data) => {
