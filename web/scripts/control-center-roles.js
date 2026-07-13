@@ -24,54 +24,9 @@ function allowedNextRoles(state, target) {
 }
 
 export function initRolesModule() {
-  const userSelect = document.getElementById("role-select-user");
-  const roleSelect = document.getElementById("role-assign-value");
-  const save = document.getElementById("btn-save-role-change");
-
-  function refreshTransitions() {
-    const state = controlCenterStore.getState();
-    const target = state.users.find((user) => user.id === userSelect.value);
-    roleSelect.textContent = "";
-    if (!target || target.id === state.operator?.id) {
-      roleSelect.appendChild(option("", "No permitted transition"));
-      roleSelect.disabled = true;
-      save.disabled = true;
-      return;
-    }
-    const roles = allowedNextRoles(state, target);
-    roleSelect.appendChild(option("", "Select a transition..."));
-    for (const role of roles) {
-      roleSelect.appendChild(option(role, role.toUpperCase()));
-    }
-    roleSelect.disabled = roles.length === 0;
-    save.disabled = true;
-  }
-
-  userSelect?.addEventListener("change", refreshTransitions);
-  roleSelect?.addEventListener("change", () => {
-    save.disabled = !roleSelect.value;
-  });
-  save?.addEventListener("click", async () => {
-    const state = controlCenterStore.getState();
-    const target = state.users.find((user) => user.id === userSelect.value);
-    if (!target || !roleSelect.value) return;
-    save.disabled = true;
-    try {
-      await controlCenterStore.updateUserRole(
-        target.id,
-        target.role,
-        roleSelect.value,
-      );
-      renderToast("success", "User role updated successfully.");
-      userSelect.value = "";
-      refreshTransitions();
-    } catch (error) {
-      if (error.status === 409) await controlCenterStore.loadUsers();
-      renderToast("danger", `Failed to update user role: ${error.message}`);
-    }
-  });
-
   controlCenterStore.subscribe((state) => {
+    const userSelect = document.getElementById("role-select-user");
+    if (!userSelect) return;
     const selected = userSelect.value;
     userSelect.textContent = "";
     userSelect.appendChild(option("", "Select a user..."));
@@ -88,3 +43,61 @@ export function initRolesModule() {
     }
   });
 }
+
+export const rolesHandlers = {
+  changeRoleUser(e, el) {
+    const roleSelect = document.getElementById("role-assign-value");
+    const save = document.getElementById("btn-save-role-change");
+    if (!roleSelect || !save) return;
+    
+    const state = controlCenterStore.getState();
+    const target = state.users.find((user) => user.id === el.value);
+    roleSelect.textContent = "";
+    if (!target || target.id === state.operator?.id) {
+      roleSelect.appendChild(option("", "No permitted transition"));
+      roleSelect.disabled = true;
+      save.disabled = true;
+      return;
+    }
+    const roles = allowedNextRoles(state, target);
+    roleSelect.appendChild(option("", "Select a transition..."));
+    for (const r of roles) {
+      roleSelect.appendChild(option(r, r.toUpperCase()));
+    }
+    roleSelect.disabled = roles.length === 0;
+    save.disabled = true;
+  },
+
+  changeRoleAssignValue(e, el) {
+    const save = document.getElementById("btn-save-role-change");
+    if (save) save.disabled = !el.value;
+  },
+
+  async clickSaveRoleChange(e, el) {
+    const userSelect = document.getElementById("role-select-user");
+    const roleSelect = document.getElementById("role-assign-value");
+    const save = document.getElementById("btn-save-role-change");
+    if (!userSelect || !roleSelect || !save) return;
+    
+    const state = controlCenterStore.getState();
+    const target = state.users.find((user) => user.id === userSelect.value);
+    if (!target || !roleSelect.value) return;
+    save.disabled = true;
+    try {
+      await controlCenterStore.updateUserRole(
+        target.id,
+        target.role,
+        roleSelect.value,
+      );
+      renderToast("success", "User role updated successfully.");
+      userSelect.value = "";
+      roleSelect.textContent = "";
+      roleSelect.appendChild(option("", "No permitted transition"));
+      roleSelect.disabled = true;
+      save.disabled = true;
+    } catch (error) {
+      if (error.status === 409) await controlCenterStore.loadUsers();
+      renderToast("danger", `Failed to update user role: ${error.message}`);
+    }
+  }
+};

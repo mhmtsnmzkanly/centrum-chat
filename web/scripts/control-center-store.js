@@ -1,5 +1,7 @@
 import { ControlCenterApi } from "./control-center-api.js";
 import { getActiveCapabilities } from "./control-center-contract.js";
+import { createStore } from "./lime-csr.js";
+import { formatDate } from "./control-center-common.js";
 
 const DEFAULT_STATE = {
   currentTab: "reports", // reports, sanctions, moderation-audit, users, channels, roles, settings, security-audit, admin-management, ownership-transfer
@@ -82,7 +84,8 @@ const DEFAULT_STATE = {
 
 class Store {
   constructor() {
-    this.state = { ...DEFAULT_STATE };
+    this.store = createStore(DEFAULT_STATE);
+    this.state = this.store.get();
     this.listeners = new Set();
     this.requestIds = {
       reports: 0,
@@ -94,15 +97,166 @@ class Store {
       settings: 0,
       audit: 0,
     };
+
+    // Tab active classes
+    const tabs = ["reports", "moderation-audit", "users", "channels", "roles", "settings", "security-audit", "ownership-transfer"];
+    for (const t of tabs) {
+      this.store.computed(`navClass_${t}`, ["currentTab"], () => this.store.get("currentTab") === t ? "active" : "");
+      this.store.computed(`showPanel_${t}`, ["currentTab"], () => this.store.get("currentTab") === t);
+    }
+
+    // Capability based visibility
+    this.store.computed("showNavGroupModeration", ["capabilities"], () => {
+      const caps = this.store.get("capabilities");
+      return caps ? Object.values(caps.moderation).some(v => v === true) : false;
+    });
+    this.store.computed("showNavGroupAdministration", ["capabilities"], () => {
+      const caps = this.store.get("capabilities");
+      return caps ? Object.values(caps.administration).some(v => v === true) : false;
+    });
+    this.store.computed("showNavGroupOwner", ["capabilities"], () => {
+      const caps = this.store.get("capabilities");
+      return caps ? Object.values(caps.owner).some(v => v === true) : false;
+    });
+
+    const tabPermission = {
+      reports: (caps) => caps.moderation.reportsList,
+      "moderation-audit": (caps) => caps.moderation.auditList,
+      users: (caps) => caps.administration.usersList,
+      channels: (caps) => caps.administration.channelsList,
+      roles: (caps) => caps.administration.rolesView,
+      settings: (caps) => caps.administration.settingsRead,
+      "security-audit": (caps) => caps.administration.securityAuditList,
+      "ownership-transfer": (caps) => caps.owner.ownershipTransfer,
+    };
+    for (const [t, check] of Object.entries(tabPermission)) {
+      this.store.computed(`showTab_${t}`, ["capabilities"], () => {
+        const caps = this.store.get("capabilities");
+        return caps ? !!check(caps) : false;
+      });
+    }
+
+    // Dynamic Lists computed properties:
+    // 1. reportsList
+    this.store.computed("reportsList", ["reports", "selectedReportId"], () => {
+      const reports = this.store.get("reports") || [];
+      const selectedId = this.store.get("selectedReportId");
+      return reports.map(r => ({
+        ...r,
+        activeClass: r.id === selectedId ? "active" : "",
+        badgeClass: `report-badge ${r.status}`,
+        statusText: r.status.replace("_", " "),
+        targetTypeUpper: r.targetType.toUpperCase(),
+        formattedDate: formatDate(r.createdAt),
+      }));
+    });
+
+    // 2. usersList
+    this.store.computed("usersList", ["users", "selectedUserId"], () => {
+      const users = this.store.get("users") || [];
+      const selectedId = this.store.get("selectedUserId");
+      return users.map(u => ({
+        ...u,
+        activeClass: u.id === selectedId ? "active" : "",
+        roleUpper: u.system_role ? u.system_role.toUpperCase() : (u.role ? u.role.toUpperCase() : "USER"),
+        displayNameOrUsername: u.displayName || u.username,
+        email: u.email || "No email",
+      }));
+    });
+
+    // 3. userSanctionsList
+    this.store.computed("userSanctionsList", ["userSanctions"], () => {
+      const userSanctions = this.store.get("userSanctions") || [];
+      return userSanctions.map(s => {
+        const isRevoked = !!s.revokedAt;
+        const isExpired = s.expiresAt && new Date(s.expiresAt) < new Date();
+        const statusText = isRevoked ? "Revoked" : (isExpired ? "Expired" : "Active");
+        const badgeClass = isRevoked ? "bg-secondary" : (isExpired ? "bg-secondary" : "bg-danger");
+        return {
+          ...s,
+          typeDisplay: s.type.replace("_", " ").toUpperCase(),
+          statusText,
+          badgeClass,
+          expiresFormatted: s.expiresAt ? formatDate(s.expiresAt) : "Permanent",
+        };
+      });
+    });
+
+    // 4. auditEventsList
+    this.store.computed("auditEventsList", ["auditEvents"], () => {
+      const events = this.store.get("auditEvents") || [];
+      return events.map(e => ({
+        ...e,
+        actionUpper: e.actionCode ? e.actionCode.toUpperCase() : "",
+        targetTypeUpper: e.targetType ? e.targetType.toUpperCase() : "",
+        formattedDate: formatDate(e.createdAt),
+      }));
+    });
+
+    // 5. moderationAuditEvents
+    this.store.computed("moderationAuditEvents", ["auditEvents"], () => {
+      const events = this.store.get("auditEvents") || [];
+      const codes = ["report.assign", "report.status.transition", "sanction.apply", "sanction.revoke"];
+      return events.filter(e => codes.includes(e.actionCode)).map(e => ({
+        ...e,
+        actionUpper: e.actionCode ? e.actionCode.toUpperCase() : "",
+        targetTypeUpper: e.targetType ? e.targetType.toUpperCase() : "",
+        formattedDate: formatDate(e.createdAt),
+        outcomeClass: e.outcome === "success" ? "bg-success-subtle text-success border border-success-subtle" : "bg-danger-subtle text-danger border border-danger-subtle",
+        metadataFormatted: JSON.stringify(e.metadata || {}, null, 2),
+      }));
+    });
+
+    // 6. securityAuditEvents
+    this.store.computed("securityAuditEvents", ["auditEvents"], () => {
+      const events = this.store.get("auditEvents") || [];
+      const codes = ["report.assign", "report.status.transition", "sanction.apply", "sanction.revoke"];
+      return events.filter(e => !codes.includes(e.actionCode)).map(e => ({
+        ...e,
+        actionUpper: e.actionCode ? e.actionCode.toUpperCase() : "",
+        targetTypeUpper: e.targetType ? e.targetType.toUpperCase() : "",
+        formattedDate: formatDate(e.createdAt),
+        outcomeClass: e.outcome === "success" ? "bg-success-subtle text-success border border-success-subtle" : "bg-danger-subtle text-danger border border-danger-subtle",
+        metadataFormatted: JSON.stringify(e.metadata || {}, null, 2),
+      }));
+    });
+
+    // 7. count computed labels
+    this.store.computed("moderationAuditEventsCountLabel", ["moderationAuditEvents"], () => {
+      return (this.store.get("moderationAuditEvents") || []).length + " events";
+    });
+    this.store.computed("securityAuditEventsCountLabel", ["securityAuditEvents"], () => {
+      return (this.store.get("securityAuditEvents") || []).length + " events";
+    });
+  }
+
+  get(path) {
+    return this.store.get(path);
+  }
+
+  set(path, value) {
+    const res = this.store.set(path, value);
+    this.notify();
+    return res;
+  }
+
+  computed(path, deps, fn) {
+    return this.store.computed(path, deps, fn);
   }
 
   getState() {
     return this.state;
   }
 
-  subscribe(listener) {
-    this.listeners.add(listener);
-    return () => this.listeners.delete(listener);
+  subscribe(pathOrCallback, callback) {
+    if (typeof pathOrCallback === "function") {
+      this.listeners.add(pathOrCallback);
+      try {
+        pathOrCallback(this.state);
+      } catch (_) {}
+      return () => this.listeners.delete(pathOrCallback);
+    }
+    return this.store.subscribe(pathOrCallback, callback);
   }
 
   notify() {
@@ -116,7 +270,9 @@ class Store {
   }
 
   update(patch) {
-    this.state = { ...this.state, ...patch };
+    for (const [k, v] of Object.entries(patch)) {
+      this.store.set(k, v);
+    }
     this.notify();
   }
 
@@ -256,6 +412,20 @@ class Store {
 
       const contextRes = await ControlCenterApi.getReportContext(reportId);
       if (reqId !== this.requestIds.detail) return;
+
+      if (!contextRes.context) contextRes.context = [];
+      else {
+        contextRes.context = contextRes.context.map(m => ({
+          ...m,
+          createdAt: formatDate(m.createdAt)
+        }));
+      }
+      if (contextRes.target) {
+        contextRes.target = {
+          ...contextRes.target,
+          createdAt: formatDate(contextRes.target.createdAt)
+        };
+      }
 
       this.update({
         selectedReportDetails: detailRes.report,
@@ -633,9 +803,6 @@ class Store {
     }
   }
 
-  // ==========================================
-  // SETTINGS ACTIONS
-  // ==========================================
   async loadSettings() {
     const reqId = ++this.requestIds.settings;
     this.update({ settingsLoading: true, settingsError: null });
@@ -644,8 +811,17 @@ class Store {
       const res = await ControlCenterApi.getSettings();
       if (reqId !== this.requestIds.settings) return;
 
+      const settingsState = {};
+      const renderedVersions = {};
+      for (const item of res.settings) {
+        settingsState[item.key] = item.value;
+        renderedVersions[item.key] = item.version;
+      }
+
       this.update({
         settings: res.settings,
+        settingsState,
+        renderedVersions,
         settingsLoading: false,
       });
     } catch (err) {
@@ -661,6 +837,9 @@ class Store {
 
     try {
       const settings = [...(this.state.settings || [])];
+      const settingsState = { ...this.state.settingsState };
+      const renderedVersions = { ...this.state.renderedVersions };
+
       for (const change of changes) {
         const res = await ControlCenterApi.updateSetting(
           change.key,
@@ -673,8 +852,10 @@ class Store {
         if (index >= 0) {
           settings[index] = { ...settings[index], ...res.setting };
         }
+        settingsState[change.key] = res.setting.value;
+        renderedVersions[change.key] = res.setting.version;
       }
-      this.update({ settings });
+      this.update({ settings, settingsState, renderedVersions });
     } finally {
       this.setPending(actionId, false);
     }
