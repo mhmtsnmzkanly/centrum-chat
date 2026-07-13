@@ -20,7 +20,7 @@ import {
   ensureUsersKnown,
 } from "./chat-handlers.js";
 
-setDevMode(true);
+setDevMode(false);
 
 // ── Global click listener to close emoji picker when clicking outside
 document.addEventListener("click", (e) => {
