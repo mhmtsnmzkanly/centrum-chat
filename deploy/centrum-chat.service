@@ -1,0 +1,30 @@
+[Unit]
+Description=CentrumChat server
+Wants=network-online.target
+After=network-online.target
+
+[Service]
+Type=simple
+User=centrum-chat
+Group=centrum-chat
+WorkingDirectory=/opt/centrum-chat
+EnvironmentFile=/etc/centrum-chat/centrum-chat.env
+Environment=DENO_NO_UPDATE_CHECK=1
+Environment=DENO_DIR=/var/cache/centrum-chat
+Environment=NO_COLOR=1
+ExecStart=/usr/local/bin/deno run --allow-net --allow-env --allow-read --allow-write src/main.ts
+Restart=on-failure
+RestartSec=3s
+KillSignal=SIGTERM
+TimeoutStopSec=30s
+UMask=0027
+CacheDirectory=centrum-chat
+CacheDirectoryMode=0750
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectHome=true
+ProtectSystem=strict
+ReadWritePaths=/opt/centrum-chat/storage /var/cache/centrum-chat
+
+[Install]
+WantedBy=multi-user.target

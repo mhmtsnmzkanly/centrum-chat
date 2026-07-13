@@ -1,0 +1,10 @@
+# Local secrets & environment
+.env
+
+# Runtime data & uploads (regenerated per environment)
+storage/
+
+# Agent / editor scratch
+.claude/
+.codex/
+.agents/

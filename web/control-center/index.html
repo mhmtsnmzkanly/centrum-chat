@@ -1,0 +1,1035 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8">
+    <meta name="viewport"
+      content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+    <meta name="description"
+      content="Novastrum Chat Control Center - Operations console for moderation, administration, and ownership.">
+    <title>Novastrum Control Center</title>
+
+    <!-- Google Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link
+      href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700&display=swap"
+      rel="stylesheet">
+
+    <!-- Bootstrap CSS -->
+    <link
+      href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css"
+      rel="stylesheet">
+    <link
+      href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css"
+      rel="stylesheet">
+
+    <!-- Control Center Styles -->
+    <link rel="stylesheet" href="/control-center/control-center.css">
+  </head>
+  <body>
+    <!-- FULL SCREEN APP LOADING BAR -->
+    <div id="app-loading-screen"
+      class="position-fixed top-0 start-0 w-100 h-100 d-flex flex-column align-items-center justify-content-center"
+      style="z-index: 1050; background: var(--body-bg); transition: opacity 0.4s ease-out, visibility 0.4s;">
+      <div class="text-center" style="max-width: 320px; width: 80%;">
+        <div class="mb-4">
+          <i class="bi bi-shield-lock-fill text-primary"
+            style="font-size: 3.5rem;"></i>
+        </div>
+        <h2
+          class="h6 fw-bold mb-3 text-dark-mode-override">Loading Control Center...</h2>
+        <div class="progress shadow-sm"
+          style="height: 6px; border-radius: 99px; background-color: rgba(2, 132, 199, 0.1);">
+          <div class="progress-bar progress-bar-striped progress-bar-animated"
+            role="progressbar" aria-valuenow="100" aria-valuemin="0"
+            aria-valuemax="100"
+            style="width: 100%; background-color: var(--primary-color);"></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Floating Ambient Background Blobs -->
+    <div class="bg-blobs" aria-hidden="true">
+      <div class="blob blob-1"></div>
+      <div class="blob blob-2"></div>
+      <div class="blob blob-3"></div>
+    </div>
+
+    <!-- MAIN ROOT CONTAINER -->
+    <div id="control-center-app"
+      class="container-fluid min-vh-100 p-0 d-flex flex-column">
+      <!-- ACCESS DENIED / UNAUTHENTICATED STATE -->
+      <div id="access-denied-view"
+        class="d-none flex-grow-1 d-flex align-items-center justify-content-center p-3"
+        role="alert">
+        <div class="glass-card panel-card text-center p-5 max-w-500">
+          <div class="denied-icon mb-4">
+            <i class="bi bi-shield-slash-fill text-danger fs-1"></i>
+          </div>
+          <h2 class="fw-bold mb-3 text-dark-mode-override">Access Denied</h2>
+          <p class="text-muted mb-4">
+            You do not have moderator, administrator, or owner permissions, or your session has expired. Please authenticate with a qualified account.
+          </p>
+          <div class="d-flex gap-3 justify-content-center">
+            <a href="/" class="btn btn-primary px-4 py-2"
+              id="btn-back-to-chat-denied">
+              <i class="bi bi-arrow-left me-2"></i>Return to Chat / Sign In
+            </a>
+          </div>
+        </div>
+      </div>
+
+      <!-- Sidebar backdrop (closes sidebar when tapped outside on mobile) -->
+      <div id="sidebar-backdrop" aria-hidden="true"></div>
+
+      <!-- MAIN CONTROL CENTER WORKSPACE SHELL -->
+      <div id="control-center-shell"
+        class="d-none flex-grow-1 d-flex flex-column flex-md-row">
+        <!-- SIDEBAR LANDMARK NAVIGATION -->
+        <aside class="sidebar-aside d-flex flex-column p-3 gap-3 border-end"
+          role="complementary">
+          <div class="brand-header d-flex align-items-center gap-2">
+            <span
+              class="logo-icon"><i class="bi bi-shield-lock-fill text-primary fs-3"></i></span>
+            <div class="d-flex flex-column">
+              <h1 class="h6 fw-bold mb-0 text-dark-mode-override">Novastrum</h1>
+              <span class="text-muted text-uppercase tracking-wider fw-semibold"
+                style="font-size: 0.6rem;">Control Center</span>
+            </div>
+          </div>
+
+          <!-- GROUPED NAVIGATION LINKS -->
+          <nav class="nav flex-column gap-3 flex-grow-1 sidebar-nav-container"
+            role="navigation" aria-label="Control Center Navigation">
+            <!-- MODERATION SECTION -->
+            <div class="nav-group" id="nav-group-moderation">
+              <h2
+                class="nav-group-title text-muted text-uppercase fw-bold">Moderation</h2>
+              <ul class="list-unstyled d-flex flex-column gap-1 mb-0">
+                <li>
+                  <button class="btn btn-sidebar active w-100 text-start"
+                    data-tab="reports" role="tab" aria-selected="true">
+                    <i class="bi bi-chat-left-text me-2"></i>Reports Queue
+                  </button>
+                </li>
+                <li>
+                  <button class="btn btn-sidebar w-100 text-start"
+                    data-tab="moderation-audit" role="tab"
+                    aria-selected="false">
+                    <i class="bi bi-journal-text me-2"></i>Moderation Audit
+                  </button>
+                </li>
+              </ul>
+            </div>
+
+            <!-- ADMINISTRATION SECTION -->
+            <div class="nav-group" id="nav-group-administration">
+              <h2
+                class="nav-group-title text-muted text-uppercase fw-bold">Administration</h2>
+              <ul class="list-unstyled d-flex flex-column gap-1 mb-0">
+                <li>
+                  <button class="btn btn-sidebar w-100 text-start"
+                    data-tab="users" role="tab" aria-selected="false">
+                    <i class="bi bi-people me-2"></i>Users
+                  </button>
+                </li>
+                <li>
+                  <button class="btn btn-sidebar w-100 text-start"
+                    data-tab="channels" role="tab" aria-selected="false">
+                    <i class="bi bi-hash me-2"></i>Channels
+                  </button>
+                </li>
+                <li>
+                  <button class="btn btn-sidebar w-100 text-start"
+                    data-tab="roles" role="tab" aria-selected="false">
+                    <i class="bi bi-person-badge me-2"></i>Roles
+                  </button>
+                </li>
+                <li>
+                  <button class="btn btn-sidebar w-100 text-start"
+                    data-tab="settings" role="tab" aria-selected="false">
+                    <i class="bi bi-sliders me-2"></i>System Settings
+                  </button>
+                </li>
+                <li>
+                  <button class="btn btn-sidebar w-100 text-start"
+                    data-tab="security-audit" role="tab" aria-selected="false">
+                    <i class="bi bi-file-earmark-lock me-2"></i>Security Audit
+                  </button>
+                </li>
+              </ul>
+            </div>
+
+            <!-- OWNER SECTION -->
+            <div class="nav-group" id="nav-group-owner">
+              <h2
+                class="nav-group-title text-muted text-uppercase fw-bold">Owner Only</h2>
+              <ul class="list-unstyled d-flex flex-column gap-1 mb-0">
+                <li>
+                  <button class="btn btn-sidebar w-100 text-start"
+                    data-tab="ownership-transfer" role="tab"
+                    aria-selected="false">
+                    <i class="bi bi-key me-2"></i>Ownership Transfer
+                  </button>
+                </li>
+              </ul>
+            </div>
+          </nav>
+
+          <!-- OPERATOR CARD FOOTER -->
+          <div
+            class="sidebar-footer border-top pt-3 d-flex align-items-center gap-2"
+            id="operator-badge-card">
+            <div class="avatar-placeholder flex-shrink-0"
+              id="operator-avatar">OP</div>
+            <div
+              class="d-flex flex-column text-start flex-grow-1 overflow-hidden">
+              <span class="fw-semibold text-dark-mode-override text-truncate"
+                id="operator-name">Operator</span>
+              <span
+                class="badge bg-primary-subtle text-primary border border-primary-subtle"
+                id="operator-role"
+                style="font-size: 0.6rem; width: fit-content;">OPERATOR</span>
+            </div>
+          </div>
+        </aside>
+
+        <!-- MAIN PANEL CONTENT AREA -->
+        <main class="flex-grow-1 d-flex flex-column" role="main"
+          aria-label="Workspace Content">
+          <!-- TOP WORKSPACE BAR -->
+          <header
+            class="top-workspace-bar d-flex align-items-center justify-content-between p-3 border-bottom gap-3"
+            role="banner">
+            <div class="d-flex align-items-center gap-2">
+              <!-- Hamburger button: only visible on mobile -->
+              <button id="btn-mobile-sidebar-open"
+                class="btn btn-icon-round d-none"
+                title="Open Navigation" aria-label="Open navigation menu"
+                aria-expanded="false" aria-controls="sidebar-aside">
+                <i class="bi bi-list fs-5"></i>
+              </button>
+              <h2 class="h5 fw-bold mb-0 text-dark-mode-override"
+                id="workspace-title">Reports Queue</h2>
+            </div>
+
+            <div class="d-flex align-items-center gap-2">
+              <button id="btn-theme-toggle" class="btn btn-icon-round"
+                title="Toggle Dark/Light Mode" aria-label="Toggle dark mode">
+                <i class="bi bi-moon-stars"></i>
+              </button>
+              <a href="/" class="btn btn-icon-round" id="btn-return-chat"
+                title="Return to Chat" aria-label="Return to chat screen">
+                <i class="bi bi-box-arrow-in-left"></i>
+              </a>
+              <button id="btn-control-logout"
+                class="btn btn-icon-round text-danger" title="Logout Session"
+                aria-label="Logout">
+                <i class="bi bi-power"></i>
+              </button>
+            </div>
+          </header>
+
+          <!-- GLOBAL CONTRACT UNAVAILABLE BANNER -->
+          <div id="contract-unavailable-banner"
+            class="d-none alert alert-warning rounded-0 border-0 border-bottom mb-0 d-flex align-items-center gap-2"
+            role="alert">
+            <i class="bi bi-exclamation-triangle-fill fs-5"></i>
+            <div>
+              <strong>Contract Limitation:</strong> Certain administration features are not currently supported by the active backend API version.
+            </div>
+          </div>
+
+          <!-- TAB PANELS WORKSPACE -->
+          <div
+            class="tab-panels-workspace flex-grow-1 position-relative overflow-y-auto p-3 p-md-4">
+            <!-- PANEL: MODERATION REPORTS -->
+            <section id="panel-reports"
+              class="tab-panel flex-grow-1 d-flex flex-column h-100"
+              role="tabpanel">
+              <div class="row g-3 flex-grow-1 h-100 align-items-stretch" id="reports-panel-row">
+                <!-- Left column: reports queue feed -->
+                <div class="col-12 col-lg-5 col-xl-4 d-flex flex-column h-100"
+                  style="max-height: 80vh;">
+                  <div
+                    class="glass-card flex-grow-1 d-flex flex-column overflow-hidden h-100">
+                    <div class="card-header border-bottom p-3">
+                      <div
+                        class="d-flex align-items-center justify-content-between mb-2">
+                        <span
+                          class="fw-semibold text-muted text-uppercase tracking-wider fs-7"
+                          id="reports-count-label">0 reports</span>
+                      </div>
+                      <div class="row g-2">
+                        <div class="col-6">
+                          <label for="filter-status"
+                            class="visually-hidden">Filter Status</label>
+                          <select id="filter-status"
+                            class="form-select form-select-sm">
+                            <option value="open">Open</option>
+                            <option value="in_review">In Review</option>
+                            <option value="resolved">Resolved</option>
+                            <option value="dismissed">Dismissed</option>
+                          </select>
+                        </div>
+                        <div class="col-6">
+                          <label for="filter-target"
+                            class="visually-hidden">Filter Target</label>
+                          <select id="filter-target"
+                            class="form-select form-select-sm">
+                            <option value="">All Targets</option>
+                            <option value="message">Messages</option>
+                            <option value="user">Users</option>
+                            <option value="attachment">Files</option>
+                          </select>
+                        </div>
+                        <div class="col-12">
+                          <div
+                            class="form-check form-switch form-switch-sm m-0">
+                            <input class="form-check-input" type="checkbox"
+                              id="filter-assigned-me">
+                            <label
+                              class="form-check-label text-dark-mode-override"
+                              for="filter-assigned-me">Assigned to me</label>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                    <div class="card-body overflow-y-auto p-0 flex-grow-1"
+                      id="reports-list-container">
+                      <!-- Rendered report feed items -->
+                    </div>
+                    <div class="card-footer border-top p-2 text-center">
+                      <button id="btn-load-more-reports"
+                        class="btn btn-sm btn-link text-decoration-none d-none">Load More</button>
+                    </div>
+                  </div>
+                </div>
+
+                <!-- Right column: report investigation workspace -->
+                <div class="col-12 col-lg-7 col-xl-8 d-flex flex-column h-100"
+                  style="max-height: 80vh;">
+                  <div
+                    class="glass-card flex-grow-1 d-flex flex-column overflow-hidden h-100">
+                    <div class="card-body d-flex flex-column h-100 p-0"
+                      id="report-investigation-workspace">
+                      <!-- Mobile back to list button -->
+                      <button class="btn-mobile-back btn btn-sm btn-outline-secondary m-2 mb-0 d-none align-items-center gap-1"
+                        id="btn-reports-back-to-list" aria-label="Back to reports list">
+                        <i class="bi bi-arrow-left"></i> Back to List
+                      </button>
+                      <!-- Select report placeholder -->
+                      <div id="investigation-placeholder"
+                        class="my-auto mx-auto text-center text-muted p-5">
+                        <i
+                          class="bi bi-chat-square-text fs-1 mb-3 text-primary opacity-50 d-block"></i>
+                        <span>Select a report from the feed to begin investigation</span>
+                      </div>
+
+                      <!-- Dynamic detail views injection -->
+                      <div id="investigation-details"
+                        class="d-none d-flex flex-column h-100">
+                        <!-- Details injected via reportInvestigation.js -->
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </section>
+
+            <!-- PANEL: MODERATION AUDIT -->
+            <section id="panel-moderation-audit"
+              class="tab-panel d-none flex-grow-1 d-flex flex-column"
+              role="tabpanel">
+              <!-- Inline wrapper for Moderation Audit Logs -->
+              <div
+                class="glass-card flex-grow-1 d-flex flex-column overflow-hidden">
+                <div
+                  class="card-header border-bottom p-3 d-flex flex-wrap gap-2 align-items-center justify-content-between">
+                  <span
+                    class="fw-semibold text-muted text-uppercase tracking-wider fs-7"
+                    id="mod-audit-count-label">0 events</span>
+                  <div class="d-flex flex-wrap gap-2">
+                    <input type="text" id="mod-audit-actor-id"
+                      class="form-control form-control-sm max-w-150"
+                      placeholder="Actor ID">
+                    <input type="text" id="mod-audit-target-id"
+                      class="form-control form-control-sm max-w-150"
+                      placeholder="Target ID">
+                    <button id="btn-clear-mod-audit-filters"
+                      class="btn btn-sm btn-outline-secondary">Clear</button>
+                  </div>
+                </div>
+                 <div class="card-body p-0 table-responsive flex-grow-1">
+                  <table
+                    class="table table-hover table-striped align-middle mb-0 table-responsive-cards"
+                    role="grid">
+                    <thead class="table-light">
+                      <tr>
+                        <th>Timestamp</th>
+                        <th>Actor</th>
+                        <th>Action</th>
+                        <th>Target</th>
+                        <th>Outcome</th>
+                        <th>Details / Metadata</th>
+                      </tr>
+                    </thead>
+                    <tbody id="mod-audit-log-rows">
+                      <!-- Rows injected dynamically -->
+                    </tbody>
+                  </table>
+                  <div id="mod-audit-placeholder"
+                    class="d-none text-center p-5 text-muted">
+                    <i class="bi bi-journals fs-1 mb-2 d-block"></i>
+                    No audit records match the selected filters.
+                  </div>
+                </div>
+                <div class="card-footer border-top p-2 text-center">
+                  <button id="btn-load-more-mod-audit"
+                    class="btn btn-sm btn-link text-decoration-none d-none">Load More</button>
+                </div>
+              </div>
+            </section>
+
+            <!-- PANEL: USERS ADMINISTRATION -->
+            <section id="panel-users"
+              class="tab-panel d-none flex-grow-1 d-flex flex-column h-100"
+              role="tabpanel">
+              <div class="row g-3 flex-grow-1 h-100 align-items-stretch" id="users-panel-row">
+                <!-- Left column: users list search -->
+                <div class="col-12 col-lg-5 col-xl-4 d-flex flex-column h-100"
+                  style="max-height: 80vh;">
+                  <div
+                    class="glass-card flex-grow-1 d-flex flex-column overflow-hidden h-100">
+                    <div class="card-header border-bottom p-3">
+                      <div class="mb-2">
+                        <label for="search-users"
+                          class="visually-hidden">Search Users</label>
+                        <div class="input-group input-group-sm">
+                          <span
+                            class="input-group-text"><i class="bi bi-search"></i></span>
+                          <input type="text" id="search-users"
+                            class="form-control"
+                            placeholder="Search by username...">
+                        </div>
+                      </div>
+                      <div>
+                        <label for="filter-user-role"
+                          class="visually-hidden">Filter by Role</label>
+                        <select id="filter-user-role"
+                          class="form-select form-select-sm">
+                          <option value="">All Roles</option>
+                          <option value="user">User</option>
+                          <option value="moderator">Moderator</option>
+                          <option value="admin">Administrator</option>
+                          <option value="owner">Owner</option>
+                        </select>
+                      </div>
+                    </div>
+                    <div class="card-body overflow-y-auto p-0 flex-grow-1"
+                      id="users-list-container">
+                      <!-- Rendered user items -->
+                    </div>
+                    <div class="card-footer border-top p-2 text-center">
+                      <button id="btn-load-more-users"
+                        class="btn btn-sm btn-link text-decoration-none d-none">Load More</button>
+                    </div>
+                  </div>
+                </div>
+
+                <!-- Right column: user details workspace -->
+                <div class="col-12 col-lg-7 col-xl-8 d-flex flex-column h-100"
+                  style="max-height: 80vh;">
+                  <div
+                    class="glass-card flex-grow-1 d-flex flex-column overflow-hidden h-100">
+                    <div class="card-body d-flex flex-column h-100 p-0"
+                      id="user-details-workspace">
+                      <!-- Mobile back to list button -->
+                      <button class="btn-mobile-back btn btn-sm btn-outline-secondary m-2 mb-0 d-none align-items-center gap-1"
+                        id="btn-users-back-to-list" aria-label="Back to users list">
+                        <i class="bi bi-arrow-left"></i> Back to List
+                      </button>
+                      <div id="user-details-placeholder"
+                        class="my-auto mx-auto text-center text-muted p-5">
+                        <i
+                          class="bi bi-person-bounding-box fs-1 mb-3 text-primary opacity-50 d-block"></i>
+                        <span>Select a user from the list to view profile details and credentials</span>
+                      </div>
+
+                      <div id="user-details-content"
+                        class="d-none d-flex flex-column h-100">
+                        <!-- User metadata details injected via users.js -->
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </section>
+
+            <!-- PANEL: CHANNELS ADMINISTRATION -->
+            <section id="panel-channels"
+              class="tab-panel d-none flex-grow-1 d-flex flex-column"
+              role="tabpanel">
+              <div
+                class="glass-card flex-grow-1 d-flex flex-column overflow-hidden">
+                <div
+                  class="card-header border-bottom p-3 d-flex align-items-center justify-content-between">
+                  <span
+                    class="fw-semibold text-muted text-uppercase tracking-wider fs-7">Public Chat Channels</span>
+                  <button id="btn-open-create-channel"
+                    class="btn btn-sm btn-primary">
+                    <i class="bi bi-plus-circle me-1"></i>Create Channel
+                  </button>
+                </div>
+                <div class="card-body p-0 table-responsive flex-grow-1">
+                  <table class="table table-hover align-middle mb-0 table-responsive-cards"
+                    role="grid">
+                    <thead class="table-light">
+                      <tr>
+                        <th>Channel ID</th>
+                        <th>Name</th>
+                        <th>Description</th>
+                        <th>Version</th>
+                        <th>Status</th>
+                        <th class="text-end">Actions</th>
+                      </tr>
+                    </thead>
+                    <tbody id="channels-table-rows">
+                      <!-- Channels rows injected dynamically -->
+                    </tbody>
+                  </table>
+                  <div id="channels-loading-placeholder"
+                    class="d-none text-center p-5 text-muted">
+                    <div class="spinner-border spinner-border-sm me-2" role="status"></div>
+                    Loading channels...
+                  </div>
+                </div>
+              </div>
+            </section>
+
+            <!-- PANEL: ROLES ADMINISTRATION -->
+            <section id="panel-roles"
+              class="tab-panel d-none flex-grow-1 d-flex flex-column"
+              role="tabpanel">
+              <div class="glass-card p-4">
+                <h3
+                  class="h5 fw-bold mb-3 text-dark-mode-override">Role Gating & Transition Hierarchy</h3>
+                <p class="text-muted fs-7 mb-4">
+                  Only System Owners can assign or revoke administrative roles. System Administrators can manage Moderator privileges. 
+                  Users cannot promote themselves, and owners are protected against accidental self-demotions.
+                </p>
+                <div class="row g-3">
+                  <div class="col-12 col-md-6">
+                    <div class="p-3 border rounded">
+                      <h4
+                        class="h6 fw-bold mb-2 text-dark-mode-override">Select User for Role Update</h4>
+                      <div class="mb-3">
+                        <label for="role-select-user"
+                          class="form-label fs-7">Target User</label>
+                        <select id="role-select-user"
+                          class="form-select form-select-sm">
+                          <option value="">Select a user...</option>
+                        </select>
+                      </div>
+                      <div class="mb-3">
+                        <label for="role-assign-value"
+                          class="form-label fs-7">Assign AppRole</label>
+                        <select id="role-assign-value"
+                          class="form-select form-select-sm" disabled>
+                          <option value="">Select a transition...</option>
+                        </select>
+                      </div>
+                      <button id="btn-save-role-change"
+                        class="btn btn-sm btn-primary w-100"
+                        disabled>Save Role Change</button>
+                    </div>
+                  </div>
+                  <div class="col-12 col-md-6">
+                    <div class="p-3 border rounded bg-light-subtle">
+                      <h4
+                        class="h6 fw-bold mb-2 text-dark-mode-override">Privilege Matrix</h4>
+                      <ul
+                        class="list-unstyled fs-7 mb-0 d-flex flex-column gap-2">
+                        <li><i class="bi bi-check-circle-fill text-success me-2"></i><strong>Owner:</strong> Full console control, Ownership transfer, Admin appointments.</li>
+                        <li><i class="bi bi-check-circle-fill text-success me-2"></i><strong>Administrator:</strong> Manage Users, Channels, system configs, Security Audit logs.</li>
+                        <li><i class="bi bi-check-circle-fill text-success me-2"></i><strong>Moderator:</strong> Investigate reports and apply permitted temporary sanctions (max 30 days).</li>
+                        <li><i class="bi bi-x-circle-fill text-danger me-2"></i><strong>User:</strong> Standard access, no console permissions.</li>
+                      </ul>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </section>
+
+            <!-- PANEL: SYSTEM SETTINGS -->
+            <section id="panel-settings"
+              class="tab-panel d-none flex-grow-1 d-flex flex-column"
+              role="tabpanel">
+              <form id="settings-form" class="glass-card p-4">
+                <div
+                  class="d-flex align-items-center justify-content-between mb-4 border-bottom pb-2">
+                  <h3
+                    class="h5 fw-bold mb-0 text-dark-mode-override">Global System Parameters</h3>
+                  <button type="submit" id="btn-save-settings"
+                    class="btn btn-sm btn-primary">Save Configuration</button>
+                </div>
+
+                <div class="row g-4">
+                  <!-- Registration group -->
+                  <div class="col-12 col-md-6">
+                    <h4
+                      class="h6 fw-bold mb-3 border-bottom pb-1 text-dark-mode-override">Registration Policy</h4>
+                    <div class="form-check form-switch mb-2">
+                      <input class="form-check-input" type="checkbox"
+                        id="setting-registration-enabled">
+                      <label class="form-check-label text-dark-mode-override"
+                        for="setting-registration-enabled">Allow user registrations</label>
+                    </div>
+                    <div class="form-check form-switch mb-3">
+                      <input class="form-check-input" type="checkbox"
+                        id="setting-verification-required">
+                      <label class="form-check-label text-dark-mode-override"
+                        for="setting-verification-required">Require email verification</label>
+                    </div>
+                  </div>
+
+                  <!-- Messaging bounds -->
+                  <div class="col-12 col-md-6">
+                    <h4
+                      class="h6 fw-bold mb-3 border-bottom pb-1 text-dark-mode-override">Messaging Restrictions</h4>
+                    <div class="mb-2">
+                      <label for="setting-max-message"
+                        class="form-label fs-7">Max message length</label>
+                      <input type="number" id="setting-max-message"
+                        class="form-control form-control-sm" min="10"
+                        max="10000" required>
+                    </div>
+                    <div class="mb-2">
+                      <label for="setting-max-group-members"
+                        class="form-label fs-7">Max group members</label>
+                      <input type="number" id="setting-max-group-members"
+                        class="form-control form-control-sm" min="3"
+                        max="100" required>
+                    </div>
+                    <div class="form-check form-switch mb-2">
+                      <input class="form-check-input" type="checkbox"
+                        id="setting-allow-dms">
+                      <label class="form-check-label text-dark-mode-override"
+                        for="setting-allow-dms">Allow new DM opening</label>
+                    </div>
+                    <div class="form-check form-switch mb-2">
+                      <input class="form-check-input" type="checkbox"
+                        id="setting-allow-groups">
+                      <label class="form-check-label text-dark-mode-override"
+                        for="setting-allow-groups">Allow user group creation</label>
+                    </div>
+                  </div>
+
+                  <!-- Media bounds -->
+                  <div class="col-12 col-md-6">
+                    <h4
+                      class="h6 fw-bold mb-3 border-bottom pb-1 text-dark-mode-override">Media Size Limits</h4>
+                    <div class="mb-2">
+                      <label for="setting-upload-limit"
+                        class="form-label fs-7">Attachment limit (Bytes)</label>
+                      <input type="number" id="setting-upload-limit"
+                        class="form-control form-control-sm" required>
+                    </div>
+                    <div class="mb-2">
+                      <label for="setting-avatar-limit"
+                        class="form-label fs-7">Avatar file limit (Bytes)</label>
+                      <input type="number" id="setting-avatar-limit"
+                        class="form-control form-control-sm" required>
+                    </div>
+                    <div class="mb-2">
+                      <label for="setting-cover-limit"
+                        class="form-label fs-7">Cover file limit (Bytes)</label>
+                      <input type="number" id="setting-cover-limit"
+                        class="form-control form-control-sm" required>
+                    </div>
+                  </div>
+
+                  <!-- System properties -->
+                  <div class="col-12 col-md-6">
+                    <h4
+                      class="h6 fw-bold mb-3 border-bottom pb-1 text-dark-mode-override">System Parameters</h4>
+                    <div class="mb-3">
+                      <label for="setting-default-channel"
+                        class="form-label fs-7">Default landing channel ID</label>
+                      <input type="text" id="setting-default-channel"
+                        class="form-control form-control-sm" required>
+                    </div>
+                    <div
+                      class="p-3 border border-warning rounded bg-warning-subtle">
+                      <div class="form-check form-switch m-0">
+                        <input class="form-check-input" type="checkbox"
+                          id="setting-maintenance-mode">
+                        <label
+                          class="form-check-label fw-bold text-warning-emphasis"
+                          for="setting-maintenance-mode">Maintenance Mode</label>
+                      </div>
+                      <small class="text-warning-emphasis d-block mt-1 fs-7">
+                        Blocks normal mutations while preserving reads, health, heartbeat, account recovery, moderation, and authorized administration.
+                      </small>
+                    </div>
+                  </div>
+                </div>
+              </form>
+            </section>
+
+            <!-- PANEL: SECURITY AUDIT -->
+            <section id="panel-security-audit"
+              class="tab-panel d-none flex-grow-1 d-flex flex-column"
+              role="tabpanel">
+              <div
+                class="glass-card flex-grow-1 d-flex flex-column overflow-hidden">
+                <div
+                  class="card-header border-bottom p-3 d-flex flex-wrap gap-2 align-items-center justify-content-between">
+                  <span
+                    class="fw-semibold text-muted text-uppercase tracking-wider fs-7"
+                    id="sec-audit-count-label">0 events</span>
+                  <div class="d-flex flex-wrap gap-2">
+                    <input type="text" id="sec-audit-actor-id"
+                      class="form-control form-control-sm max-w-150"
+                      placeholder="Actor ID">
+                    <input type="text" id="sec-audit-action-code"
+                      class="form-control form-control-sm max-w-150"
+                      placeholder="Action Code">
+                    <button id="btn-clear-sec-audit-filters"
+                      class="btn btn-sm btn-outline-secondary">Clear</button>
+                  </div>
+                </div>
+                 <div class="card-body p-0 table-responsive flex-grow-1">
+                  <table
+                    class="table table-hover table-striped align-middle mb-0 table-responsive-cards"
+                    role="grid">
+                    <thead class="table-light">
+                      <tr>
+                        <th>Timestamp</th>
+                        <th>Actor</th>
+                        <th>Action</th>
+                        <th>Target</th>
+                        <th>Outcome</th>
+                        <th>Details / Metadata</th>
+                      </tr>
+                    </thead>
+                    <tbody id="sec-audit-log-rows">
+                      <!-- Rows injected dynamically -->
+                    </tbody>
+                  </table>
+                  <div id="sec-audit-placeholder"
+                    class="d-none text-center p-5 text-muted">
+                    <i class="bi bi-journals fs-1 mb-2 d-block"></i>
+                    No audit records match the selected filters.
+                  </div>
+                </div>
+                <div class="card-footer border-top p-2 text-center">
+                  <button id="btn-load-more-sec-audit"
+                    class="btn btn-sm btn-link text-decoration-none d-none">Load More</button>
+                </div>
+              </div>
+            </section>
+
+            <!-- PANEL: OWNER TRANSFER -->
+            <section id="panel-ownership-transfer"
+              class="tab-panel d-none flex-grow-1" role="tabpanel">
+              <div class="glass-card p-4 max-w-600 mx-auto">
+                <div class="text-center mb-4">
+                  <i class="bi bi-exclamation-octagon text-danger fs-1"></i>
+                  <h3
+                    class="h5 fw-bold mt-2 text-dark-mode-override">Ownership Transfer</h3>
+                  <p class="text-muted fs-7">
+                    Transferring ownership shifts all root rights to the target user. This demotes your account to System Administrator.
+                    This action is immediate and cannot be undone.
+                  </p>
+                </div>
+
+                <div class="mb-3">
+                  <label for="owner-target-user"
+                    class="form-label fs-7 fw-semibold">Target User</label>
+                  <select id="owner-target-user"
+                    class="form-select form-select-sm">
+                    <option value="">Select a user...</option>
+                  </select>
+                </div>
+
+                <div class="mb-3">
+                  <label for="owner-confirm-text"
+                    class="form-label fs-7 fw-semibold text-danger">Type TRANSFER to confirm</label>
+                  <input type="text" id="owner-confirm-text"
+                    class="form-control form-control-sm" placeholder="TRANSFER">
+                </div>
+
+                <button id="btn-confirm-transfer-ownership"
+                  class="btn btn-danger btn-sm w-100" disabled>
+                  Transfer System Ownership
+                </button>
+              </div>
+            </section>
+          </div>
+        </main>
+      </div>
+    </div>
+
+    <!-- DIALOGS AND MODAL WORKSPACES -->
+
+    <!-- MODAL: APPLY SANCTION -->
+    <div class="modal fade" id="dialog-apply-sanction" tabindex="-1"
+      role="dialog" aria-labelledby="dialog-apply-sanction-title"
+      aria-hidden="true">
+      <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content glass-card border-0">
+          <div class="modal-header border-bottom">
+            <h5 class="modal-title fw-bold text-dark-mode-override"
+              id="dialog-apply-sanction-title">Apply Sanction Consequence</h5>
+            <button type="button" class="btn-close" data-bs-dismiss="modal"
+              aria-label="Close"></button>
+          </div>
+          <form id="sanction-form">
+            <input type="hidden" id="sanction-target-user-id">
+            <div class="modal-body">
+              <div class="mb-3">
+                <label for="sanction-target-user-display"
+                  class="form-label fs-7 fw-semibold text-muted">Target User</label>
+                <input type="text" class="form-control form-control-sm"
+                  id="sanction-target-user-display" readonly disabled>
+              </div>
+              <div class="mb-3">
+                <label for="sanction-type"
+                  class="form-label fs-7 fw-semibold text-dark-mode-override">Sanction Action</label>
+                <select id="sanction-type" class="form-select form-select-sm"
+                  required>
+                  <option
+                    value="message_mute">Mute User (Disable Messages & Reactions)</option>
+                  <option
+                    value="interaction_restriction">Restrict User Interactions (Private Group Mute)</option>
+                  <option
+                    value="account_suspension">Suspend User Account (Global Block)</option>
+                </select>
+              </div>
+              <div class="mb-3">
+                <label for="sanction-reason"
+                  class="form-label fs-7 fw-semibold text-dark-mode-override">Reason Code</label>
+                <select id="sanction-reason" class="form-select form-select-sm"
+                  required>
+                  <option value="spam">Spamming / Flooding</option>
+                  <option
+                    value="harassment">Harassment / Abusive Behavior</option>
+                  <option value="threats">Violent Threats</option>
+                  <option value="impersonation">Identity Impersonation</option>
+                  <option
+                    value="sexual_content">Inappropriate Sexual Content</option>
+                  <option
+                    value="illegal_content">Illegal Content / Distribution</option>
+                  <option value="privacy">Privacy Violation / Doxxing</option>
+                  <option value="other">Other Violations</option>
+                </select>
+              </div>
+              <div class="mb-3">
+                <label for="sanction-duration"
+                  class="form-label fs-7 fw-semibold text-dark-mode-override">Duration / Expiry</label>
+                <select id="sanction-duration"
+                  class="form-select form-select-sm" required>
+                  <option value="3600">1 Hour</option>
+                  <option value="86400" selected>24 Hours (1 Day)</option>
+                  <option value="259200">72 Hours (3 Days)</option>
+                  <option value="604800">1 Week</option>
+                  <option value="2592000">30 Days</option>
+                  <option value="permanent">Permanent / Indefinite</option>
+                </select>
+              </div>
+              <div class="mb-3">
+                <label for="sanction-notes"
+                  class="form-label fs-7 fw-semibold text-dark-mode-override">Moderator Decision Note</label>
+                <textarea id="sanction-notes"
+                  class="form-control form-control-sm" rows="3"
+                  placeholder="Provide detailed rationale for audit records..."
+                  required></textarea>
+              </div>
+              <div class="alert alert-warning mb-0 d-flex gap-2"
+                id="sanction-consequence-alert">
+                <i class="bi bi-exclamation-triangle-fill flex-shrink-0"></i>
+                <div id="sanction-consequence-text"
+                  style="font-size: 0.8rem;"></div>
+              </div>
+            </div>
+            <div class="modal-footer border-top">
+              <button type="button" class="btn btn-sm btn-outline-secondary"
+                data-bs-dismiss="modal">Cancel</button>
+              <button type="submit" id="btn-confirm-apply-sanction"
+                class="btn btn-sm btn-danger">Confirm Sanction</button>
+            </div>
+          </form>
+        </div>
+      </div>
+    </div>
+
+    <!-- MODAL: CONFIRM REVOKE SANCTION -->
+    <div class="modal fade" id="dialog-revoke-sanction" tabindex="-1"
+      role="dialog" aria-labelledby="dialog-revoke-sanction-title"
+      aria-hidden="true">
+      <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content glass-card border-0">
+          <div class="modal-header border-bottom">
+            <h5 class="modal-title fw-bold text-dark-mode-override"
+              id="dialog-revoke-sanction-title">Confirm Sanction Revocation</h5>
+            <button type="button" class="btn-close" data-bs-dismiss="modal"
+              aria-label="Close"></button>
+          </div>
+          <form id="revoke-sanction-form">
+            <input type="hidden" id="revoke-sanction-id">
+            <input type="hidden" id="revoke-sanction-user-id">
+            <div class="modal-body">
+              <p class="fs-7 text-dark-mode-override mb-3">
+                You are about to lift the active restriction. Provide a rationale for audit logs.
+              </p>
+              <div class="mb-3">
+                <label for="revoke-reason-input"
+                  class="form-label fs-7 fw-semibold text-dark-mode-override">Revocation Reason</label>
+                <textarea id="revoke-reason-input"
+                  class="form-control form-control-sm" rows="2"
+                  placeholder="User served suspension, apologized..."
+                  required></textarea>
+              </div>
+            </div>
+            <div class="modal-footer border-top">
+              <button type="button" class="btn btn-sm btn-outline-secondary"
+                data-bs-dismiss="modal">Cancel</button>
+              <button type="submit" id="btn-confirm-revoke-sanction"
+                class="btn btn-sm btn-warning">Lift Sanction</button>
+            </div>
+          </form>
+        </div>
+      </div>
+    </div>
+
+    <!-- MODAL: CREATE CHANNEL -->
+    <div class="modal fade" id="dialog-create-channel" tabindex="-1"
+      role="dialog" aria-labelledby="dialog-create-channel-title"
+      aria-hidden="true">
+      <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content glass-card border-0">
+          <div class="modal-header border-bottom">
+            <h5 class="modal-title fw-bold text-dark-mode-override"
+              id="dialog-create-channel-title">Create Public Channel</h5>
+            <button type="button" class="btn-close" data-bs-dismiss="modal"
+              aria-label="Close"></button>
+          </div>
+          <form id="create-channel-form">
+            <div class="modal-body">
+              <div class="mb-3">
+                <label for="create-chan-slug"
+                  class="form-label fs-7 fw-semibold text-dark-mode-override">Channel Slug</label>
+                <input type="text" id="create-chan-slug"
+                  class="form-control form-control-sm"
+                  placeholder="e.g. customer-support" pattern="^[a-z0-9-]+$"
+                  required>
+                <div
+                  class="form-text fs-8 text-muted">Only lowercase alphanumeric characters and dashes.</div>
+              </div>
+              <div class="mb-3">
+                <label for="create-chan-name"
+                  class="form-label fs-7 fw-semibold text-dark-mode-override">Display Name</label>
+                <input type="text" id="create-chan-name"
+                  class="form-control form-control-sm" maxlength="100" required>
+              </div>
+              <div class="mb-3">
+                <label for="create-chan-desc"
+                  class="form-label fs-7 fw-semibold text-dark-mode-override">Description</label>
+                <textarea id="create-chan-desc"
+                  class="form-control form-control-sm" rows="2"
+                  placeholder="What is this channel for?"></textarea>
+              </div>
+            </div>
+            <div class="modal-footer border-top">
+              <button type="button" class="btn btn-sm btn-outline-secondary"
+                data-bs-dismiss="modal">Cancel</button>
+              <button type="submit" id="btn-confirm-create-channel"
+                class="btn btn-sm btn-primary">Create</button>
+            </div>
+          </form>
+        </div>
+      </div>
+    </div>
+
+    <!-- MODAL: EDIT CHANNEL -->
+    <div class="modal fade" id="dialog-edit-channel" tabindex="-1"
+      role="dialog" aria-labelledby="dialog-edit-channel-title"
+      aria-hidden="true">
+      <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content glass-card border-0">
+          <div class="modal-header border-bottom">
+            <h5 class="modal-title fw-bold text-dark-mode-override"
+              id="dialog-edit-channel-title">Edit Channel Properties</h5>
+            <button type="button" class="btn-close" data-bs-dismiss="modal"
+              aria-label="Close"></button>
+          </div>
+          <form id="edit-channel-form">
+            <input type="hidden" id="edit-chan-id">
+            <input type="hidden" id="edit-chan-version">
+            <div class="modal-body">
+              <div class="mb-3">
+                <label for="edit-chan-name"
+                  class="form-label fs-7 fw-semibold text-dark-mode-override">Channel Name</label>
+                <input type="text" id="edit-chan-name"
+                  class="form-control form-control-sm" pattern="^[a-z0-9-_]+$"
+                  required>
+              </div>
+              <div class="mb-3">
+                <label for="edit-chan-desc"
+                  class="form-label fs-7 fw-semibold text-dark-mode-override">Description</label>
+                <textarea id="edit-chan-desc"
+                  class="form-control form-control-sm" rows="2"></textarea>
+              </div>
+            </div>
+            <div class="modal-footer border-top">
+              <button type="button" class="btn btn-sm btn-outline-secondary"
+                data-bs-dismiss="modal">Cancel</button>
+              <button type="submit" id="btn-confirm-edit-channel"
+                class="btn btn-sm btn-primary">Save Changes</button>
+            </div>
+          </form>
+        </div>
+      </div>
+    </div>
+
+    <!-- MODAL: GENERAL CONFIRMATION -->
+    <div class="modal fade" id="dialog-confirm-action" tabindex="-1"
+      role="dialog" aria-labelledby="dialog-confirm-action-title"
+      aria-hidden="true">
+      <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content glass-card border-0">
+          <div class="modal-header border-bottom">
+            <h5 class="modal-title fw-bold text-dark-mode-override"
+              id="dialog-confirm-action-title">Confirm Action</h5>
+            <button type="button" class="btn-close" data-bs-dismiss="modal"
+              aria-label="Close"></button>
+          </div>
+          <div class="modal-body">
+            <p id="confirm-action-body"
+              class="fs-7 text-dark-mode-override mb-0"></p>
+          </div>
+          <div class="modal-footer border-top">
+            <button type="button" class="btn btn-sm btn-outline-secondary"
+              data-bs-dismiss="modal">Cancel</button>
+            <button type="button" id="btn-confirm-action-submit"
+              class="btn btn-sm btn-danger">Confirm</button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- TOAST NOTIFICATION CONTAINER -->
+    <div class="toast-container position-fixed bottom-0 end-0 p-3"
+      id="toast-container" style="z-index: 1100;">
+      <!-- Toast injected dynamically -->
+    </div>
+
+    <!-- Bootstrap Bundle JS -->
+    <script
+      src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+
+    <!-- SPA Script Bootstrap -->
+    <script type="module" src="/control-center/control-center.js"></script>
+  </body>
+</html>
