@@ -477,6 +477,266 @@ sunulmalıdır.
 - 2026-07-14 — Model: GPT-5 Codex — Genel splash ve toast yapıları mevcut olsa da konuşma ve arama
   bazında tutarlı boş/hata bileşenleri bulunmadığı doğrulanarak planlama listesine eklendi.
 
+### Mesaj kalıcı bağlantısı ve kopyalama eylemleri
+
+**Açıklama:** Kullanıcının erişebildiği bir mesajın metnini veya kalıcı bağlantısını kopyalayabilmesi;
+bağlantı açıldığında ilgili konuşmanın yüklenip hedef mesajın ekranda vurgulanması. Erişimi olmayan,
+silinmiş veya artık mevcut olmayan mesajlarda içerik sızdırmadan uygun hata görünümü gösterilmelidir.
+
+**Öncelik:** Orta
+
+**Efor:** Orta
+
+#### Durum
+
+`Bekliyor`
+
+- 2026-07-14 — Model: GPT-5 Codex — Mesaj eylemlerinde metin veya bağlantı kopyalama ve URL/hash
+  üzerinden hedef mesaja açılma davranışı bulunmadığı doğrulanarak planlama listesine eklendi.
+
+### Okundu bilgisi ve gören kullanıcılar
+
+**Açıklama:** DM mesajlarında `Görüldü` durumunun, uygun büyüklükteki grup konuşmalarında ise mesajı
+okuyan kullanıcıların gösterilmesi. Bilgi sunucu read-state verisinden üretilmeli; görünürlük,
+gizlilik tercihi ve büyük gruplar için kullanıcı/sayı sınırları açıkça belirlenmelidir.
+
+**Öncelik:** Orta
+
+**Efor:** Yüksek
+
+#### Durum
+
+`Bekliyor`
+
+- 2026-07-14 — Model: GPT-5 Codex — Konuşma okuma durumu tutulduğu halde mesaj bazında `Görüldü`
+  veya gören kullanıcılar arayüzü ve gizlilik politikası bulunmadığı doğrulanarak eklendi.
+
+### Konuşma başına kaydırma konumunu koruma
+
+**Açıklama:** Kullanıcı başka bir konuşmaya geçip geri döndüğünde önceki görünür mesajına ve
+kaydırma konumuna dönmesi; yeni mesajlar geldiyse konum korunurken okunmamış göstergelerin doğru
+çalışması. Saklanan konum silinmiş bir mesaja aitse en yakın geçerli mesaja güvenli fallback
+yapılmalıdır.
+
+**Öncelik:** Yüksek
+
+**Efor:** Düşük
+
+#### Durum
+
+`Bekliyor`
+
+- 2026-07-14 — Model: GPT-5 Codex — Konuşma değişimlerinde geçmiş yeniden yüklenirken konuşma
+  bazında görünür mesaj/kaydırma konumunun saklanmadığı doğrulanarak planlama listesine eklendi.
+
+### Kaydırma sırasında sabit tarih başlığı
+
+**Açıklama:** Mesaj geçmişi kaydırılırken o anda ekranda bulunan mesajların tarihinin akışın üstünde
+sabit bir başlık olarak gösterilmesi; mevcut tarih ayraçlarıyla aynı yerel tarih biçimlendirmesini
+kullanması ve tarih değişimlerinde dikkat dağıtmadan güncellenmesi.
+
+**Öncelik:** Orta
+
+**Efor:** Düşük
+
+#### Durum
+
+`Bekliyor`
+
+- 2026-07-14 — Model: GPT-5 Codex — Akış içinde tarih ayraçları mevcut; kaydırmayla güncellenen
+  sticky tarih başlığı bulunmadığı doğrulanarak planlama listesine eklendi.
+
+### Masaüstü konuşma kenar çubuğu
+
+**Açıklama:** Geniş ekranlarda kanal, grup ve DM listesinin mevcut hedef dropdown'una alternatif
+olarak kalıcı bir sol panelde gösterilmesi; dar ekranlarda mevcut mobil düzenin korunması. Panel
+arama, unread badge, favoriler ve konuşma bazlı eylemler için ortak gezinme yüzeyi olmalıdır.
+
+**Öncelik:** Orta
+
+**Efor:** Orta
+
+#### Durum
+
+`Bekliyor`
+
+- 2026-07-14 — Model: GPT-5 Codex — Ana chat istemcisinin konuşma seçimini dropdown üzerinden
+  yaptığı ve geniş ekranlara özel kalıcı konuşma paneli bulunmadığı doğrulanarak eklendi.
+
+### Boyutlandırılabilir arayüz panelleri
+
+**Açıklama:** Masaüstü konuşma listesi, mesaj alanı ve ayrıntı paneli genişliklerinin erişilebilir
+sürükleme tutamaçları veya klavye kontrolleriyle değiştirilebilmesi; seçimin yerel olarak saklanması
+ve güvenli minimum/maksimum genişliklerle düzenin bozulmasının önlenmesi.
+
+**Öncelik:** Düşük
+
+**Efor:** Orta
+
+#### Durum
+
+`Bekliyor`
+
+- 2026-07-14 — Model: GPT-5 Codex — Mevcut responsive yerleşimde kullanıcı tarafından
+  boyutlandırılabilen panel bulunmadığı doğrulanarak planlama listesine eklendi.
+
+### Konuşma ayrıntı çekmecesi
+
+**Açıklama:** Aktif konuşmanın üyeleri, bildirim tercihleri ve temel bilgileri için ortak bir sağ
+çekmece oluşturulması; sabitlenmiş mesajlar ile medya/dosya galerisi tamamlandığında aynı çekmeceye
+sekme olarak bağlanması. İçerik yalnız kullanıcının erişebildiği konuşma verilerini göstermelidir.
+
+**Öncelik:** Orta
+
+**Efor:** Orta
+
+#### Durum
+
+`Bekliyor`
+
+- 2026-07-14 — Model: GPT-5 Codex — Üye ve ayar işlemlerinin ayrı modal/alanlarda bulunduğu,
+  konuşma araçlarını birleştiren kalıcı ayrıntı çekmecesi bulunmadığı doğrulanarak eklendi.
+
+### Tarayıcı sekmesi ve favicon okunmamış sayacı
+
+**Açıklama:** Toplam okunmamış konuşma/bildirim sayısının tarayıcı sekmesi başlığında ve uygun
+olduğunda favicon badge üzerinde gösterilmesi; sekme aktifleşip ilgili içerik okunduğunda sayacın
+güncellenmesi. Sayaç erişilebilir başlık metnini bozmayacak ve gereksiz sık DOM güncellemesi
+yapmayacaktır.
+
+**Öncelik:** Orta
+
+**Efor:** Düşük
+
+#### Durum
+
+`Bekliyor`
+
+- 2026-07-14 — Model: GPT-5 Codex — Unread bilgisi istemcide bulunmasına rağmen `document.title`
+  veya favicon üzerinde gösterilmediği doğrulanarak planlama listesine eklendi.
+
+### Çoklu kullanıcı yazıyor göstergesi
+
+**Açıklama:** Aynı konuşmada birden fazla kullanıcı yazarken `Ayşe, Mehmet ve 3 kişi yazıyor`
+benzeri özet gösterilmesi; kullanıcıların zaman aşımı bağımsız izlenmeli ve uzun isim listeleri
+erişilebilir biçimde sınırlandırılmalıdır.
+
+**Öncelik:** Orta
+
+**Efor:** Orta
+
+#### Durum
+
+`Bekliyor`
+
+- 2026-07-14 — Model: GPT-5 Codex — Mevcut arayüzün tek bir `typingState` gösterdiği, eşzamanlı
+  yazan kullanıcıları birlikte takip edip özetlemediği doğrulanarak planlama listesine eklendi.
+
+### Süreli özel kullanıcı durumu
+
+**Açıklama:** Kullanıcının emoji, kısa durum metni ve isteğe bağlı sona erme süresi belirleyebilmesi;
+durumun profil kartı, konuşma üyeleri ve ilgili kullanıcı yüzeylerinde gösterilmesi. Metin uzunluğu,
+temizleme, gerçek zamanlı güncelleme ve süresi dolan durumların kaldırılması sunucu tarafından
+uygulanmalıdır.
+
+**Öncelik:** Orta
+
+**Efor:** Yüksek
+
+#### Durum
+
+`Bekliyor`
+
+- 2026-07-14 — Model: GPT-5 Codex — Çevrimiçi/boşta/rahatsız etmeyin durumları mevcut; özel emoji,
+  metin ve expiry içeren kullanıcı durumu bulunmadığı doğrulanarak eklendi.
+
+### Seçili metinle alıntılı cevap
+
+**Açıklama:** Kullanıcının bir mesajın belirli bölümünü seçerek cevaba güvenli bir alıntı olarak
+ekleyebilmesi; alıntının kaynak mesajla bağı korunurken istemci tarafından değiştirilen metnin
+orijinal içerik gibi sunulmaması. Silinen veya düzenlenen kaynak mesaj davranışı açıkça
+belirlenmelidir.
+
+**Öncelik:** Düşük
+
+**Efor:** Orta
+
+#### Durum
+
+`Bekliyor`
+
+- 2026-07-14 — Model: GPT-5 Codex — Tam mesaja cevap verme mevcut; seçili metin aralığıyla alıntılı
+  cevap oluşturma bulunmadığı doğrulanarak planlama listesine eklendi.
+
+### Çoklu mesaj seçim modu
+
+**Açıklama:** Kullanıcının erişebildiği bir veya birden fazla mesajı seçim moduna alarak metinleri
+kopyalayabilmesi; mesaj yönlendirme, yer imi ve yetkili toplu silme işleri tamamlandığında aynı seçim
+altyapısının bu eylemlere bağlanması. Her eylem kendi sunucu yetkisini yeniden doğrulamalıdır.
+
+**Öncelik:** Orta
+
+**Efor:** Orta
+
+#### Durum
+
+`Bekliyor`
+
+- 2026-07-14 — Model: GPT-5 Codex — Mesajların yalnız tekil eylem butonlarıyla işlendiği ve çoklu
+  seçim durumu bulunmadığı doğrulanarak planlama listesine eklendi.
+
+### Uzun geçmiş için sanal mesaj listesi
+
+**Açıklama:** Çok uzun konuşmalarda yalnız görünür mesajlar ve kontrollü overscan bölgesinin DOM'da
+tutulması; cursor sayfalama, hedef mesaja atlama, tarih ayraçları, değişken mesaj yüksekliği ve
+kaydırma konumu korumasıyla birlikte çalışması. Ekran okuyucu kullanımında mesajların erişilebilir
+sırası bozulmamalıdır.
+
+**Öncelik:** Yüksek
+
+**Efor:** Yüksek
+
+#### Durum
+
+`Bekliyor`
+
+- 2026-07-14 — Model: GPT-5 Codex — Mevcut reactive render'ın yüklü mesajları DOM'a doğrudan
+  bastığı ve pencereleme/virtualization kullanmadığı doğrulanarak planlama listesine eklendi.
+
+### Odak modu
+
+**Açıklama:** Kullanıcının konuşma seçici, üst araçlar ve ikincil panelleri geçici olarak gizleyip
+mesaj akışı ile composer'a odaklanabilmesi; moddan klavye ve görünür bir çıkış kontrolüyle kolayca
+dönülebilmesi.
+
+**Öncelik:** Düşük
+
+**Efor:** Düşük
+
+#### Durum
+
+`Bekliyor`
+
+- 2026-07-14 — Model: GPT-5 Codex — Tam ekran mesaj odak modu bulunmadığı doğrulanarak planlama
+  listesine eklendi.
+
+### İlk kullanım arayüz turu
+
+**Açıklama:** Kayıt/onboarding akışından ayrı olarak konuşma seçici, arama, profil, bildirimler ve
+mesaj eylemlerini tanıtan kısa ve atlanabilir bir ürün turu sunulması; tamamlanma durumunun kullanıcı
+tercihlerinde saklanması ve turu ayarlardan yeniden başlatma seçeneği verilmesi.
+
+**Öncelik:** Düşük
+
+**Efor:** Orta
+
+#### Durum
+
+`Bekliyor`
+
+- 2026-07-14 — Model: GPT-5 Codex — Planlanan kayıt tercih onboarding'inden farklı olarak çalışan
+  chat arayüzünü tanıtan bir ürün turu bulunmadığı doğrulanarak planlama listesine eklendi.
+
 ## Sohbet
 
 ### Mesaj thread'leri
@@ -560,10 +820,15 @@ mesajların kalıcı olarak saklanması, iptal edilebilmesi ve sunucu yeniden ba
 
 - 2026-07-13 — Model: GPT-5 Codex — Planlama listesine eklendi; henüz başlanmadı.
 
-### Markdown ve kod bloğu desteği
+### Markdown, BBCode ve kod bloğu desteği
 
-**Açıklama:** Mesajlarda güvenli bir Markdown alt kümesinin, satır içi kodun ve kod bloklarının XSS
-oluşturmadan görüntülenmesi.
+**Açıklama:** Mesajlarda güvenli bir Markdown alt kümesinin yanında BBCode biçimlendirmesinin
+desteklenmesi. En az `[b]kalın[/b]`, `[i]italik[/i]` ve `[s]üstü çizili[/s]` etiketleri ile satır içi
+kod ve kod blokları XSS oluşturmadan görüntülenmelidir. Parser yalnız allow-list etiketleri kabul
+etmeli; iç içe etiket derinliği ve çıktı boyutu sınırlandırılmalı, bilinmeyen veya bozuk etiketler
+güvenli düz metin olarak kalmalıdır. Markdown ile BBCode çakışmalarında ayrıştırma sırası açıkça
+tanımlanmalı; arama, bildirim önizlemesi, düzenleme ve alıntılar anlamlı düz metin fallback'i
+kullanmalıdır.
 
 **Öncelik:** Orta
 
@@ -573,7 +838,33 @@ oluşturmadan görüntülenmesi.
 
 `Bekliyor`
 
+- 2026-07-14 — Model: GPT-5 Codex — Kullanıcı kararıyla mevcut mesaj biçimlendirme kapsamına
+  güvenli BBCode desteği eklendi; ilk zorunlu etiketler `[b]`, `[i]` ve `[s]` olarak belirlendi.
 - 2026-07-13 — Model: GPT-5 Codex — Planlama listesine eklendi; henüz başlanmadı.
+
+### Bilinen URL bağlantı kartları
+
+**Açıklama:** Mesaj içindeki allow-list'e alınmış URL türlerinin güvenli ve sağlayıcıya özel kompakt
+kart/çip olarak gösterilmesi. İlk sağlayıcı GitHub repository bağlantıları olmalı;
+`https://github.com/mhmtsnmzkanly/centrum-chat` mesaj içinde örneğin
+`[ @mhmtsnmzkanly / centrum-chat ]` biçiminde, özgün URL'ye giden erişilebilir bir bağlantı olarak
+görünmelidir. İlk sürüm URL yolunu yerel olarak ayrıştırmalı ve harici API/fetch gerektirmemelidir;
+provider registry yalnız bilinen host ve path kalıplarını kabul etmeli, kullanıcı adı/repo adı
+escape edilmeli, yanıltıcı hostlar (`github.com.example.org`) eşleşmemeli ve dış bağlantılar güvenli
+`rel` özellikleriyle açılmalıdır. Gelecekte metadata alınacaksa SSRF, timeout, cache, boyut limiti ve
+gizlilik tasarımı ayrıca onaylanmalıdır.
+
+**Öncelik:** Orta
+
+**Efor:** Orta
+
+#### Durum
+
+`Bekliyor`
+
+- 2026-07-14 — Model: GPT-5 Codex — Kullanıcı kararıyla bilinen URL kartları planlandı. İlk kapsam
+  dış API kullanmadan GitHub repository URL'sinden `@owner / repository` şablonu üretmek olarak
+  sınırlandırıldı; diğer provider'lar daha sonra allow-list'e eklenebilir.
 
 ### Gelişmiş mention sistemi
 
