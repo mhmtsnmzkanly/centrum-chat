@@ -1,5 +1,5 @@
-import { controlCenterStore } from "../state/store.js";
-import { renderToast } from "./common.js";
+import { controlCenterStore } from "./control-center-store.js";
+import { renderToast } from "./control-center-common.js";
 
 function option(value, label) {
   const element = document.createElement("option");

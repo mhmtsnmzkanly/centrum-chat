@@ -1,5 +1,5 @@
-import { controlCenterStore } from "../state/store.js";
-import { el, formatDate, renderToast } from "./common.js";
+import { controlCenterStore } from "./control-center-store.js";
+import { el, formatDate, renderToast } from "./control-center-common.js";
 
 export function initUsersModule() {
   const searchInput = document.getElementById("search-users");

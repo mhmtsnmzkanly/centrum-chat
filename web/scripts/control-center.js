@@ -1,14 +1,14 @@
-import { controlCenterStore } from "./state/store.js";
-import { initShell } from "./ui/shell.js";
-import { initNavigation } from "./ui/navigation.js";
-import { initModerationModule } from "./ui/moderation.js";
-import { initUsersModule } from "./ui/users.js";
-import { initChannelsModule } from "./ui/channels.js";
-import { initRolesModule } from "./ui/roles.js";
-import { initSettingsModule } from "./ui/settings.js";
-import { initAuditModule } from "./ui/audit.js";
-import { initOwnerModule } from "./ui/owner.js";
-import { initDialogs } from "./ui/dialogs.js";
+import { controlCenterStore } from "./control-center-store.js";
+import { initShell } from "./control-center-shell.js";
+import { initNavigation } from "./control-center-navigation.js";
+import { initModerationModule } from "./control-center-moderation.js";
+import { initUsersModule } from "./control-center-users.js";
+import { initChannelsModule } from "./control-center-channels.js";
+import { initRolesModule } from "./control-center-roles.js";
+import { initSettingsModule } from "./control-center-settings.js";
+import { initAuditModule } from "./control-center-audit.js";
+import { initOwnerModule } from "./control-center-owner.js";
+import { initDialogs } from "./control-center-dialogs.js";
 
 document.addEventListener("DOMContentLoaded", async () => {
   // 1. Initialize UI modules

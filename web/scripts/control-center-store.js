@@ -1,5 +1,5 @@
-import { ControlCenterApi } from "../api/controlCenterApi.js";
-import { getActiveCapabilities } from "../api/contract.js";
+import { ControlCenterApi } from "./control-center-api.js";
+import { getActiveCapabilities } from "./control-center-contract.js";
 
 const DEFAULT_STATE = {
   currentTab: "reports", // reports, sanctions, moderation-audit, users, channels, roles, settings, security-audit, admin-management, ownership-transfer

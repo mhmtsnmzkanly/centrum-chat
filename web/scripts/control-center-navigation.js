@@ -1,4 +1,4 @@
-import { controlCenterStore } from "../state/store.js";
+import { controlCenterStore } from "./control-center-store.js";
 
 export function initNavigation() {
   const sidebar = document.querySelector(".sidebar-aside");

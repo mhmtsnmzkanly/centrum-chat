@@ -1,5 +1,6 @@
-import { controlCenterStore } from "../state/store.js";
-import { handleAuthLoss } from "../api/controlCenterApi.js";
+import { controlCenterStore } from "./control-center-store.js";
+import { handleAuthLoss } from "./control-center-api.js";
+import { getSystemTheme, applySystemTheme } from "./shared-theme.js";
 
 export function initShell() {
   const themeToggle = document.getElementById("btn-theme-toggle");
@@ -13,7 +14,7 @@ export function initShell() {
   const opRole = document.getElementById("operator-role");
 
   // 1. Theme restoration and toggle
-  const isDarkMode = localStorage.getItem("chat_dark_mode") === "1";
+  const isDarkMode = getSystemTheme() === "dark";
   if (isDarkMode) {
     document.body.classList.add("dark-mode");
     themeToggle?.querySelector("i")?.setAttribute("class", "bi bi-sun");
@@ -24,7 +25,7 @@ export function initShell() {
 
   themeToggle?.addEventListener("click", () => {
     const isDark = document.body.classList.toggle("dark-mode");
-    localStorage.setItem("chat_dark_mode", isDark ? "1" : "0");
+    applySystemTheme(isDark ? "dark" : "light");
     themeToggle.querySelector("i")?.setAttribute(
       "class",
       isDark ? "bi bi-sun" : "bi bi-moon-stars",

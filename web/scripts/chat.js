@@ -3,6 +3,8 @@ import {
   mount,
   setDevMode,
 } from "https://cdn.jsdelivr.net/npm/lime-csr-js@0.1.4/dist/index.min.js";
+import { TOKEN_KEYS, parseJwt, parseStoredTokens } from "./shared-auth.js";
+import { applySystemTheme } from "./shared-theme.js";
 
 // Configuration (avatar seeds + cover gradients ported from the original UI)
 const CONFIG = {
@@ -68,25 +70,6 @@ function createStorageArea(browserStorage, label) {
 
 const STORAGE = createStorageArea(window.localStorage, "local");
 const SESSION_STORAGE = createStorageArea(window.sessionStorage, "session");
-const TOKEN_KEYS = {
-  persistent: "chat_session_tokens_persistent",
-  session: "chat_session_tokens_session",
-};
-
-function parseStoredTokens(raw) {
-  if (!raw) return null;
-  try {
-    const parsed = JSON.parse(raw);
-    if (
-      parsed && typeof parsed.accessToken === "string" && typeof parsed.refreshToken === "string"
-    ) {
-      return parsed;
-    }
-  } catch {
-    return null;
-  }
-  return null;
-}
 
 const TOKENS = {
   get: () => {
@@ -234,20 +217,7 @@ const HELPERS = {
   },
 };
 
-function parseJwt(token) {
-  try {
-    const base64Url = token.split(".")[1];
-    const base64 = base64Url.replace(/-/g, "+").replace(/_/g, "/");
-    const jsonPayload = decodeURIComponent(
-      atob(base64).split("").map(function (c) {
-        return "%" + ("00" + c.charCodeAt(0).toString(16)).slice(-2);
-      }).join(""),
-    );
-    return JSON.parse(jsonPayload);
-  } catch {
-    return null;
-  }
-}
+
 
 // Exchange the stored refresh token for a fresh token pair. Returns false when
 // the server rejects the refresh (revoked/expired session); throws on network
@@ -873,13 +843,7 @@ const store = createStore({
 setDevMode(true);
 
 function applyTheme(theme) {
-  if (theme === "dark") {
-    document.body.classList.add("dark-mode");
-    STORAGE.setItem("chat_dark_mode", "1");
-  } else {
-    document.body.classList.remove("dark-mode");
-    STORAGE.setItem("chat_dark_mode", "0");
-  }
+  applySystemTheme(theme);
 }
 
 function coverStyleFor(coverUrl, coverIndex) {

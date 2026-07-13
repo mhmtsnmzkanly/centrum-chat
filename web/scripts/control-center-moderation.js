@@ -1,5 +1,5 @@
-import { controlCenterStore } from "../state/store.js";
-import { el, formatBytes, formatDate, renderToast } from "./common.js";
+import { controlCenterStore } from "./control-center-store.js";
+import { el, formatBytes, formatDate, renderToast } from "./control-center-common.js";
 
 export function initModerationModule() {
   const filterStatus = document.getElementById("filter-status");

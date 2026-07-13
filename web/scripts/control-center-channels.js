@@ -1,5 +1,5 @@
-import { controlCenterStore } from "../state/store.js";
-import { el, renderToast } from "./common.js";
+import { controlCenterStore } from "./control-center-store.js";
+import { el, renderToast } from "./control-center-common.js";
 
 export function initChannelsModule() {
   const tableRows = document.getElementById("channels-table-rows");

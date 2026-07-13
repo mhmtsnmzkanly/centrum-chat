@@ -1,12 +1,6 @@
-import * as Errors from "./errors.js";
+import * as Errors from "./control-center-errors.js";
+import { TOKEN_KEYS, parseJwt } from "./shared-auth.js";
 
-// Fixtures are intentionally disconnected from the production module graph.
-export const USE_DEVELOPMENT_FIXTURES = false;
-
-const TOKEN_KEYS = Object.freeze({
-  persistent: "chat_session_tokens_persistent",
-  session: "chat_session_tokens_session",
-});
 const SAFE_RETRY_METHODS = new Set(["GET", "HEAD", "OPTIONS"]);
 let refreshPromise = null;
 
@@ -34,17 +28,6 @@ function readStored(store, key) {
     return parsed;
   } catch {
     store.removeItem(key);
-    return null;
-  }
-}
-
-function parseJwt(token) {
-  try {
-    const encoded = token.split(".")[1];
-    if (!encoded) return null;
-    const normalized = encoded.replace(/-/g, "+").replace(/_/g, "/");
-    return JSON.parse(atob(normalized));
-  } catch {
     return null;
   }
 }
