@@ -92,7 +92,6 @@ import { PasswordResetCompleteRoute } from "./application/http/routes/auth/passw
 import { StartEmailChangeRoute } from "./application/http/routes/auth/startEmailChangeRoute.ts";
 import { CompleteEmailChangeRoute } from "./application/http/routes/auth/completeEmailChangeRoute.ts";
 import { StaticRoute } from "./application/http/routes/staticRoute.ts";
-import { ControlCenterStaticRoute } from "./application/http/routes/controlCenterStaticRoute.ts";
 import { SessionCleanupJob } from "./application/lifecycle/sessionCleanupJob.ts";
 import { WebSocketLifecycleJob } from "./application/lifecycle/webSocketLifecycleJob.ts";
 import { SystemPongHandler } from "./application/websocket/handlers/system/systemPongHandler.ts";
@@ -937,9 +936,6 @@ webSocketLifecycleJob.start();
 
 // Serve the static frontend assets from the web/ directory.
 const webDir = new URL("../web", import.meta.url).pathname;
-const controlCenterDir = new URL("../web/control-center", import.meta.url).pathname;
-registry.register(new ControlCenterStaticRoute("/control-center", controlCenterDir, codec));
-registry.register(new ControlCenterStaticRoute("/control-center/*", controlCenterDir, codec));
 registry.register(new StaticRoute("*", webDir, codec));
 
 // Orphan-cleanup: uploads never attached to a message are garbage collected after an

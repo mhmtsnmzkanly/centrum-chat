@@ -79,6 +79,7 @@ export function toProfile(user: User): Profile {
     repliesMade: user.repliesMade,
     coverIndex: user.coverIndex,
     coverUrl: user.coverUrl,
-    isOperator: user.appRole === "moderator" || user.appRole === "admin" || user.appRole === "owner",
+    isOperator: user.appRole === "moderator" || user.appRole === "admin" ||
+      user.appRole === "owner",
   };
 }
