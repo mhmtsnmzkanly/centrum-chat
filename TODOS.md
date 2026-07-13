@@ -1295,19 +1295,46 @@ sayısı ayrımını doğru yönetmelidir.
 
 ### Bildirim sayfalama ve saklama politikası
 
-**Açıklama:** Notification listesinin kararlı cursor tabanlı sayfalama ile yüklenmesi; istemcinin
-eski bildirimleri kademeli getirmesi ve veritabanında okunmuş/eski bildirimler için açık bir saklama
-ve temizleme politikası uygulanması. Temizlik unread bildirimleri yanlışlıkla silmemeli ve sorgular
-uygun indekslerle sınırlandırılmalıdır.
+**Açıklama:** Notification listesinin offset yerine kararlı cursor tabanlı sayfalama ile yüklenmesi
+ve okunmuş/eski bildirimler için açık bir saklama politikası uygulanması. `notification.list`
+isteği geriye uyumlu `unreadOnly` alanının yanında isteğe bağlı `types`, `cursor` ve `limit`
+almalıdır; ilk sayfa varsayılan 50, izin verilen en yüksek sayfa 100 kayıt olmalıdır. Yanıt
+`notifications`, `nextCursor` ve `hasMore` alanlarını döndürmelidir. Sıralama
+`created_at DESC, id DESC` olmalı; opaque ve sürümlenebilir cursor bu iki değeri taşımalı, başka
+kullanıcının verisine erişim yetkisi sağlamamalı ve malformed cursor standart `VALIDATION_ERROR`
+üretmelidir. Sayfalar arasında yeni bildirim oluşması mevcut kayıtların atlanmasına veya tekrar
+gösterilmesine yol açmamalıdır.
+
+İlk retention politikası okunmuş bildirimleri `read_at` üzerinden 90 gün saklamalı; okunmamış
+bildirimler otomatik retention temizliğiyle silinmemelidir. Kullanıcının açıkça sildiği kayıtlar bu
+süreden bağımsız kaldırılabilir. Temizlik, `NotificationCleanupJob` benzeri merkezi ve idempotent bir
+iş tarafından ağ/WS gönderimi yapmadan, kısa transaction'lar ve sınırlı batch'ler halinde
+çalıştırılmalıdır; servis yeniden başlatıldığında güvenle devam edebilmelidir. Şema değişikliği yeni
+bir migration ile yapılmalı; mevcut bildirimler korunmalı ve kullanıcı + sıralama/cursor sorgusu ile
+okunmuş retention taraması için uygun indeksler eklenmelidir.
+
+İstemci ilk sayfayı açılışta yüklemeli, kullanıcı geçmişe indikçe `Daha fazla yükle` veya kontrollü
+sonsuz kaydırma ile sonraki cursor'ı istemeli; yükleme sırasında mevcut kayıtları kaybetmemeli,
+mükerrer kimlikleri birleştirmeli ve yeni `notification.new` push'larını listenin başına eklemelidir.
+Filtre değişiminde cursor sıfırlanmalı; loading, listenin sonu, boş sonuç ve yeniden deneme durumları
+ayrı gösterilmelidir. Repository ve entegrasyon testleri; kullanıcı izolasyonu, limit sınırları,
+malformed cursor, eşit timestamp için `id` tie-break, sayfalar arasında eşzamanlı insert, unread
+koruması, 90 günlük okunmuş temizliği, batch davranışı, migration upgrade yolu ve indeksleri
+kapsamalıdır.
 
 **Öncelik:** Yüksek
 
-**Efor:** Orta
+**Efor:** Yüksek
 
 #### Durum
 
 `Bekliyor`
 
+- 2026-07-14 — Model: GPT-5 Codex — Kapsam; `(created_at, id)` cursor sözleşmesi, varsayılan/maksimum
+  sayfa boyutu, 90 günlük okunmuş retention, unread koruması, batch cleanup job, gerekli indeksler,
+  istemci birleştirme davranışı ve yarış/migration test kabul ölçütleriyle ayrıntılandırıldı.
+  Migration, repository, domain, protocol, lifecycle job, istemci ve test katmanlarının birlikte
+  değişmesi gerektiği netleştiği için efor `Orta` seviyesinden `Yüksek` seviyesine çıkarıldı.
 - 2026-07-14 — Model: GPT-5 Codex — `notification.list` çağrısının kullanıcıya ait sonuçları tek
   seferde döndürdüğü, cursor/limit ve kalıcı retention politikası bulunmadığı doğrulanarak eklendi.
 
