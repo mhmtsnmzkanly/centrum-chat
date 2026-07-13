@@ -3,11 +3,12 @@ import { store } from "./chat-store.js";
 import { wsClient } from "./chat-socket.js";
 import { TOKENS, STORAGE } from "./chat-auth.js";
 import { ToastService } from "./chat-api.js";
-import { HELPERS, MAPPERS, ensureUsersKnown, patchMessageById } from "./chat-messages.js";
+import { HELPERS, MAPPERS, patchMessageById } from "./chat-messages.js";
 import { playBeep, hideSplashLoader } from "./chat-dialogs.js";
 import { activeConversationId, setRoomMessages, appendRoomMessage, setActiveDestination } from "./chat-conversations.js";
 import { UploadOverlay, destKeyForConversation, setupDragDropZone } from "./chat-media.js";
-import { refreshUserProfile, applySystemTheme } from "./chat-profile.js";
+import { refreshUserProfile } from "./chat-profile.js";
+import { applySystemTheme } from "./shared-theme.js";
 import {
   handlers,
   initApp,
@@ -16,6 +17,7 @@ import {
   ensureEmojiPickerMounted,
   showReactionUsersPopover,
   ChatService,
+  ensureUsersKnown,
 } from "./chat-handlers.js";
 
 setDevMode(true);

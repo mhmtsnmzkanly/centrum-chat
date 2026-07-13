@@ -114,13 +114,13 @@
               <ul class="list-unstyled d-flex flex-column gap-1 mb-0">
                 <li data-show="showTab_reports">
                   <button class="btn btn-sidebar w-100 text-start {navClass_reports}"
-                    data-tab="reports" role="tab" data-on-click="clickTab">
+                    data-navClass_reports="navClass_reports" data-tab="reports" role="tab" data-on-click="clickTab">
                     <i class="bi bi-chat-left-text me-2"></i>Reports Queue
                   </button>
                 </li>
                 <li data-show="showTab_moderation-audit">
                   <button class="btn btn-sidebar w-100 text-start {navClass_moderation-audit}"
-                    data-tab="moderation-audit" role="tab" data-on-click="clickTab">
+                    data-navClass_moderation-audit="navClass_moderation-audit" data-tab="moderation-audit" role="tab" data-on-click="clickTab">
                     <i class="bi bi-journal-text me-2"></i>Moderation Audit
                   </button>
                 </li>
@@ -134,31 +134,31 @@
               <ul class="list-unstyled d-flex flex-column gap-1 mb-0">
                 <li data-show="showTab_users">
                   <button class="btn btn-sidebar w-100 text-start {navClass_users}"
-                    data-tab="users" role="tab" data-on-click="clickTab">
+                    data-navClass_users="navClass_users" data-tab="users" role="tab" data-on-click="clickTab">
                     <i class="bi bi-people me-2"></i>Users
                   </button>
                 </li>
                 <li data-show="showTab_channels">
                   <button class="btn btn-sidebar w-100 text-start {navClass_channels}"
-                    data-tab="channels" role="tab" data-on-click="clickTab">
+                    data-navClass_channels="navClass_channels" data-tab="channels" role="tab" data-on-click="clickTab">
                     <i class="bi bi-hash me-2"></i>Channels
                   </button>
                 </li>
                 <li data-show="showTab_roles">
                   <button class="btn btn-sidebar w-100 text-start {navClass_roles}"
-                    data-tab="roles" role="tab" data-on-click="clickTab">
+                    data-navClass_roles="navClass_roles" data-tab="roles" role="tab" data-on-click="clickTab">
                     <i class="bi bi-person-badge me-2"></i>Roles
                   </button>
                 </li>
                 <li data-show="showTab_settings">
                   <button class="btn btn-sidebar w-100 text-start {navClass_settings}"
-                    data-tab="settings" role="tab" data-on-click="clickTab">
+                    data-navClass_settings="navClass_settings" data-tab="settings" role="tab" data-on-click="clickTab">
                     <i class="bi bi-sliders me-2"></i>System Settings
                   </button>
                 </li>
                 <li data-show="showTab_security-audit">
                   <button class="btn btn-sidebar w-100 text-start {navClass_security-audit}"
-                    data-tab="security-audit" role="tab" data-on-click="clickTab">
+                    data-navClass_security-audit="navClass_security-audit" data-tab="security-audit" role="tab" data-on-click="clickTab">
                     <i class="bi bi-file-earmark-lock me-2"></i>Security Audit
                   </button>
                 </li>
@@ -172,7 +172,7 @@
               <ul class="list-unstyled d-flex flex-column gap-1 mb-0">
                 <li data-show="showTab_ownership-transfer">
                   <button class="btn btn-sidebar w-100 text-start {navClass_ownership-transfer}"
-                    data-tab="ownership-transfer" role="tab" data-on-click="clickTab">
+                    data-navClass_ownership-transfer="navClass_ownership-transfer" data-tab="ownership-transfer" role="tab" data-on-click="clickTab">
                     <i class="bi bi-key me-2"></i>Ownership Transfer
                   </button>
                 </li>
@@ -192,6 +192,7 @@
                 id="operator-name" data-text="operator.displayName">Operator</span>
               <span
                 class="badge {operatorBadgeClass}"
+                data-operatorBadgeClass="operatorBadgeClass"
                 id="operator-role"
                 style="font-size: 0.6rem; width: fit-content;" data-text="operator.roleUpper">OPERATOR</span>
             </div>
@@ -308,31 +309,31 @@
                           <div class="spinner-border spinner-border-sm me-2" role="status"></div>
                           <span>Loading reports...</span>
                         </div>
-                      </if>
-                      <if is-falsy="reportsLoading" data-live>
-                        <if is-truthy="reportsListEmpty" data-live>
-                          <div class="text-center my-5 text-muted fs-7">
-                            <i class="bi bi-check-circle-fill text-success fs-3 d-block mb-2"></i>
-                            <span>All clear! No reports found.</span>
-                          </div>
-                        </if>
-                        <for each="reportsList" as="rep" key="rep.id" data-live>
-                          <div class="report-item {rep.activeClass}" role="button" data-on-click="selectReport" data-id="{rep.id}">
-                            <div class="d-flex justify-content-between align-items-center mb-1">
-                              <span class="fw-bold fs-7 text-dark-mode-override">Report #{rep.id}</span>
-                              <span class="badge {rep.badgeClass}">{rep.statusText}</span>
+                        <else>
+                          <if is-truthy="reportsListEmpty" data-live>
+                            <div class="text-center my-5 text-muted fs-7">
+                              <i class="bi bi-check-circle-fill text-success fs-3 d-block mb-2"></i>
+                              <span>All clear! No reports found.</span>
                             </div>
-                            <div class="text-muted fs-8 mb-1">
-                              Type: {rep.targetTypeUpper} | Reason: {rep.reasonCodeUpper}
+                          </if>
+                          <for each="reportsList" as="rep" key="rep.id" data-live>
+                            <div class="report-item ${rep.activeClass}" role="button" data-on-click="selectReport" data-id="${rep.id}">
+                              <div class="d-flex justify-content-between align-items-center mb-1">
+                                <span class="fw-bold fs-7 text-dark-mode-override">Report #${rep.id}</span>
+                                <span class="badge ${rep.badgeClass}">${rep.statusText}</span>
+                              </div>
+                              <div class="text-muted fs-8 mb-1">
+                                Type: ${rep.targetTypeUpper} | Reason: ${rep.reasonCodeUpper}
+                              </div>
+                              <div class="text-dark-mode-override fs-7 text-truncate">
+                                ${rep.details}
+                              </div>
+                              <div class="text-muted fs-8 text-end mt-1">
+                                ${rep.formattedDate}
+                              </div>
                             </div>
-                            <div class="text-dark-mode-override fs-7 text-truncate">
-                              {rep.details}
-                            </div>
-                            <div class="text-muted fs-8 text-end mt-1">
-                              {rep.formattedDate}
-                            </div>
-                          </div>
-                        </for>
+                          </for>
+                        </else>
                       </if>
                     </div>
                     <div class="card-footer border-top p-2 text-center">
@@ -355,150 +356,147 @@
                         <i class="bi bi-arrow-left"></i> Back to List
                       </button>
                       
-                      <!-- Select report placeholder -->
-                      <if is-falsy="selectedReportId" data-live>
-                        <div id="investigation-placeholder" class="my-auto mx-auto text-center text-muted p-5">
-                          <i class="bi bi-chat-square-text fs-1 mb-3 text-primary opacity-50 d-block"></i>
-                          <span>Select a report from the feed to begin investigation</span>
-                        </div>
-                      </if>
-
-                      <!-- Dynamic detail views -->
+                      <!-- Report placeholder or detail panel -->
                       <if is-truthy="selectedReportId" data-live>
                         <if is-truthy="selectedReportLoading" data-live>
                           <div class="my-auto mx-auto text-center text-muted p-5">
                             <div class="spinner-border text-primary mb-3" role="status"></div>
                             <span class="d-block">Loading report details & context...</span>
                           </div>
-                        </if>
-                        
-                        <if is-falsy="selectedReportLoading" data-live>
-                          <div id="investigation-details" class="d-flex flex-column h-100">
-                            <!-- Header workflow row -->
-                            <div class="p-3 border-bottom d-flex flex-wrap align-items-center justify-content-between gap-2">
-                              <div>
-                                <h3 class="h6 fw-bold mb-0 text-dark-mode-override">Investigation: #{selectedReportDetails.id}</h3>
-                                <span class="text-muted fs-8">Reported on {selectedReportFormattedDate}</span>
-                              </div>
-                              <div class="d-flex gap-2">
-                                <if is-truthy="showAssignButton" data-live>
-                                  <button class="btn btn-sm btn-outline-primary" data-on-click="assignReportToMe" data-id="{selectedReportDetails.id}">
-                                    Assign to Me
-                                  </button>
-                                </if>
-                                
-                                <if is-eq="selectedReportDetails.status" to="open" data-live>
-                                  <button class="btn btn-sm btn-primary" data-on-click="startReviewReport" data-id="{selectedReportDetails.id}">Start Review</button>
-                                  <button class="btn btn-sm btn-outline-danger" data-on-click="dismissReport" data-id="{selectedReportDetails.id}">Dismiss</button>
-                                </if>
-                                
-                                <if is-eq="selectedReportDetails.status" to="in_review" data-live>
-                                  <button class="btn btn-sm btn-outline-secondary" data-on-click="returnOpenReport" data-id="{selectedReportDetails.id}">Return Open</button>
-                                  <button class="btn btn-sm btn-success" data-on-click="resolveReport" data-id="{selectedReportDetails.id}">Resolve</button>
-                                  <button class="btn btn-sm btn-outline-danger" data-on-click="dismissReport" data-id="{selectedReportDetails.id}">Dismiss</button>
-                                </if>
-                              </div>
-                            </div>
-                            
-                            <!-- Main scrollable details body -->
-                            <div class="flex-grow-1 overflow-y-auto p-3 d-flex flex-column gap-3">
-                              <!-- Details card -->
-                              <div class="p-3 border rounded bg-light-subtle text-start">
-                                <span class="fw-bold text-muted text-uppercase tracking-wider fs-8 mb-2 d-block">Report details</span>
-                                <div class="fs-7 mb-1 text-dark-mode-override">
-                                  <strong>Reporter ID: </strong><span>{selectedReportDetails.reporterUserId}</span>
+                          <else>
+                            <div id="investigation-details" class="d-flex flex-column h-100">
+                              <!-- Header workflow row -->
+                              <div class="p-3 border-bottom d-flex flex-wrap align-items-center justify-content-between gap-2">
+                                <div>
+                                  <h3 class="h6 fw-bold mb-0 text-dark-mode-override">Investigation: #<span data-text="selectedReportDetails.id"></span></h3>
+                                  <span class="text-muted fs-8">Reported on <span data-text="selectedReportFormattedDate"></span></span>
                                 </div>
-                                <div class="fs-7 mb-1 text-dark-mode-override">
-                                  <strong>Reason Code: </strong><span class="badge bg-secondary-subtle text-secondary border">{selectedReportDetails.reasonCode}</span>
-                                </div>
-                                <div class="fs-7 mb-2 text-dark-mode-override">
-                                  <strong>Status: </strong><span class="report-badge {selectedReportDetails.status}">{selectedReportDetails.status}</span>
-                                </div>
-                                <div class="p-2 border rounded bg-body fs-7 text-dark-mode-override fst-italic">
-                                  "{selectedReportDetails.details}"
+                                <div class="d-flex gap-2">
+                                  <if is-truthy="showAssignButton" data-live>
+                                    <button class="btn btn-sm btn-outline-primary" data-on-click="assignReportToMe">
+                                      Assign to Me
+                                    </button>
+                                  </if>
+                                  
+                                  <if is-eq="selectedReportDetails.status" to="open" data-live>
+                                    <button class="btn btn-sm btn-primary" data-on-click="startReviewReport">Start Review</button>
+                                    <button class="btn btn-sm btn-outline-danger" data-on-click="dismissReport">Dismiss</button>
+                                  </if>
+                                  
+                                  <if is-eq="selectedReportDetails.status" to="in_review" data-live>
+                                    <button class="btn btn-sm btn-outline-secondary" data-on-click="returnOpenReport">Return Open</button>
+                                    <button class="btn btn-sm btn-success" data-on-click="resolveReport">Resolve</button>
+                                    <button class="btn btn-sm btn-outline-danger" data-on-click="dismissReport">Dismiss</button>
+                                  </if>
                                 </div>
                               </div>
                               
-                              <!-- Context visualizer card -->
-                              <if is-truthy="selectedReportDetails.targetId" data-live>
+                              <!-- Main scrollable details body -->
+                              <div class="flex-grow-1 overflow-y-auto p-3 d-flex flex-column gap-3">
+                                <!-- Details card -->
+                                <div class="p-3 border rounded bg-light-subtle text-start">
+                                  <span class="fw-bold text-muted text-uppercase tracking-wider fs-8 mb-2 d-block">Report details</span>
+                                  <div class="fs-7 mb-1 text-dark-mode-override">
+                                    <strong>Reporter ID: </strong><span data-text="selectedReportDetails.reporterUserId"></span>
+                                  </div>
+                                  <div class="fs-7 mb-1 text-dark-mode-override">
+                                    <strong>Reason Code: </strong><span class="badge bg-secondary-subtle text-secondary border" data-text="selectedReportDetails.reasonCode"></span>
+                                  </div>
+                                  <div class="fs-7 mb-2 text-dark-mode-override">
+                                    <strong>Status: </strong><span class="{selectedReportStatusClass}" data-selectedReportStatusClass="selectedReportStatusClass" data-text="selectedReportDetails.status"></span>
+                                  </div>
+                                  <div class="p-2 border rounded bg-body fs-7 text-dark-mode-override fst-italic">
+                                    "<span data-text="selectedReportDetails.details"></span>"
+                                  </div>
+                                </div>
+                                
+                                <!-- Context visualizer card -->
+                                <if is-truthy="selectedReportDetails.targetId" data-live>
+                                  <div class="p-3 border rounded d-flex flex-column gap-2 text-start">
+                                    <span class="fw-bold text-muted text-uppercase tracking-wider fs-8 d-block">Target context</span>
+                                    
+                                    <if is-eq="selectedReportDetails.targetType" to="message" data-live>
+                                      <div class="chat-context-box p-3 d-flex flex-column">
+                                        <for each="selectedReportContext.context" as="msg" key="msg.id" data-live>
+                                          <div class="mb-2 text-start">
+                                            <div class="text-muted fs-8 mb-1">
+                                              ${msg.authorId} at ${msg.createdAt}
+                                            </div>
+                                            <div class="chat-bubble-context text-dark-mode-override">
+                                              ${msg.content}
+                                            </div>
+                                          </div>
+                                        </for>
+                                      </div>
+                                    </if>
+                                    
+                                    <if is-eq="selectedReportDetails.targetType" to="user" data-live>
+                                      <div class="d-flex align-items-center gap-3 p-2 bg-light-subtle rounded border">
+                                        <div class="avatar-placeholder fs-5">U</div>
+                                        <div class="text-start">
+                                          <h4 class="h6 fw-bold mb-0 text-dark-mode-override" data-text="selectedReportContext.target.displayName"></h4>
+                                          <div class="text-muted fs-8">@<span data-text="selectedReportContext.target.username"></span></div>
+                                          <div class="fs-7 mt-1 text-dark-mode-override" data-text="selectedReportContext.target.bio"></div>
+                                        </div>
+                                      </div>
+                                    </if>
+                                    
+                                    <if is-eq="selectedReportDetails.targetType" to="attachment" data-live>
+                                      <div class="p-2 border rounded bg-light-subtle d-flex align-items-center gap-3">
+                                        <i class="bi bi-file-earmark-arrow-down-fill text-primary fs-2"></i>
+                                        <div class="text-start flex-grow-1">
+                                          <h4 class="h6 fw-bold mb-0 text-dark-mode-override" data-text="selectedReportContext.target.fileName"></h4>
+                                          <div class="text-muted fs-8">Type: <span data-text="selectedReportContext.target.mimeType"></span> | Size: <span data-text="selectedReportContext.target.sizeBytes"></span></div>
+                                          <div class="fs-8 text-muted mt-1">Uploader ID: <span data-text="selectedReportContext.target.uploaderId"></span></div>
+                                        </div>
+                                      </div>
+                                    </if>
+                                  </div>
+                                </if>
+                                
+                                <!-- Contextual Sanctions Card -->
                                 <div class="p-3 border rounded d-flex flex-column gap-2 text-start">
-                                  <span class="fw-bold text-muted text-uppercase tracking-wider fs-8 d-block">Target context</span>
+                                  <div class="d-flex align-items-center justify-content-between">
+                                    <span class="fw-bold text-muted text-uppercase tracking-wider fs-8">Target Sanctions History</span>
+                                    <if is-truthy="canApplySanctions" data-live>
+                                      <button class="btn btn-sm btn-danger fs-8" data-on-click="clickApplySanction">Apply Sanction</button>
+                                    </if>
+                                  </div>
                                   
-                                  <if is-eq="selectedReportDetails.targetType" to="message" data-live>
-                                    <div class="chat-context-box p-3 d-flex flex-column">
-                                      <for each="selectedReportContext.context" as="msg" key="msg.id" data-live>
-                                        <div class="mb-2 text-start">
-                                          <div class="text-muted fs-8 mb-1">
-                                            {msg.authorId} at {msg.createdAt}
+                                  <div class="d-flex flex-column gap-2">
+                                    <for each="userSanctionsList" as="s" key="s.id" data-live>
+                                      <div class="p-2 border rounded d-flex justify-content-between align-items-center bg-body">
+                                        <div class="text-start fs-7">
+                                          <div>
+                                            <span class="badge ${s.badgeClass} me-2">${s.typeDisplay}</span>
+                                            <span class="text-muted fs-8">Status: ${s.statusText}</span>
                                           </div>
-                                          <div class="chat-bubble-context text-dark-mode-override">
-                                            {msg.content}
+                                          <div class="text-dark-mode-override mt-1">
+                                            Reason: ${s.reasonCode} - Note: ${s.moderatorNote}
+                                          </div>
+                                          <div class="text-muted fs-8">
+                                            Expires: ${s.expiresFormatted}
                                           </div>
                                         </div>
-                                      </for>
-                                    </div>
-                                  </if>
-                                  
-                                  <if is-eq="selectedReportDetails.targetType" to="user" data-live>
-                                    <div class="d-flex align-items-center gap-3 p-2 bg-light-subtle rounded border">
-                                      <div class="avatar-placeholder fs-5">U</div>
-                                      <div class="text-start">
-                                        <h4 class="h6 fw-bold mb-0 text-dark-mode-override">{selectedReportContext.target.displayName}</h4>
-                                        <div class="text-muted fs-8">@{selectedReportContext.target.username}</div>
-                                        <div class="fs-7 mt-1 text-dark-mode-override">{selectedReportContext.target.bio}</div>
+                                        <if is-truthy="canRevokeSanctions" data-live>
+                                          <button class="btn btn-sm btn-outline-warning fs-8" data-on-click="clickRevokeSanction" data-id="${s.id}" data-user-id="${s.userId}">
+                                            Revoke
+                                          </button>
+                                        </if>
                                       </div>
-                                    </div>
-                                  </if>
-                                  
-                                  <if is-eq="selectedReportDetails.targetType" to="attachment" data-live>
-                                    <div class="p-2 border rounded bg-light-subtle d-flex align-items-center gap-3">
-                                      <i class="bi bi-file-earmark-arrow-down-fill text-primary fs-2"></i>
-                                      <div class="text-start flex-grow-1">
-                                        <h4 class="h6 fw-bold mb-0 text-dark-mode-override">{selectedReportContext.target.fileName}</h4>
-                                        <div class="text-muted fs-8">Type: {selectedReportContext.target.mimeType} | Size: {selectedReportContext.target.sizeBytes}</div>
-                                        <div class="fs-8 text-muted mt-1">Uploader ID: {selectedReportContext.target.uploaderId}</div>
-                                      </div>
-                                    </div>
-                                  </if>
-                                </div>
-                              </if>
-                              
-                              <!-- Contextual Sanctions Card -->
-                              <div class="p-3 border rounded d-flex flex-column gap-2 text-start">
-                                <div class="d-flex align-items-center justify-content-between">
-                                  <span class="fw-bold text-muted text-uppercase tracking-wider fs-8">Target Sanctions History</span>
-                                  <if is-truthy="canApplySanctions" data-live>
-                                    <button class="btn btn-sm btn-danger fs-8" data-on-click="clickApplySanction">Apply Sanction</button>
-                                  </if>
-                                </div>
-                                
-                                <div class="d-flex flex-column gap-2">
-                                  <for each="userSanctionsList" as="s" key="s.id" data-live>
-                                    <div class="p-2 border rounded d-flex justify-content-between align-items-center bg-body">
-                                      <div class="text-start fs-7">
-                                        <div>
-                                          <span class="badge {s.badgeClass} me-2">{s.typeDisplay}</span>
-                                          <span class="text-muted fs-8">Status: {s.statusText}</span>
-                                        </div>
-                                        <div class="text-dark-mode-override mt-1">
-                                          Reason: {s.reasonCode} - Note: {s.moderatorNote}
-                                        </div>
-                                        <div class="text-muted fs-8">
-                                          Expires: {s.expiresFormatted}
-                                        </div>
-                                      </div>
-                                      <if is-truthy="canRevokeSanctions" data-live>
-                                        <button class="btn btn-sm btn-outline-warning fs-8" data-on-click="clickRevokeSanction" data-id="{s.id}" data-user-id="{s.userId}">
-                                          Revoke
-                                        </button>
-                                      </if>
-                                    </div>
-                                  </for>
+                                    </for>
+                                  </div>
                                 </div>
                               </div>
                             </div>
-                          </div>
+                          </else>
                         </if>
+                        <else>
+                          <div id="investigation-placeholder" class="my-auto mx-auto text-center text-muted p-5">
+                            <i class="bi bi-chat-square-text fs-1 mb-3 text-primary opacity-50 d-block"></i>
+                            <span>Select a report from the feed to begin investigation</span>
+                          </div>
+                        </else>
                       </if>
                     </div>
                   </div>
@@ -530,53 +528,51 @@
                   </div>
                 </div>
                 <div class="card-body p-0 table-responsive flex-grow-1">
-                  <table
-                    class="table table-hover table-striped align-middle mb-0 table-responsive-cards"
-                    role="grid">
-                    <thead class="table-light">
-                      <tr>
-                        <th>Timestamp</th>
-                        <th>Actor</th>
-                        <th>Action</th>
-                        <th>Target</th>
-                        <th>Outcome</th>
-                        <th>Details / Metadata</th>
-                      </tr>
-                    </thead>
-                    <for each="moderationAuditEvents" as="ev" key="ev.id" data-live el="tbody">
-                      <tr>
-                        <td class="fs-8 text-muted">{ev.formattedDate}</td>
-                        <td class="fw-semibold text-dark-mode-override">{ev.actorUserId}</td>
-                        <td>
-                          <span class="badge bg-secondary-subtle text-secondary">{ev.actionCode}</span>
-                        </td>
-                        <td class="text-muted fs-8">
-                          {ev.targetType || 'N/A'}: {ev.targetId || 'N/A'}
-                        </td>
-                        <td><span class="badge {ev.outcomeClass}">{ev.outcome}</span></td>
-                        <td>
+                  <div class="d-table w-100 align-middle">
+                    <div class="d-table-header-group bg-light fw-bold text-muted border-bottom">
+                      <div class="d-table-row">
+                        <div class="d-table-cell p-3">Timestamp</div>
+                        <div class="d-table-cell p-3">Actor</div>
+                        <div class="d-table-cell p-3">Action</div>
+                        <div class="d-table-cell p-3">Target</div>
+                        <div class="d-table-cell p-3">Outcome</div>
+                        <div class="d-table-cell p-3">Details / Metadata</div>
+                      </div>
+                    </div>
+                    <for each="moderationAuditEvents" as="ev" key="ev.id" data-live el="div">
+                      <div class="d-table-row border-bottom hover-row align-middle text-start">
+                        <div class="d-table-cell p-3 fs-8 text-muted">${ev.formattedDate}</div>
+                        <div class="d-table-cell p-3 fw-semibold text-dark-mode-override">${ev.actorUserId}</div>
+                        <div class="d-table-cell p-3">
+                          <span class="badge bg-secondary-subtle text-secondary">${ev.actionCode}</span>
+                        </div>
+                        <div class="d-table-cell p-3 text-muted fs-8">
+                          ${ev.targetType || 'N/A'}: ${ev.targetId || 'N/A'}
+                        </div>
+                        <div class="d-table-cell p-3"><span class="badge ${ev.outcomeClass}">${ev.outcome}</span></div>
+                        <div class="d-table-cell p-3">
                           <div class="d-flex flex-column gap-1">
-                            <button class="btn btn-xs btn-link text-decoration-none p-0 fs-8 text-start" data-on-click="toggleAuditMeta" data-id="{ev.id}">Show Details</button>
-                            <pre class="pre-metadata-block m-0 d-none text-start" id="meta-{ev.id}">{ev.metadataFormatted}</pre>
+                            <button class="btn btn-xs btn-link text-decoration-none p-0 fs-8 text-start" data-on-click="toggleAuditMeta" data-id="${ev.id}">Show Details</button>
+                            <pre class="pre-metadata-block m-0 d-none text-start" id="meta-${ev.id}">${ev.metadataFormatted}</pre>
                           </div>
-                        </td>
-                      </tr>
+                        </div>
+                      </div>
                     </for>
-                  </table>
+                  </div>
                   <if is-truthy="auditLoading" data-live>
                     <div class="text-center p-5 text-muted">
                       <div class="spinner-border spinner-border-sm me-2" role="status"></div>
                       Loading audit logs...
                     </div>
-                  </if>
-                  <if is-falsy="auditLoading" data-live>
-                    <if is-eq="moderationAuditEventsCountLabel" to="0 events" data-live>
-                      <div id="mod-audit-placeholder"
-                        class="text-center p-5 text-muted">
-                        <i class="bi bi-journals fs-1 mb-2 d-block"></i>
-                        No audit records match the selected filters.
-                      </div>
-                    </if>
+                    <else>
+                      <if is-eq="moderationAuditEventsCountLabel" to="0 events" data-live>
+                        <div id="mod-audit-placeholder"
+                          class="text-center p-5 text-muted">
+                          <i class="bi bi-journals fs-1 mb-2 d-block"></i>
+                          No audit records match the selected filters.
+                        </div>
+                      </if>
+                    </else>
                   </if>
                 </div>
                 <div class="card-footer border-top p-2 text-center">
@@ -629,19 +625,19 @@
                           <div class="spinner-border spinner-border-sm me-2" role="status"></div>
                           <span>Loading users...</span>
                         </div>
-                      </if>
-                      <if is-falsy="usersLoading" data-live>
-                        <for each="usersList" as="u" key="u.id" data-live>
-                          <div class="user-item {u.activeClass}" role="button" data-on-click="selectUser" data-id="{u.id}">
-                            <div class="d-flex justify-content-between align-items-center mb-1">
-                              <span class="fw-bold fs-7 text-dark-mode-override">{u.displayNameOrUsername}</span>
-                              <span class="badge bg-secondary-subtle text-secondary border">{u.roleUpper}</span>
+                        <else>
+                          <for each="usersList" as="u" key="u.id" data-live>
+                            <div class="user-item ${u.activeClass}" role="button" data-on-click="selectUser" data-id="${u.id}">
+                              <div class="d-flex justify-content-between align-items-center mb-1">
+                                <span class="fw-bold fs-7 text-dark-mode-override">${u.displayNameOrUsername}</span>
+                                <span class="badge bg-secondary-subtle text-secondary border">${u.roleUpper}</span>
+                              </div>
+                              <div class="text-muted fs-8">
+                                @${u.username} | ${u.email}
+                              </div>
                             </div>
-                            <div class="text-muted fs-8">
-                              @{u.username} | {u.email}
-                            </div>
-                          </div>
-                        </for>
+                          </for>
+                        </else>
                       </if>
                     </div>
                     <div class="card-footer border-top p-2 text-center">
@@ -664,106 +660,104 @@
                         <i class="bi bi-arrow-left"></i> Back to List
                       </button>
                       
-                      <!-- Select user placeholder -->
-                      <if is-falsy="selectedUserId" data-live>
-                        <div id="user-details-placeholder"
-                          class="my-auto mx-auto text-center text-muted p-5">
-                          <i
-                            class="bi bi-person-bounding-box fs-1 mb-3 text-primary opacity-50 d-block"></i>
-                          <span>Select a user from the list to view profile details and credentials</span>
-                        </div>
-                      </if>
-
+                      <!-- User detail workspace or placeholder -->
                       <if is-truthy="selectedUserId" data-live>
                         <if is-truthy="selectedUserLoading" data-live>
                           <div class="my-auto mx-auto text-center text-muted p-5">
                             <div class="spinner-border text-primary mb-3" role="status"></div>
                             <span class="d-block">Loading user account details...</span>
                           </div>
-                        </if>
+                          <else>
+                            <div id="user-details-content" class="d-flex flex-column h-100">
+                              <!-- Header details card -->
+                              <div class="p-3 border-bottom d-flex align-items-center gap-3 bg-light-subtle text-start">
+                                <div class="avatar-placeholder fs-4">U</div>
+                                <div class="text-start flex-grow-1">
+                                  <h3 class="h6 fw-bold mb-0 text-dark-mode-override" data-text="selectedUserDetails.displayName"></h3>
+                                  <span class="text-muted fs-8">@<span data-text="selectedUserDetails.username"></span></span>
+                                  <div class="text-muted fs-8 mt-1">Bio: <span data-text="selectedUserDetails.bio"></span></div>
+                                </div>
+                                <div>
+                                  <span class="badge bg-primary" data-text="selectedUserDetails.role"></span>
+                                </div>
+                              </div>
+                              
+                              <!-- Settings & Actions Body -->
+                              <div class="flex-grow-1 overflow-y-auto p-3 d-flex flex-column gap-3 text-start">
+                                <!-- Information fields -->
+                                <div class="p-3 border rounded bg-light-subtle">
+                                  <span class="fw-bold text-muted text-uppercase tracking-wider fs-8 mb-2 d-block">System Account Status</span>
+                                  <div class="fs-7 mb-1 text-dark-mode-override">
+                                    <strong>Verification Status: </strong>
+                                    <if is-truthy="selectedUserDetails.emailVerifiedAt" data-live>
+                                      <span class="badge bg-success-subtle text-success border border-success">verified</span>
+                                      <else>
+                                        <span class="badge bg-warning-subtle text-warning border border-warning">unverified</span>
+                                      </else>
+                                    </if>
+                                  </div>
+                                  <div class="fs-7 mb-1 text-dark-mode-override">
+                                    <strong>Account Status: </strong>
+                                    <if is-truthy="selectedUserDetails.accountDisabledAt" data-live>
+                                      <span class="badge bg-danger-subtle text-danger">disabled</span>
+                                      <else>
+                                        <span class="badge bg-success-subtle text-success">active</span>
+                                      </else>
+                                    </if>
+                                  </div>
+                                  <div class="fs-7 mb-1 text-dark-mode-override">
+                                    <strong>Password reset required: </strong>
+                                    <if is-truthy="selectedUserDetails.mustResetPassword" data-live>
+                                      <span>yes</span>
+                                      <else>
+                                        <span>no</span>
+                                      </else>
+                                    </if>
+                                  </div>
+                                  <div class="fs-7 text-dark-mode-override">
+                                    <strong>Email: </strong>
+                                    <span data-text="selectedUserDetails.email"></span>
+                                  </div>
+                                </div>
 
-                        <if is-falsy="selectedUserLoading" data-live>
-                          <div id="user-details-content" class="d-flex flex-column h-100">
-                            <!-- Header details card -->
-                            <div class="p-3 border-bottom d-flex align-items-center gap-3 bg-light-subtle text-start">
-                              <div class="avatar-placeholder fs-4">U</div>
-                              <div class="text-start flex-grow-1">
-                                <h3 class="h6 fw-bold mb-0 text-dark-mode-override">{selectedUserDetails.displayName}</h3>
-                                <span class="text-muted fs-8">@{selectedUserDetails.username}</span>
-                                <div class="text-muted fs-8 mt-1">Bio: {selectedUserDetails.bio}</div>
-                              </div>
-                              <div>
-                                <span class="badge bg-primary">{selectedUserDetails.role}</span>
-                              </div>
-                            </div>
-                            
-                            <!-- Settings & Actions Body -->
-                            <div class="flex-grow-1 overflow-y-auto p-3 d-flex flex-column gap-3 text-start">
-                              <!-- Information fields -->
-                              <div class="p-3 border rounded bg-light-subtle">
-                                <span class="fw-bold text-muted text-uppercase tracking-wider fs-8 mb-2 d-block">System Account Status</span>
-                                <div class="fs-7 mb-1 text-dark-mode-override">
-                                  <strong>Verification Status: </strong>
-                                  <if is-truthy="selectedUserDetails.emailVerifiedAt" data-live>
-                                    <span class="badge bg-success-subtle text-success border border-success">verified</span>
+                                <!-- Editable fields -->
+                                <if is-truthy="capabilities.administration.usersUpdate" data-live>
+                                  <if is-neq="selectedUserDetails.role" to="owner" data-live>
+                                    <form class="p-3 border rounded d-flex flex-column gap-2" data-on-submit="submitUpdateUserForm">
+                                      <span class="fw-bold text-muted text-uppercase tracking-wider fs-8">Editable account fields</span>
+                                      <input type="text" id="edit-user-display-name" class="form-control form-control-sm" value="{display}" data-display="selectedUserDetails.displayName" maxlength="50" placeholder="Display Name">
+                                      <textarea id="edit-user-bio" class="form-control form-control-sm" rows="2" maxlength="500" placeholder="Bio" data-text="selectedUserDetails.bio"></textarea>
+                                      <label class="form-check fs-7">
+                                        <input type="checkbox" id="edit-user-disabled" class="form-check-input me-2" {checked} data-checked="selectedUserDetails.accountDisabledAt">
+                                        <span>Account disabled</span>
+                                      </label>
+                                      <button type="submit" class="btn btn-sm btn-primary">Save allowed fields</button>
+                                    </form>
                                   </if>
-                                  <if is-falsy="selectedUserDetails.emailVerifiedAt" data-live>
-                                    <span class="badge bg-warning-subtle text-warning border border-warning">unverified</span>
-                                  </if>
-                                </div>
-                                <div class="fs-7 mb-1 text-dark-mode-override">
-                                  <strong>Account Status: </strong>
-                                  <if is-truthy="selectedUserDetails.accountDisabledAt" data-live>
-                                    <span class="badge bg-danger-subtle text-danger">disabled</span>
-                                  </if>
-                                  <if is-falsy="selectedUserDetails.accountDisabledAt" data-live>
-                                    <span class="badge bg-success-subtle text-success">active</span>
-                                  </if>
-                                </div>
-                                <div class="fs-7 mb-1 text-dark-mode-override">
-                                  <strong>Password reset required: </strong>
-                                  <if is-truthy="selectedUserDetails.mustResetPassword" data-live>
-                                    <span>yes</span>
-                                  </if>
-                                  <if is-falsy="selectedUserDetails.mustResetPassword" data-live>
-                                    <span>no</span>
-                                  </if>
-                                </div>
-                                <div class="fs-7 text-dark-mode-override">
-                                  <strong>Email: </strong>
-                                  <span>{selectedUserDetails.email}</span>
-                                </div>
-                              </div>
-
-                              <!-- Editable fields -->
-                              <if is-truthy="capabilities.administration.usersUpdate" data-live>
-                                <if is-neq="selectedUserDetails.role" to="owner" data-live>
-                                  <form class="p-3 border rounded d-flex flex-column gap-2" data-on-submit="submitUpdateUserForm">
-                                    <span class="fw-bold text-muted text-uppercase tracking-wider fs-8">Editable account fields</span>
-                                    <input type="text" id="edit-user-display-name" class="form-control form-control-sm" value="{selectedUserDetails.displayName}" maxlength="50" placeholder="Display Name">
-                                    <textarea id="edit-user-bio" class="form-control form-control-sm" rows="2" maxlength="500" placeholder="Bio">{selectedUserDetails.bio}</textarea>
-                                    <label class="form-check fs-7">
-                                      <input type="checkbox" id="edit-user-disabled" class="form-check-input me-2">
-                                      <span>Account disabled</span>
-                                    </label>
-                                    <button type="submit" class="btn btn-sm btn-primary">Save allowed fields</button>
-                                  </form>
                                 </if>
-                              </if>
 
-                              <!-- Administrative Controls -->
-                              <div class="p-3 border rounded border-warning d-flex flex-column gap-2 bg-warning-subtle">
-                                <span class="fw-bold text-warning-emphasis text-uppercase tracking-wider fs-8 mb-1 d-block">Administrative Controls</span>
-                                <div class="d-flex flex-wrap gap-2">
-                                  <button class="btn btn-sm btn-outline-warning" data-on-click="revokeUserSessionsBtn" data-show="capabilities.administration.usersRevokeSessions">Revoke Active Sessions</button>
-                                  <button class="btn btn-sm btn-outline-warning" data-on-click="forcePasswordResetBtn" data-show="capabilities.administration.usersForcePasswordReset">Force Password Reset</button>
-                                  <button class="btn btn-sm btn-outline-danger" data-on-click="resetUserAvatarBtn" data-show="capabilities.administration.usersResetMedia">Reset Avatar</button>
-                                  <button class="btn btn-sm btn-outline-danger" data-on-click="resetUserCoverBtn" data-show="capabilities.administration.usersResetMedia">Reset Cover Image</button>
+                                <!-- Administrative Controls -->
+                                <div class="p-3 border rounded border-warning d-flex flex-column gap-2 bg-warning-subtle">
+                                  <span class="fw-bold text-warning-emphasis text-uppercase tracking-wider fs-8 mb-1 d-block">Administrative Controls</span>
+                                  <div class="d-flex flex-wrap gap-2">
+                                    <button class="btn btn-sm btn-outline-warning" data-on-click="revokeUserSessionsBtn" data-show="capabilities.administration.usersRevokeSessions">Revoke Active Sessions</button>
+                                    <button class="btn btn-sm btn-outline-warning" data-on-click="forcePasswordResetBtn" data-show="capabilities.administration.usersForcePasswordReset">Force Password Reset</button>
+                                    <button class="btn btn-sm btn-outline-danger" data-on-click="resetUserAvatarBtn" data-show="capabilities.administration.usersResetMedia">Reset Avatar</button>
+                                    <button class="btn btn-sm btn-outline-danger" data-on-click="resetUserCoverBtn" data-show="capabilities.administration.usersResetMedia">Reset Cover Image</button>
+                                  </div>
                                 </div>
                               </div>
                             </div>
-                          </div>
+                          </else>
                         </if>
+                        <else>
+                          <div id="user-details-placeholder"
+                            class="my-auto mx-auto text-center text-muted p-5">
+                            <i
+                              class="bi bi-person-bounding-box fs-1 mb-3 text-primary opacity-50 d-block"></i>
+                            <span>Select a user from the list to view profile details and credentials</span>
+                          </div>
+                        </else>
                       </if>
                     </div>
                   </div>
@@ -788,48 +782,47 @@
                   </button>
                 </div>
                 <div class="card-body p-0 table-responsive flex-grow-1">
-                  <table class="table table-hover align-middle mb-0 table-responsive-cards"
-                    role="grid">
-                    <thead class="table-light">
-                      <tr>
-                        <th>Channel ID</th>
-                        <th>Slug</th>
-                        <th>Name</th>
-                        <th>Description</th>
-                        <th>Version</th>
-                        <th>Status</th>
-                        <th class="text-end">Actions</th>
-                      </tr>
-                    </thead>
-                    <for each="channels" as="chan" key="chan.id" data-live el="tbody">
-                      <tr>
-                        <td class="font-monospace fs-8 text-muted">#{chan.id}</td>
-                        <td class="fw-semibold text-dark-mode-override">#{chan.slug}</td>
-                        <td class="fw-semibold text-dark-mode-override">{chan.name}</td>
-                        <td class="text-truncate text-muted max-w-500">{chan.description}</td>
-                        <td class="fs-8 text-muted">v{chan.version}</td>
-                        <td>
+                  <div class="d-table w-100 align-middle">
+                    <div class="d-table-header-group bg-light fw-bold text-muted border-bottom">
+                      <div class="d-table-row">
+                        <div class="d-table-cell p-3">Channel ID</div>
+                        <div class="d-table-cell p-3">Slug</div>
+                        <div class="d-table-cell p-3">Name</div>
+                        <div class="d-table-cell p-3">Description</div>
+                        <div class="d-table-cell p-3">Version</div>
+                        <div class="d-table-cell p-3">Status</div>
+                        <div class="d-table-cell p-3 text-end">Actions</div>
+                      </div>
+                    </div>
+                    <for each="channels" as="chan" key="chan.id" data-live el="div">
+                      <div class="d-table-row border-bottom hover-row align-middle text-start">
+                        <div class="d-table-cell p-3 font-monospace fs-8 text-muted">#${chan.id}</div>
+                        <div class="d-table-cell p-3 fw-semibold text-dark-mode-override">#${chan.slug}</div>
+                        <div class="d-table-cell p-3 fw-semibold text-dark-mode-override">${chan.name}</div>
+                        <div class="d-table-cell p-3 text-truncate text-muted max-w-500">${chan.description}</div>
+                        <div class="d-table-cell p-3 fs-8 text-muted">v${chan.version}</div>
+                        <div class="d-table-cell p-3">
                           <if is-eq="chan.state" to="archived" data-live>
                             <span class="badge bg-secondary">Archived</span>
+                            <else>
+                              <span class="badge bg-success-subtle text-success border border-success-subtle">Active</span>
+                            </else>
                           </if>
-                          <if is-neq="chan.state" to="archived" data-live>
-                            <span class="badge bg-success-subtle text-success border border-success-subtle">Active</span>
-                          </if>
-                        </td>
-                        <td class="text-end">
+                        </div>
+                        <div class="d-table-cell p-3 text-end">
                           <div class="d-flex gap-2 justify-content-end">
-                            <button class="btn btn-xs btn-outline-secondary py-1 px-2 fs-8" data-on-click="clickEditChannel" data-id="{chan.id}">Edit</button>
+                            <button class="btn btn-xs btn-outline-secondary py-1 px-2 fs-8" data-on-click="clickEditChannel" data-id="${chan.id}">Edit</button>
                             <if is-eq="chan.state" to="archived" data-live>
-                              <button class="btn btn-xs btn-outline-success py-1 px-2 fs-8" data-on-click="restoreChannelBtn" data-id="{chan.id}">Restore</button>
-                            </if>
-                            <if is-neq="chan.state" to="archived" data-live>
-                              <button class="btn btn-xs btn-outline-danger py-1 px-2 fs-8" data-on-click="archiveChannelBtn" data-id="{chan.id}">Archive</button>
+                              <button class="btn btn-xs btn-outline-success py-1 px-2 fs-8" data-on-click="restoreChannelBtn" data-id="${chan.id}">Restore</button>
+                              <else>
+                                <button class="btn btn-xs btn-outline-danger py-1 px-2 fs-8" data-on-click="archiveChannelBtn" data-id="${chan.id}">Archive</button>
+                              </else>
                             </if>
                           </div>
-                        </td>
-                      </tr>
+                        </div>
+                      </div>
                     </for>
-                  </table>
+                  </div>
                   <if is-truthy="channelsLoading" data-live>
                     <div id="channels-loading-placeholder"
                       class="text-center p-5 text-muted">
@@ -1037,53 +1030,51 @@
                   </div>
                 </div>
                 <div class="card-body p-0 table-responsive flex-grow-1">
-                  <table
-                    class="table table-hover table-striped align-middle mb-0 table-responsive-cards"
-                    role="grid">
-                    <thead class="table-light">
-                      <tr>
-                        <th>Timestamp</th>
-                        <th>Actor</th>
-                        <th>Action</th>
-                        <th>Target</th>
-                        <th>Outcome</th>
-                        <th>Details / Metadata</th>
-                      </tr>
-                    </thead>
-                    <for each="securityAuditEvents" as="ev" key="ev.id" data-live el="tbody">
-                      <tr>
-                        <td class="fs-8 text-muted">{ev.formattedDate}</td>
-                        <td class="fw-semibold text-dark-mode-override">{ev.actorUserId}</td>
-                        <td>
-                          <span class="badge bg-secondary-subtle text-secondary">{ev.actionCode}</span>
-                        </td>
-                        <td class="text-muted fs-8">
-                          {ev.targetType || 'N/A'}: {ev.targetId || 'N/A'}
-                        </td>
-                        <td><span class="badge {ev.outcomeClass}">{ev.outcome}</span></td>
-                        <td>
+                  <div class="d-table w-100 align-middle">
+                    <div class="d-table-header-group bg-light fw-bold text-muted border-bottom">
+                      <div class="d-table-row">
+                        <div class="d-table-cell p-3">Timestamp</div>
+                        <div class="d-table-cell p-3">Actor</div>
+                        <div class="d-table-cell p-3">Action</div>
+                        <div class="d-table-cell p-3">Target</div>
+                        <div class="d-table-cell p-3">Outcome</div>
+                        <div class="d-table-cell p-3">Details / Metadata</div>
+                      </div>
+                    </div>
+                    <for each="securityAuditEvents" as="ev" key="ev.id" data-live el="div">
+                      <div class="d-table-row border-bottom hover-row align-middle text-start">
+                        <div class="d-table-cell p-3 fs-8 text-muted">${ev.formattedDate}</div>
+                        <div class="d-table-cell p-3 fw-semibold text-dark-mode-override">${ev.actorUserId}</div>
+                        <div class="d-table-cell p-3">
+                          <span class="badge bg-secondary-subtle text-secondary">${ev.actionCode}</span>
+                        </div>
+                        <div class="d-table-cell p-3 text-muted fs-8">
+                          ${ev.targetType || 'N/A'}: ${ev.targetId || 'N/A'}
+                        </div>
+                        <div class="d-table-cell p-3"><span class="badge ${ev.outcomeClass}">${ev.outcome}</span></div>
+                        <div class="d-table-cell p-3">
                           <div class="d-flex flex-column gap-1">
-                            <button class="btn btn-xs btn-link text-decoration-none p-0 fs-8 text-start" data-on-click="toggleAuditMeta" data-id="{ev.id}">Show Details</button>
-                            <pre class="pre-metadata-block m-0 d-none text-start" id="meta-{ev.id}">{ev.metadataFormatted}</pre>
+                            <button class="btn btn-xs btn-link text-decoration-none p-0 fs-8 text-start" data-on-click="toggleAuditMeta" data-id="${ev.id}">Show Details</button>
+                            <pre class="pre-metadata-block m-0 d-none text-start" id="meta-${ev.id}">${ev.metadataFormatted}</pre>
                           </div>
-                        </td>
-                      </tr>
+                        </div>
+                      </div>
                     </for>
-                  </table>
+                  </div>
                   <if is-truthy="auditLoading" data-live>
                     <div class="text-center p-5 text-muted">
                       <div class="spinner-border spinner-border-sm me-2" role="status"></div>
                       Loading audit logs...
                     </div>
-                  </if>
-                  <if is-falsy="auditLoading" data-live>
-                    <if is-eq="securityAuditEventsCountLabel" to="0 events" data-live>
-                      <div id="sec-audit-placeholder"
-                        class="text-center p-5 text-muted">
-                        <i class="bi bi-journals fs-1 mb-2 d-block"></i>
-                        No audit records match the selected filters.
-                      </div>
-                    </if>
+                    <else>
+                      <if is-eq="securityAuditEventsCountLabel" to="0 events" data-live>
+                        <div id="sec-audit-placeholder"
+                          class="text-center p-5 text-muted">
+                          <i class="bi bi-journals fs-1 mb-2 d-block"></i>
+                          No audit records match the selected filters.
+                        </div>
+                      </if>
+                    </else>
                   </if>
                 </div>
                 <div class="card-footer border-top p-2 text-center">
