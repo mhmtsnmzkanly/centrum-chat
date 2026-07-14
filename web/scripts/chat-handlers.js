@@ -943,6 +943,10 @@ export const handlers = {
     }
   },
 
+  toggleFocusMode() {
+    store.set("focusMode", !store.get("focusMode"));
+  },
+
   toggleSearch() {
     const current = store.get("searchState.searchOpen");
     store.set("searchState.searchOpen", !current);

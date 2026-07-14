@@ -2573,3 +2573,49 @@ body.dark-mode .nav-tabs-custom {
 body.dark-mode .nav-tabs-custom .nav-link:hover {
   border-bottom-color: rgba(75, 85, 99, 0.6) !important;
 }
+
+/* ==========================================================================
+   18. FOCUS MODE (hide header + secondary panels, keep stream and composer)
+   ========================================================================== */
+.glass-card.focus-mode .chat-header,
+.glass-card.focus-mode .search-bar-container {
+  display: none;
+}
+
+.focus-exit-btn {
+  position: absolute;
+  top: 10px;
+  right: 10px;
+  z-index: 40;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 12px;
+  border: 1px solid rgba(226, 232, 240, 0.8);
+  border-radius: 20px;
+  background: rgba(255, 255, 255, 0.85);
+  color: var(--text-dark);
+  font-size: 0.78rem;
+  font-weight: 600;
+  box-shadow: 0 4px 14px rgba(15, 23, 42, 0.12);
+  transition: all var(--transition-speed) ease-in-out;
+}
+
+.focus-exit-btn:hover,
+.focus-exit-btn:focus {
+  background: #ffffff;
+  transform: translateY(-1px);
+  box-shadow: 0 6px 18px rgba(15, 23, 42, 0.18);
+}
+
+body.dark-mode .focus-exit-btn {
+  background: rgba(17, 24, 39, 0.85) !important;
+  border-color: rgba(75, 85, 99, 0.5) !important;
+  color: var(--text-dark) !important;
+}
+
+@media (max-width: 576px) {
+  .focus-exit-btn .focus-exit-label {
+    display: none;
+  }
+}

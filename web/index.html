@@ -164,7 +164,7 @@
 
   <!-- ═══════════════ MAIN CHAT CONTAINER ═══════════════ -->
   <template id="tpl-chat-card">
-    <div class="glass-card">
+    <div class="glass-card {focusclass}" data-focusclass="focusModeClass">
 
       <!-- Top Chat Header -->
       <header class="chat-header">
@@ -288,6 +288,11 @@
           <!-- Theme Toggle Button -->
           <button class="action-btn-circle ms-1" data-on-click="toggleTheme" title="Toggle dark/light mode" style="width:36px;height:36px;flex-shrink:0;">
             <i class="bi {themeicon}" data-themeicon="themeIcon" style="font-size:0.95rem;"></i>
+          </button>
+
+          <!-- Focus Mode Toggle Button -->
+          <button class="action-btn-circle ms-1" data-on-click="toggleFocusMode" title="Focus mode: hide header and panels (Esc to exit)" aria-label="Enter focus mode" style="width:36px;height:36px;flex-shrink:0;">
+            <i class="bi bi-arrows-fullscreen" style="font-size:0.85rem;"></i>
           </button>
         </div>
 
@@ -596,6 +601,11 @@
       <button class="scroll-bottom-fab d-none" id="scrollBottomFab" data-on-click="scrollToBottom" title="Scroll to latest">
         <i class="bi bi-chevron-double-down"></i>
         <span class="scroll-fab-badge d-none" id="scrollFabBadge">0</span>
+      </button>
+
+      <!-- Focus mode visible exit control (shown only while focus mode is active) -->
+      <button class="focus-exit-btn" data-show="focusMode" data-on-click="toggleFocusMode" title="Exit focus mode (Esc)" aria-label="Exit focus mode">
+        <i class="bi bi-arrows-angle-contract"></i><span class="focus-exit-label">Exit focus</span>
       </button>
     </div>
 

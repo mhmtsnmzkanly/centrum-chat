@@ -59,6 +59,15 @@ document.addEventListener("scroll", (e) => {
   }
 }, true);
 
+// Focus mode keyboard exit. Escape leaves focus mode, but never while a modal
+// is open — Bootstrap owns Escape there and closing the modal must win.
+document.addEventListener("keydown", (e) => {
+  if (e.key !== "Escape") return;
+  if (!store.get("focusMode")) return;
+  if (document.querySelector(".modal.show")) return;
+  store.set("focusMode", false);
+});
+
 // Context menu reaction user list
 document.addEventListener("contextmenu", (e) => {
   const badge = e.target.closest(".reaction-badge");

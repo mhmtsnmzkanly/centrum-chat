@@ -92,6 +92,9 @@ export const store = createStore({
     open: false,
     imgSrc: "",
   },
+  // Focus mode temporarily hides the header and secondary panels so only the
+  // message stream and composer remain. Never persisted: it is a transient view state.
+  focusMode: false,
   preferencesForm: {
     activeTab: "appearance",
     theme: "light",
@@ -321,6 +324,10 @@ store.computed("replyContextState.text", ["replyTarget"], () => {
 
 store.computed("lightbox.class", ["lightbox.open"], () => {
   return store.get("lightbox.open") ? "show" : "";
+});
+
+store.computed("focusModeClass", ["focusMode"], () => {
+  return store.get("focusMode") ? "focus-mode" : "";
 });
 
 store.computed("attachedFilePreview", ["chatForm.attachedFileDetails"], () => {
