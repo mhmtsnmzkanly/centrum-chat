@@ -205,6 +205,7 @@ export function showReactionUsersPopover(anchorEl, emoji, userIds) {
 export async function afterLogin(profileWire) {
   applySessionProfile(profileWire);
   store.set("session.loggedIn", true);
+  loadSearchHistory();
 
   await wsClient.connect();
 
@@ -239,6 +240,46 @@ export async function afterLogin(profileWire) {
 
 export function applyTheme(theme) {
   applySystemTheme(theme);
+}
+
+// ── Message-search history (account-scoped, local-only) ─────────────
+const SEARCH_HISTORY_LIMIT = 10;
+
+function searchHistoryStorageKey() {
+  const user = store.get("session.user");
+  return user ? `chat_search_history_${user.id}` : null;
+}
+
+export function loadSearchHistory() {
+  const key = searchHistoryStorageKey();
+  if (!key) return;
+  try {
+    const parsed = JSON.parse(STORAGE.getItem(key) || "[]");
+    const entries = Array.isArray(parsed)
+      ? parsed.filter((q) => typeof q === "string" && q.trim() !== "")
+      : [];
+    store.set("searchHistory", entries.slice(0, SEARCH_HISTORY_LIMIT));
+  } catch {
+    store.set("searchHistory", []);
+  }
+}
+
+function persistSearchHistory(entries) {
+  store.set("searchHistory", entries);
+  const key = searchHistoryStorageKey();
+  if (!key) return;
+  if (entries.length === 0) {
+    STORAGE.removeItem(key);
+  } else {
+    STORAGE.setItem(key, JSON.stringify(entries));
+  }
+}
+
+export function recordSearchHistory(query) {
+  const trimmed = (query || "").trim();
+  if (trimmed === "") return;
+  const rest = (store.get("searchHistory") || []).filter((q) => q !== trimmed);
+  persistSearchHistory([trimmed, ...rest].slice(0, SEARCH_HISTORY_LIMIT));
 }
 
 export function applySystemTheme(theme) {
@@ -964,6 +1005,35 @@ export const handlers = {
     store.set("searchState.messageQuery", "");
     const input = document.getElementById("messageSearchInput");
     if (input) input.focus();
+  },
+
+  handleSearchInputKeydown(e) {
+    if (e.key === "Enter") {
+      e.preventDefault();
+      recordSearchHistory(store.get("searchState.messageQuery"));
+    }
+  },
+
+  applySearchHistoryEntry(e, el) {
+    e?.preventDefault?.();
+    const query = el.getAttribute("data-query");
+    if (!query) return;
+    recordSearchHistory(query);
+    store.set("searchState.messageQuery", query);
+    const input = document.getElementById("messageSearchInput");
+    if (input) input.focus();
+  },
+
+  removeSearchHistoryEntry(e, el) {
+    e?.stopPropagation?.();
+    e?.preventDefault?.();
+    const query = el.getAttribute("data-query");
+    if (!query) return;
+    persistSearchHistory((store.get("searchHistory") || []).filter((q) => q !== query));
+  },
+
+  clearSearchHistory() {
+    persistSearchHistory([]);
   },
 
   triggerFileAttach() {

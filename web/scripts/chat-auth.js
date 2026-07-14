@@ -135,7 +135,9 @@ export function clearAuthenticatedState(message = null, toastType = "info") {
   store.set("messages", {});
   store.set("groupList", []);
   store.set("notifications", {});
-  
+  store.set("searchHistory", []);
+  store.set("focusMode", false);
+
   if (authLossHandler) {
     authLossHandler(message, toastType);
   }

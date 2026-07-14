@@ -428,8 +428,24 @@
       <div class="search-bar-container {searchclass}" data-searchclass="searchState.barClass" id="searchBarContainer">
         <div class="position-relative">
           <i class="bi bi-search position-absolute top-50 translate-middle-y text-muted" style="left:14px;"></i>
-          <input type="text" class="form-control" id="messageSearchInput" placeholder="Search messages in this channel..." style="padding-left:38px; border-radius:12px; border:1px solid rgba(226,232,240,0.8); font-size:0.9rem;" data-model="searchState.messageQuery">
+          <input type="text" class="form-control" id="messageSearchInput" placeholder="Search messages in this channel..." style="padding-left:38px; border-radius:12px; border:1px solid rgba(226,232,240,0.8); font-size:0.9rem;" data-model="searchState.messageQuery" data-on-keydown="handleSearchInputKeydown">
           <button class="btn btn-sm position-absolute top-50 translate-middle-y text-muted border-0 bg-transparent" data-on-click="clearMessageSearch" style="right:10px;"><i class="bi bi-x-lg"></i></button>
+        </div>
+
+        <!-- Recent searches (local-only, per account) -->
+        <div class="search-history-panel" data-show="searchHistoryPanelVisible">
+          <div class="search-history-head">
+            <span class="search-history-title"><i class="bi bi-clock-history me-1"></i>Recent searches</span>
+            <button class="search-history-clear" data-on-click="clearSearchHistory" title="Clear all recent searches">Clear all</button>
+          </div>
+          <div class="search-history-list">
+            <for each="searchHistoryItems" as="h" key="h.q" data-live data-diff="replace">
+              <span class="search-history-chip" data-on-click="applySearchHistoryEntry" data-query="${h.q}" role="button" tabindex="0" title="Search again">
+                <i class="bi bi-search"></i> ${h.q}
+                <button class="search-history-remove" data-on-click="removeSearchHistoryEntry" data-query="${h.q}" title="Remove from history" aria-label="Remove from search history">×</button>
+              </span>
+            </for>
+          </div>
         </div>
       </div>
 

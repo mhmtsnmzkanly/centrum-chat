@@ -18,6 +18,7 @@ import {
   showReactionUsersPopover,
   ChatService,
   ensureUsersKnown,
+  recordSearchHistory,
 } from "./chat-handlers.js";
 
 setDevMode(false);
@@ -208,8 +209,10 @@ store.subscribe("searchState.userQuery", async (query) => {
   }
 });
 
+let searchHistoryRecordTimer = null;
 store.subscribe("searchState.messageQuery", async (query) => {
   const trimmed = (query || "").trim();
+  clearTimeout(searchHistoryRecordTimer);
   if (trimmed === "") {
     store.set("searchState.searchResultsMessages", null);
     return;
@@ -221,6 +224,13 @@ store.subscribe("searchState.messageQuery", async (query) => {
     const messages = res.messages.map(MAPPERS.message);
     await ensureUsersKnown(messages.map((m) => m.authorId));
     store.set("searchState.searchResultsMessages", messages);
+    // Record into local search history once typing pauses, so intermediate
+    // keystrokes ("he", "hel", "hello") don't pollute the list.
+    searchHistoryRecordTimer = setTimeout(() => {
+      if ((store.get("searchState.messageQuery") || "").trim() === trimmed) {
+        recordSearchHistory(trimmed);
+      }
+    }, 1200);
   } catch (err) {
     console.error("Message search failed:", err);
   }

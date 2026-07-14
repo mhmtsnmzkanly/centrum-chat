@@ -2619,3 +2619,96 @@ body.dark-mode .focus-exit-btn {
     display: none;
   }
 }
+
+/* ==========================================================================
+   19. MESSAGE SEARCH HISTORY (recent searches under the search bar)
+   ========================================================================== */
+.search-history-panel {
+  margin-top: 8px;
+  padding: 10px 12px;
+  border: 1px solid rgba(226, 232, 240, 0.8);
+  border-radius: 12px;
+  background: rgba(255, 255, 255, 0.65);
+}
+
+.search-history-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 8px;
+}
+
+.search-history-title {
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.5px;
+  text-transform: uppercase;
+  color: var(--text-muted);
+}
+
+.search-history-clear {
+  border: none;
+  background: transparent;
+  color: var(--primary-color);
+  font-size: 0.74rem;
+  font-weight: 600;
+  padding: 0;
+}
+
+.search-history-clear:hover,
+.search-history-clear:focus {
+  text-decoration: underline;
+}
+
+.search-history-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.search-history-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 4px 6px 4px 10px;
+  border: 1px solid rgba(226, 232, 240, 0.8);
+  border-radius: 16px;
+  background: rgba(255, 255, 255, 0.85);
+  color: var(--text-dark);
+  font-size: 0.78rem;
+  cursor: pointer;
+  transition: all var(--transition-speed) ease-in-out;
+  max-width: 100%;
+}
+
+.search-history-chip:hover,
+.search-history-chip:focus {
+  border-color: var(--primary-color);
+  box-shadow: 0 0 0 3px var(--primary-glow);
+}
+
+.search-history-remove {
+  border: none;
+  background: transparent;
+  color: var(--text-muted);
+  font-size: 0.9rem;
+  line-height: 1;
+  padding: 0 4px;
+  border-radius: 50%;
+}
+
+.search-history-remove:hover,
+.search-history-remove:focus {
+  color: #dc2626;
+}
+
+body.dark-mode .search-history-panel {
+  background: rgba(17, 24, 39, 0.45) !important;
+  border-color: rgba(75, 85, 99, 0.5) !important;
+}
+
+body.dark-mode .search-history-chip {
+  background: rgba(30, 41, 59, 0.6) !important;
+  border-color: rgba(75, 85, 99, 0.5) !important;
+  color: var(--text-dark) !important;
+}

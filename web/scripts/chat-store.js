@@ -59,6 +59,9 @@ export const store = createStore({
     searchResults: [],
     searchResultsMessages: null,
   },
+  // Recent message-search queries (newest first). Loaded per account from
+  // localStorage after login; never sent to the server.
+  searchHistory: [],
   activeDest: { type: "channel", value: "general" },
   activeDestKey: "channel_general",
   notifications: {},
@@ -329,6 +332,23 @@ store.computed("lightbox.class", ["lightbox.open"], () => {
 store.computed("focusModeClass", ["focusMode"], () => {
   return store.get("focusMode") ? "focus-mode" : "";
 });
+
+// History entries as objects so the template <for> can key them.
+store.computed("searchHistoryItems", ["searchHistory"], () => {
+  return (store.get("searchHistory") || []).map((q) => ({ q }));
+});
+
+// The panel shows only while the search bar is open and the input is empty,
+// so it never covers live search results.
+store.computed(
+  "searchHistoryPanelVisible",
+  ["searchState.searchOpen", "searchState.messageQuery", "searchHistory"],
+  () => {
+    if (!store.get("searchState.searchOpen")) return false;
+    if ((store.get("searchState.messageQuery") || "").trim() !== "") return false;
+    return (store.get("searchHistory") || []).length > 0;
+  },
+);
 
 store.computed("attachedFilePreview", ["chatForm.attachedFileDetails"], () => {
   const details = store.get("chatForm.attachedFileDetails");
