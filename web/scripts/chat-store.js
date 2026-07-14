@@ -62,6 +62,9 @@ export const store = createStore({
   // Recent message-search queries (newest first). Loaded per account from
   // localStorage after login; never sent to the server.
   searchHistory: [],
+  // New messages that arrived in the active conversation while the user was
+  // scrolled away from the bottom. Shown on the scroll-to-bottom FAB badge.
+  scrollFabCount: 0,
   activeDest: { type: "channel", value: "general" },
   activeDestKey: "channel_general",
   notifications: {},
@@ -331,6 +334,15 @@ store.computed("lightbox.class", ["lightbox.open"], () => {
 
 store.computed("focusModeClass", ["focusMode"], () => {
   return store.get("focusMode") ? "focus-mode" : "";
+});
+
+store.computed("scrollFabBadgeText", ["scrollFabCount"], () => {
+  const count = store.get("scrollFabCount") || 0;
+  return count > 99 ? "99+" : String(count);
+});
+
+store.computed("scrollFabBadgeClass", ["scrollFabCount"], () => {
+  return (store.get("scrollFabCount") || 0) > 0 ? "" : "d-none";
 });
 
 // History entries as objects so the template <for> can key them.

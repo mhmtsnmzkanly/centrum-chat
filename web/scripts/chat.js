@@ -5,7 +5,7 @@ import { TOKENS, STORAGE } from "./chat-auth.js";
 import { ToastService } from "./chat-api.js";
 import { HELPERS, MAPPERS, patchMessageById } from "./chat-messages.js";
 import { playBeep, hideSplashLoader } from "./chat-dialogs.js";
-import { activeConversationId, setRoomMessages, appendRoomMessage, setActiveDestination } from "./chat-conversations.js";
+import { activeConversationId, setRoomMessages, appendRoomMessage, setActiveDestination, isStreamNearBottom } from "./chat-conversations.js";
 import { UploadOverlay, destKeyForConversation, setupDragDropZone } from "./chat-media.js";
 import { refreshUserProfile } from "./chat-profile.js";
 import { applySystemTheme } from "./shared-theme.js";
@@ -57,8 +57,18 @@ document.addEventListener("scroll", (e) => {
     fab.classList.remove("d-none");
   } else {
     fab.classList.add("d-none");
+    // Reaching the bottom means the "new messages below" count has been seen.
+    if (store.get("scrollFabCount")) store.set("scrollFabCount", 0);
   }
 }, true);
+
+// A growing new-messages count must surface the FAB even without a scroll
+// event (e.g. the stream stopped following because messages piled up below).
+// Hiding stays with the scroll listener above, which knows the real position.
+store.subscribe("scrollFabCount", (count) => {
+  const fab = document.getElementById("scrollBottomFab");
+  if (fab && count > 0) fab.classList.remove("d-none");
+});
 
 // Focus mode keyboard exit. Escape leaves focus mode, but never while a modal
 // is open — Bootstrap owns Escape there and closing the modal must win.
@@ -103,10 +113,17 @@ wsClient.addEventListener("message.new", async (data) => {
     await loadInitialData();
   }
 
+  // Captured before the append re-renders the stream (and possibly auto-scrolls).
+  const wasNearBottom = isStreamNearBottom();
   appendRoomMessage(msgDestKey, mapped);
 
   if (activeDestKey === msgDestKey) {
-    if (!isOwn) playBeep();
+    if (!isOwn) {
+      playBeep();
+      if (!wasNearBottom) {
+        store.set("scrollFabCount", (store.get("scrollFabCount") || 0) + 1);
+      }
+    }
     wsClient.request("room.markRead", { conversationId: mapped.conversationId, messageId: mapped.id })
       .catch(() => {});
   } else if (!isOwn) {

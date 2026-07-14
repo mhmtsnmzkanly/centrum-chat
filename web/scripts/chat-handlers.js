@@ -1319,6 +1319,7 @@ export const handlers = {
     if (stream) {
       stream.scrollTo({ top: stream.scrollHeight, behavior: "smooth" });
     }
+    store.set("scrollFabCount", 0);
   },
 
   openLightbox(e, el) {

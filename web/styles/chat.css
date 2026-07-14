@@ -2712,3 +2712,59 @@ body.dark-mode .search-history-chip {
   border-color: rgba(75, 85, 99, 0.5) !important;
   color: var(--text-dark) !important;
 }
+
+/* ==========================================================================
+   20. SCROLL-TO-BOTTOM FAB + NEW-MESSAGES BADGE
+   ========================================================================== */
+.scroll-bottom-fab {
+  position: absolute;
+  right: 22px;
+  bottom: 96px;
+  z-index: 30;
+  width: 42px;
+  height: 42px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid rgba(226, 232, 240, 0.8);
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.9);
+  color: var(--text-dark);
+  box-shadow: 0 4px 14px rgba(15, 23, 42, 0.15);
+  transition: all var(--transition-speed) ease-in-out;
+}
+
+.scroll-bottom-fab:hover,
+.scroll-bottom-fab:focus {
+  background: #ffffff;
+  transform: translateY(-1px);
+  box-shadow: 0 6px 18px rgba(15, 23, 42, 0.2);
+}
+
+.scroll-bottom-fab.d-none {
+  display: none;
+}
+
+.scroll-fab-badge {
+  position: absolute;
+  top: -6px;
+  right: -6px;
+  min-width: 20px;
+  height: 20px;
+  padding: 0 5px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 10px;
+  background: #dc2626;
+  color: #ffffff;
+  font-size: 0.68rem;
+  font-weight: 700;
+  line-height: 1;
+}
+
+body.dark-mode .scroll-bottom-fab {
+  background: rgba(17, 24, 39, 0.9) !important;
+  border-color: rgba(75, 85, 99, 0.5) !important;
+  color: var(--text-dark) !important;
+}

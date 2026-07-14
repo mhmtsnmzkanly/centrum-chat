@@ -29,6 +29,14 @@ export const STATUS_BADGES = {
   },
 };
 
+const NEAR_BOTTOM_PX = 100;
+
+export function isStreamNearBottom() {
+  const stream = document.getElementById("messageStream");
+  if (!stream) return true;
+  return stream.scrollHeight - stream.scrollTop - stream.clientHeight < NEAR_BOTTOM_PX;
+}
+
 export function activeConversationId() {
   const dest = store.get("activeDest");
   if (!dest) return null;
@@ -70,6 +78,8 @@ export function setActiveDestination(type, value) {
   store.set("activeDestKey", `${type}_${value}`);
   store.set(`notifications.${type}_${value}`, 0);
   store.set("typingState.active", false);
+  // The FAB counter belongs to one conversation; it never carries over.
+  store.set("scrollFabCount", 0);
 }
 
 // Shared: open (or create) the DM room with a user and switch to it

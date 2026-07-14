@@ -294,7 +294,11 @@ store.subscribe("activeMessages", (newMsgs, oldMsgs) => {
     if (!stream || !newMsgs) return;
 
     const lastMsg = newMsgs[newMsgs.length - 1];
-    const isOwn = lastMsg && lastMsg.isOutgoing;
+    // "Own message" only forces a jump when the list actually grew: decorative
+    // recomputes (profile refreshes, reactions) must not hijack the scroll
+    // position just because the user's own message happens to be last.
+    const grew = !oldMsgs || newMsgs.length > oldMsgs.length;
+    const isOwn = lastMsg && lastMsg.isOutgoing && grew;
     const wasAtBottom = stream.scrollHeight - stream.scrollTop - stream.clientHeight < 100;
 
     if (wasAtBottom || isOwn || (oldMsgs && oldMsgs.length === 0)) {
