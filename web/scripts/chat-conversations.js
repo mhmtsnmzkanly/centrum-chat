@@ -1,6 +1,7 @@
 import { store } from "./chat-store.js";
 import { wsClient } from "./chat-socket.js";
 import { hideModal } from "./chat-dialogs.js";
+import { STORAGE } from "./chat-auth.js";
 
 export const STATUS_BADGES = {
   online: {
@@ -84,6 +85,48 @@ export function hasSavedScrollPosition(destKey) {
   return scrollPositions.has(destKey);
 }
 
+// ── Per-conversation composer drafts (account-scoped, local-only) ──
+function draftsStorageKey() {
+  const user = store.get("session.user");
+  return user ? `chat_drafts_${user.id}` : null;
+}
+
+export function loadDrafts() {
+  const key = draftsStorageKey();
+  if (!key) return;
+  try {
+    const parsed = JSON.parse(STORAGE.getItem(key) || "{}");
+    const drafts = {};
+    if (parsed && typeof parsed === "object") {
+      for (const [destKey, text] of Object.entries(parsed)) {
+        if (typeof text === "string" && text.trim() !== "") drafts[destKey] = text;
+      }
+    }
+    store.set("drafts", drafts);
+  } catch {
+    store.set("drafts", {});
+  }
+}
+
+export function setDraft(destKey, text) {
+  if (!destKey) return;
+  const drafts = { ...(store.get("drafts") || {}) };
+  if ((text || "").trim() === "") {
+    if (!(destKey in drafts)) return;
+    delete drafts[destKey];
+  } else {
+    drafts[destKey] = text;
+  }
+  store.set("drafts", drafts);
+  const key = draftsStorageKey();
+  if (!key) return;
+  if (Object.keys(drafts).length === 0) {
+    STORAGE.removeItem(key);
+  } else {
+    STORAGE.setItem(key, JSON.stringify(drafts));
+  }
+}
+
 export function activeConversationId() {
   const dest = store.get("activeDest");
   if (!dest) return null;
@@ -125,6 +168,7 @@ export function setActiveDestination(type, value) {
   const prevKey = store.get("activeDestKey");
   if (prevKey && prevKey !== nextKey) {
     saveScrollPosition(prevKey);
+    setDraft(prevKey, store.get("chatForm.messageInput") || "");
   }
   store.set("activeDest", { type, value });
   store.set("activeDestKey", nextKey);
@@ -132,6 +176,9 @@ export function setActiveDestination(type, value) {
   store.set("typingState.active", false);
   // The FAB counter belongs to one conversation; it never carries over.
   store.set("scrollFabCount", 0);
+  if (prevKey !== nextKey) {
+    store.set("chatForm.messageInput", store.get(`drafts.${nextKey}`) || "");
+  }
 }
 
 // Shared: open (or create) the DM room with a user and switch to it

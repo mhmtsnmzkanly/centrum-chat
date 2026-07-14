@@ -5,7 +5,7 @@ import { TOKENS, STORAGE } from "./chat-auth.js";
 import { ToastService } from "./chat-api.js";
 import { HELPERS, MAPPERS, patchMessageById } from "./chat-messages.js";
 import { playBeep, hideSplashLoader } from "./chat-dialogs.js";
-import { activeConversationId, setRoomMessages, appendRoomMessage, setActiveDestination, isStreamNearBottom } from "./chat-conversations.js";
+import { activeConversationId, setRoomMessages, appendRoomMessage, setActiveDestination, isStreamNearBottom, setDraft } from "./chat-conversations.js";
 import { UploadOverlay, destKeyForConversation, setupDragDropZone } from "./chat-media.js";
 import { refreshUserProfile } from "./chat-profile.js";
 import { applySystemTheme } from "./shared-theme.js";
@@ -251,6 +251,24 @@ store.subscribe("searchState.messageQuery", async (query) => {
   } catch (err) {
     console.error("Message search failed:", err);
   }
+});
+
+// ── Composer draft persistence ───────────────────────────────────
+// Keeps the account-scoped draft store in sync while the user types, so a
+// reload mid-composition doesn't lose the text. Sending clears the input,
+// which persists an empty draft (= removal) through the same path.
+let draftPersistTimer = null;
+store.subscribe("chatForm.messageInput", (value) => {
+  if (!store.get("session.loggedIn")) return;
+  const destKey = store.get("activeDestKey");
+  clearTimeout(draftPersistTimer);
+  draftPersistTimer = setTimeout(() => {
+    // A conversation switch mid-debounce already saved this draft synchronously;
+    // persisting under the new key would attach the text to the wrong conversation.
+    if (store.get("activeDestKey") === destKey) {
+      setDraft(destKey, value || "");
+    }
+  }, 500);
 });
 
 // ── Bootstrap Modal triggers / accessibility details ─────────────

@@ -4,7 +4,7 @@ import { TOKENS, clearAuthenticatedState, onAuthLoss, STORAGE, SESSION_STORAGE, 
 import { apiFetch, ToastService, CAPTCHA, currentDeviceLabel, makeClientError, refreshAccountSecurityState, submitSafetyReport } from "./chat-api.js";
 import { HELPERS, MAPPERS, decorateMessage, patchMessageById } from "./chat-messages.js";
 import { showModal, hideModal, playBeep, hideSplashLoader } from "./chat-dialogs.js";
-import { activeConversationId, setRoomMessages, appendRoomMessage, markConversationAsRead, closeDestinationDropdown, setActiveDestination, openDmWithUser, STATUS_BADGES } from "./chat-conversations.js";
+import { activeConversationId, setRoomMessages, appendRoomMessage, markConversationAsRead, closeDestinationDropdown, setActiveDestination, openDmWithUser, loadDrafts, STATUS_BADGES } from "./chat-conversations.js";
 import { UploadOverlay, destKeyForConversation, setupDragDropZone } from "./chat-media.js";
 import { applySessionProfile, seedPreferencesForm, refreshUserProfile } from "./chat-profile.js";
 
@@ -206,6 +206,11 @@ export async function afterLogin(profileWire) {
   applySessionProfile(profileWire);
   store.set("session.loggedIn", true);
   loadSearchHistory();
+  loadDrafts();
+  store.set(
+    "chatForm.messageInput",
+    store.get(`drafts.${store.get("activeDestKey")}`) || "",
+  );
 
   await wsClient.connect();
 

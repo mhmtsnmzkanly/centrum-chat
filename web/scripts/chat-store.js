@@ -62,6 +62,9 @@ export const store = createStore({
   // Recent message-search queries (newest first). Loaded per account from
   // localStorage after login; never sent to the server.
   searchHistory: [],
+  // Unsent composer drafts keyed by destKey. Loaded per account from
+  // localStorage after login; never sent to the server.
+  drafts: {},
   // New messages that arrived in the active conversation while the user was
   // scrolled away from the bottom. Shown on the scroll-to-bottom FAB badge.
   scrollFabCount: 0,

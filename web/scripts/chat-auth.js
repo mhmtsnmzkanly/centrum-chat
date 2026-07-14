@@ -137,6 +137,10 @@ export function clearAuthenticatedState(message = null, toastType = "info") {
   store.set("notifications", {});
   store.set("searchHistory", []);
   store.set("focusMode", false);
+  store.set("drafts", {});
+  store.set("scrollFabCount", 0);
+  store.set("chatForm.messageInput", "");
+
 
   if (authLossHandler) {
     authLossHandler(message, toastType);
