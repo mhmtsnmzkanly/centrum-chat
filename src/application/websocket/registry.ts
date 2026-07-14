@@ -22,6 +22,7 @@ const MUTATION_EVENTS = new Set([
   "typing.start",
   "typing.stop",
   "notification.markRead",
+  "notification.delete",
 ]);
 
 /** Explicit registration list -> event:string -> handler map (architecture doc §3).

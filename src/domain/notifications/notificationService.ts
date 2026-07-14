@@ -45,6 +45,17 @@ export class NotificationService {
     this.notifications.markAllReadForUser(userId);
   }
 
+  /** Bulk delete of the caller's own notifications. The repository scopes the
+   * DELETE by `userId`, so ids belonging to other users are ignored rather than
+   * leaked or errored (idempotent: already-deleted ids simply don't count). */
+  deleteByIds(userId: string, ids: readonly string[]): number {
+    return this.notifications.deleteByIdsForUser(userId, ids);
+  }
+
+  deleteAll(userId: string): number {
+    return this.notifications.deleteAllForUser(userId);
+  }
+
   /** DM message -> notify the other member(s) of the DM (regardless of whether they're
    * currently online — that's the whole point of persisting notifications). Channel/group
    * message -> notify any `@username` mentioned in the content, except the author. The

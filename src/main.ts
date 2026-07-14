@@ -73,6 +73,7 @@ import { TypingStartHandler } from "./application/websocket/handlers/typing/typi
 import { TypingStopHandler } from "./application/websocket/handlers/typing/typingStopHandler.ts";
 import { ListNotificationsHandler } from "./application/websocket/handlers/notifications/listNotificationsHandler.ts";
 import { MarkNotificationReadHandler } from "./application/websocket/handlers/notifications/markNotificationReadHandler.ts";
+import { DeleteNotificationsHandler } from "./application/websocket/handlers/notifications/deleteNotificationsHandler.ts";
 import { SearchMessagesHandler } from "./application/websocket/handlers/search/searchMessagesHandler.ts";
 import { SearchUsersHandler } from "./application/websocket/handlers/search/searchUsersHandler.ts";
 import { UploadRoute } from "./application/http/routes/media/uploadRoute.ts";
@@ -559,6 +560,7 @@ wsRegistry.register(
 );
 wsRegistry.register(new ListNotificationsHandler(notificationService));
 wsRegistry.register(new MarkNotificationReadHandler(notificationService));
+wsRegistry.register(new DeleteNotificationsHandler(notificationService));
 wsRegistry.register(new SearchMessagesHandler(searchService));
 wsRegistry.register(
   new SearchUsersHandler(searchService, accountPolicy, blockPolicy, sanctionPolicy),

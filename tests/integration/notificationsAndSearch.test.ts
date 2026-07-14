@@ -39,6 +39,7 @@ import { AddMemberHandler } from "../../src/application/websocket/handlers/group
 import { OpenDmHandler } from "../../src/application/websocket/handlers/dm/openDmHandler.ts";
 import { ListNotificationsHandler } from "../../src/application/websocket/handlers/notifications/listNotificationsHandler.ts";
 import { MarkNotificationReadHandler } from "../../src/application/websocket/handlers/notifications/markNotificationReadHandler.ts";
+import { DeleteNotificationsHandler } from "../../src/application/websocket/handlers/notifications/deleteNotificationsHandler.ts";
 import { SearchMessagesHandler } from "../../src/application/websocket/handlers/search/searchMessagesHandler.ts";
 import { SearchUsersHandler } from "../../src/application/websocket/handlers/search/searchUsersHandler.ts";
 import { createPresenceAwareConnectionManager } from "../support/testConnectionManager.ts";
@@ -204,6 +205,7 @@ async function bootTestServer(
   wsRegistry.register(new OpenDmHandler(dmService, dmOpenRateLimiter));
   wsRegistry.register(new ListNotificationsHandler(notificationService));
   wsRegistry.register(new MarkNotificationReadHandler(notificationService));
+  wsRegistry.register(new DeleteNotificationsHandler(notificationService));
   wsRegistry.register(new SearchMessagesHandler(searchService));
   wsRegistry.register(new SearchUsersHandler(searchService));
 
@@ -315,6 +317,76 @@ Deno.test("WS message.send in a DM notifies the other member; notification.list/
     send(bobConn.socket, "5", "notification.list", { unreadOnly: true });
     const unreadAck = await bobConn.queue.next() as WsResponse;
     assertEquals(unreadAck.data!.notifications, []);
+
+    aliceConn.socket.close();
+    bobConn.socket.close();
+  } finally {
+    await cleanup();
+  }
+});
+
+Deno.test("WS notification.delete removes selected or all own notifications and never another user's", async () => {
+  const { registerUser, connectAsSoleUser, cleanup } = await bootTestServer();
+  try {
+    const alice = await registerUser("alice");
+    const bob = await registerUser("bob");
+
+    const aliceConn = await connectAsSoleUser(alice.accessToken);
+    const bobConn = await connectAsSoleUser(bob.accessToken);
+    await aliceConn.queue.next(); // drain "bob came online"
+
+    send(aliceConn.socket, "1", "dm.open", { userId: bob.userId });
+    const dmOpenAck = await aliceConn.queue.next() as WsResponse;
+    const room = dmOpenAck.data!.room as { id: string };
+
+    // Two DM messages -> two notifications for bob.
+    const notificationIds: string[] = [];
+    for (const [requestId, content] of [["2", "first"], ["3", "second"]] as const) {
+      send(aliceConn.socket, requestId, "message.send", { conversationId: room.id, content });
+      await sendAndGetAck(aliceConn.queue, "message.new");
+      await bobConn.queue.next(); // message.new
+      await bobConn.queue.next(); // unread.updated
+      const push = await bobConn.queue.next() as WsPush;
+      assertEquals(push.event, "notification.new");
+      notificationIds.push((push.data.notification as { id: string }).id);
+    }
+
+    // Alice cannot delete bob's notifications: scoped delete reports 0 rows.
+    send(aliceConn.socket, "4", "notification.delete", { ids: notificationIds });
+    const foreignAck = await aliceConn.queue.next() as WsResponse;
+    assertEquals(foreignAck.success, true);
+    assertEquals(foreignAck.data!.deletedCount, 0);
+
+    // Bob deletes one selected notification; the other one survives.
+    send(bobConn.socket, "5", "notification.delete", { ids: [notificationIds[0]!] });
+    const selectedAck = await bobConn.queue.next() as WsResponse;
+    assertEquals(selectedAck.data!.deletedCount, 1);
+
+    send(bobConn.socket, "6", "notification.list", {});
+    const listAck = await bobConn.queue.next() as WsResponse;
+    assertEquals(
+      (listAck.data!.notifications as Array<{ id: string }>).map((n) => n.id),
+      [notificationIds[1]!],
+    );
+
+    // Deleting the same id again is an idempotent no-op.
+    send(bobConn.socket, "7", "notification.delete", { ids: [notificationIds[0]!] });
+    const repeatAck = await bobConn.queue.next() as WsResponse;
+    assertEquals(repeatAck.data!.deletedCount, 0);
+
+    // "all: true" clears the rest; an empty payload is a validation error.
+    send(bobConn.socket, "8", "notification.delete", { all: true });
+    const allAck = await bobConn.queue.next() as WsResponse;
+    assertEquals(allAck.data!.deletedCount, 1);
+
+    send(bobConn.socket, "9", "notification.list", {});
+    const emptyAck = await bobConn.queue.next() as WsResponse;
+    assertEquals(emptyAck.data!.notifications, []);
+
+    send(bobConn.socket, "10", "notification.delete", {});
+    const invalidAck = await bobConn.queue.next() as WsResponse;
+    assertEquals(invalidAck.success, false);
+    assertEquals(invalidAck.error!.code, "VALIDATION_ERROR");
 
     aliceConn.socket.close();
     bobConn.socket.close();

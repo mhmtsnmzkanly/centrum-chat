@@ -68,6 +68,60 @@ Deno.test("SqliteNotificationRepository.listForUser: scoped to the user, newest 
   }
 });
 
+Deno.test("SqliteNotificationRepository.deleteByIdsForUser deletes only that user's rows and counts them", async () => {
+  const { db, cleanup } = await createTestDb();
+  try {
+    seedUsers(db);
+    const repo = new SqliteNotificationRepository(db);
+    const own1 = repo.create({ userId: "u-1", type: "dm", conversationId: null, messageId: null });
+    const own2 = repo.create({
+      userId: "u-1",
+      type: "mention",
+      conversationId: null,
+      messageId: null,
+    });
+    const foreign = repo.create({
+      userId: "u-2",
+      type: "dm",
+      conversationId: null,
+      messageId: null,
+    });
+
+    assertEquals(repo.deleteByIdsForUser("u-1", []), 0);
+    assertEquals(repo.deleteByIdsForUser("u-1", [foreign.id, "no-such-id"]), 0);
+    assertEquals(repo.findById(foreign.id)?.id, foreign.id);
+
+    assertEquals(repo.deleteByIdsForUser("u-1", [own1.id, own2.id, foreign.id]), 2);
+    assertEquals(repo.listForUser("u-1", false), []);
+    assertEquals(repo.findById(foreign.id)?.id, foreign.id);
+  } finally {
+    await cleanup();
+  }
+});
+
+Deno.test("SqliteNotificationRepository.deleteAllForUser clears only that user's rows", async () => {
+  const { db, cleanup } = await createTestDb();
+  try {
+    seedUsers(db);
+    const repo = new SqliteNotificationRepository(db);
+    repo.create({ userId: "u-1", type: "dm", conversationId: null, messageId: null });
+    repo.create({ userId: "u-1", type: "mention", conversationId: null, messageId: null });
+    const foreign = repo.create({
+      userId: "u-2",
+      type: "dm",
+      conversationId: null,
+      messageId: null,
+    });
+
+    assertEquals(repo.deleteAllForUser("u-1"), 2);
+    assertEquals(repo.deleteAllForUser("u-1"), 0);
+    assertEquals(repo.listForUser("u-1", false), []);
+    assertEquals(repo.findById(foreign.id)?.id, foreign.id);
+  } finally {
+    await cleanup();
+  }
+});
+
 Deno.test("SqliteNotificationRepository.markAllReadForUser only touches that user's rows", async () => {
   const { db, cleanup } = await createTestDb();
   try {

@@ -15,4 +15,9 @@ export interface NotificationRepository {
   listForUser(userId: string, unreadOnly: boolean): Notification[];
   markRead(id: string): void;
   markAllReadForUser(userId: string): void;
+  /** Deletes only rows owned by `userId`; ids belonging to other users are
+   * silently skipped. Returns the number of rows actually deleted. */
+  deleteByIdsForUser(userId: string, ids: readonly string[]): number;
+  /** Returns the number of rows deleted. */
+  deleteAllForUser(userId: string): number;
 }

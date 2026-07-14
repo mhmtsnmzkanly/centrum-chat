@@ -46,4 +46,27 @@ export class FakeNotificationRepository implements NotificationRepository {
       if (notification.userId === userId) this.byId.set(id, { ...notification, isRead: true });
     }
   }
+
+  deleteByIdsForUser(userId: string, ids: readonly string[]): number {
+    let deleted = 0;
+    for (const id of ids) {
+      const existing = this.byId.get(id);
+      if (existing && existing.userId === userId) {
+        this.byId.delete(id);
+        deleted += 1;
+      }
+    }
+    return deleted;
+  }
+
+  deleteAllForUser(userId: string): number {
+    let deleted = 0;
+    for (const [id, notification] of this.byId) {
+      if (notification.userId === userId) {
+        this.byId.delete(id);
+        deleted += 1;
+      }
+    }
+    return deleted;
+  }
 }

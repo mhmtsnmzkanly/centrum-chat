@@ -77,4 +77,18 @@ export class SqliteNotificationRepository implements NotificationRepository {
       userId,
     );
   }
+
+  deleteByIdsForUser(userId: string, ids: readonly string[]): number {
+    if (ids.length === 0) return 0;
+    const placeholders = ids.map(() => "?").join(", ");
+    const result = this.db.prepare(
+      `DELETE FROM notifications WHERE user_id = ? AND id IN (${placeholders})`,
+    ).run(userId, ...ids);
+    return Number(result.changes);
+  }
+
+  deleteAllForUser(userId: string): number {
+    const result = this.db.prepare("DELETE FROM notifications WHERE user_id = ?").run(userId);
+    return Number(result.changes);
+  }
 }

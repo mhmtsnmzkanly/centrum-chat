@@ -155,6 +155,41 @@ Deno.test("NotificationService.list/markRead/markAllRead", () => {
   assertEquals(service.list("u-2", true).length, 1); // unaffected
 });
 
+Deno.test("NotificationService.deleteByIds/deleteAll affect only the caller's notifications and report deleted counts", () => {
+  const { service, notifications } = makeServices();
+  const own1 = notifications.create({
+    userId: "u-1",
+    type: "dm",
+    conversationId: "r-1",
+    messageId: "m-1",
+  });
+  const own2 = notifications.create({
+    userId: "u-1",
+    type: "mention",
+    conversationId: "r-2",
+    messageId: "m-2",
+  });
+  const foreign = notifications.create({
+    userId: "u-2",
+    type: "dm",
+    conversationId: "r-1",
+    messageId: "m-3",
+  });
+
+  // Foreign and unknown ids are silently skipped, never deleted.
+  assertEquals(service.deleteByIds("u-1", [foreign.id, "no-such-id"]), 0);
+  assertEquals(service.list("u-2", false).length, 1);
+
+  assertEquals(service.deleteByIds("u-1", [own1.id]), 1);
+  assertEquals(service.list("u-1", false).map((n) => n.id), [own2.id]);
+  // Idempotent: deleting the same id again counts zero rows.
+  assertEquals(service.deleteByIds("u-1", [own1.id]), 0);
+
+  assertEquals(service.deleteAll("u-1"), 1);
+  assertEquals(service.list("u-1", false), []);
+  assertEquals(service.list("u-2", false).length, 1); // unaffected
+});
+
 Deno.test("NotificationService.markRead throws NotFoundError for an unknown id, ForbiddenError for someone else's notification", () => {
   const { service, notifications } = makeServices();
   const notification = notifications.create({
