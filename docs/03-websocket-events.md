@@ -148,7 +148,7 @@ Fire-and-forget (no response envelope beyond the standard ack `success:true, dat
 |---|---|---|
 | `notification.list` | `{ unreadOnly?: boolean }` | `{ notifications: Notification[] }` |
 | `notification.markRead` | `{ notificationId }` \| `{ all: true }` | `{}` |
-| `notification.delete` | `{ ids: string[] }` (max 100) \| `{ all: true }` | `{ deletedCount: number }` — deletes only the caller's own notifications; foreign or unknown ids are silently skipped. |
+| `notification.delete` | `{ ids: string[] }` (max 100) or `{ all: true }` (exclusively one of the two, not both) | `{ deletedCount: number }` — deletes only the caller's own notifications; foreign or unknown ids are silently skipped. |
 
 ```ts
 type Notification = { id, type: 'mention'|'dm'|'group_invite'|'reaction', conversationId, messageId, isRead, createdAt };

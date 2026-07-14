@@ -383,10 +383,23 @@ Deno.test("WS notification.delete removes selected or all own notifications and 
     const emptyAck = await bobConn.queue.next() as WsResponse;
     assertEquals(emptyAck.data!.notifications, []);
 
-    send(bobConn.socket, "10", "notification.delete", {});
-    const invalidAck = await bobConn.queue.next() as WsResponse;
-    assertEquals(invalidAck.success, false);
-    assertEquals(invalidAck.error!.code, "VALIDATION_ERROR");
+    const testCases = [
+      { payload: {}, reqId: "10" },
+      { payload: { all: true, ids: ["some-id"] }, reqId: "11" },
+      { payload: { all: false }, reqId: "12" },
+      { payload: { all: false, ids: ["some-id"] }, reqId: "13" },
+      { payload: { ids: [] }, reqId: "14" },
+      { payload: { all: true, ids: [] }, reqId: "15" },
+      { payload: { ids: ["   "] }, reqId: "16" },
+      { payload: { ids: [""] }, reqId: "17" },
+    ];
+
+    for (const tc of testCases) {
+      send(bobConn.socket, tc.reqId, "notification.delete", tc.payload);
+      const ack = await bobConn.queue.next() as WsResponse;
+      assertEquals(ack.success, false, `Payload ${JSON.stringify(tc.payload)} should fail`);
+      assertEquals(ack.error!.code, "VALIDATION_ERROR");
+    }
 
     aliceConn.socket.close();
     bobConn.socket.close();
