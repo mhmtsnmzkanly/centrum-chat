@@ -67,6 +67,8 @@ export class RegisterRoute implements RouteHandler {
       displayName,
       rememberMe,
       deviceLabel,
+      clientIp: ctx.clientIp,
+      userAgent: ctx.request.headers.get("user-agent"),
     });
     return successResponse(
       this.codec,

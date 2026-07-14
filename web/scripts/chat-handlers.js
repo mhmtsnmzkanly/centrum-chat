@@ -299,7 +299,19 @@ export function applySystemTheme(theme) {
 
 export async function loadSessionList() {
   const data = await apiFetch("/api/auth/sessions");
-  store.set("sessionList", data.sessions || []);
+  const sessions = (data.sessions || []).map((s) => {
+    const userAgent = s.userAgent || "";
+    return {
+      ...s,
+      ipDisplay: s.ipAddress || "Unknown",
+      clientDisplay: userAgent
+        ? (userAgent.length > 90 ? `${userAgent.slice(0, 90)}…` : userAgent)
+        : "Unknown client",
+      revoked: !!s.revokedAt,
+      canRevoke: !s.revokedAt,
+    };
+  });
+  store.set("sessionList", sessions);
 }
 
 export async function completePendingEmailChangeToken(token) {

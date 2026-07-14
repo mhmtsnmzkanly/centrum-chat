@@ -2,6 +2,7 @@ import type { Db } from "../db.ts";
 import type {
   ListedUserSession,
   NewUserSession,
+  SessionClientMetadata,
   UserSessionRecord,
   UserSessionRepository,
 } from "../../domain/auth/userSessionRepository.port.ts";
@@ -16,6 +17,8 @@ interface RefreshTokenRow {
   last_used_at: string | null;
   expires_at: string;
   revoked_at: string | null;
+  ip_address: string | null;
+  user_agent: string | null;
 }
 
 function toRecord(row: RefreshTokenRow): UserSessionRecord {
@@ -29,6 +32,8 @@ function toRecord(row: RefreshTokenRow): UserSessionRecord {
     lastUsedAt: row.last_used_at,
     expiresAt: row.expires_at,
     revokedAt: row.revoked_at,
+    ipAddress: row.ip_address,
+    userAgent: row.user_agent,
   };
 }
 
@@ -40,6 +45,9 @@ function toListedSession(row: RefreshTokenRow): ListedUserSession {
     createdAt: row.issued_at,
     lastUsedAt: row.last_used_at,
     expiresAt: row.expires_at,
+    ipAddress: row.ip_address,
+    userAgent: row.user_agent,
+    revokedAt: row.revoked_at,
   };
 }
 
@@ -50,9 +58,10 @@ export class SqliteUserSessionRepository implements UserSessionRepository {
   create(token: NewUserSession): UserSessionRecord {
     this.db.prepare(
       `INSERT INTO user_sessions (
-         id, user_id, refresh_token_hash, device_label, remembered, last_used_at, expires_at
+         id, user_id, refresh_token_hash, device_label, remembered, last_used_at, expires_at,
+         ip_address, user_agent
        )
-       VALUES (?, ?, ?, ?, ?, strftime('%Y-%m-%dT%H:%M:%fZ','now'), ?)`,
+       VALUES (?, ?, ?, ?, ?, strftime('%Y-%m-%dT%H:%M:%fZ','now'), ?, ?, ?)`,
     ).run(
       token.id,
       token.userId,
@@ -60,6 +69,8 @@ export class SqliteUserSessionRepository implements UserSessionRepository {
       token.deviceLabel,
       token.remembered ? 1 : 0,
       token.expiresAt,
+      token.ipAddress ?? null,
+      token.userAgent ?? null,
     );
 
     const row = this.db.prepare("SELECT * FROM user_sessions WHERE id = ?").get(token.id) as
@@ -89,15 +100,26 @@ export class SqliteUserSessionRepository implements UserSessionRepository {
     nextRefreshTokenHash: string,
     lastUsedAt: string,
     nowIso: string,
+    client?: SessionClientMetadata,
   ): UserSessionRecord | null {
     const result = this.db.prepare(
       `UPDATE user_sessions
-       SET refresh_token_hash = ?, last_used_at = ?
+       SET refresh_token_hash = ?, last_used_at = ?,
+           ip_address = COALESCE(?, ip_address),
+           user_agent = COALESCE(?, user_agent)
        WHERE id = ?
          AND refresh_token_hash = ?
          AND revoked_at IS NULL
          AND expires_at >= ?`,
-    ).run(nextRefreshTokenHash, lastUsedAt, id, currentRefreshTokenHash, nowIso);
+    ).run(
+      nextRefreshTokenHash,
+      lastUsedAt,
+      client?.ipAddress ?? null,
+      client?.userAgent ?? null,
+      id,
+      currentRefreshTokenHash,
+      nowIso,
+    );
     if (Number(result.changes) !== 1) return null;
     return this.findById(id);
   }
@@ -134,11 +156,12 @@ export class SqliteUserSessionRepository implements UserSessionRepository {
     return Number(result.changes);
   }
 
-  listActiveForUser(userId: string, nowIso: string): ListedUserSession[] {
+  listForUser(userId: string, nowIso: string): ListedUserSession[] {
     const rows = this.db.prepare(
       `SELECT * FROM user_sessions
-       WHERE user_id = ? AND revoked_at IS NULL AND expires_at >= ?
+       WHERE user_id = ? AND expires_at >= ?
        ORDER BY
+         revoked_at IS NOT NULL,
          CASE WHEN last_used_at IS NULL THEN issued_at ELSE last_used_at END DESC,
          issued_at DESC`,
     ).all(userId, nowIso) as unknown as RefreshTokenRow[];

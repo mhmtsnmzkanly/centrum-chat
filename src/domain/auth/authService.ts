@@ -14,7 +14,7 @@ import { ConflictError } from "../../shared/errors/conflictError.ts";
 import { UnauthorizedError } from "../../shared/errors/unauthorizedError.ts";
 import { NotFoundError } from "../../shared/errors/notFoundError.ts";
 import { generateId } from "../../shared/id.ts";
-import { normalizeEmailIdentity, sanitizeDeviceLabel } from "./emailAddress.ts";
+import { normalizeEmailIdentity, sanitizeDeviceLabel, sanitizeUserAgent } from "./emailAddress.ts";
 import {
   AccountDisabledError,
   ForcePasswordResetRequiredError,
@@ -106,6 +106,9 @@ export interface RegisterInput {
   readonly displayName: string;
   readonly rememberMe?: boolean;
   readonly deviceLabel?: string | null;
+  /** Resolved by the transport's trusted-proxy policy — never a raw client header. */
+  readonly clientIp?: string | null;
+  readonly userAgent?: string | null;
 }
 
 export interface LoginInput {
@@ -113,6 +116,9 @@ export interface LoginInput {
   readonly password: string;
   readonly rememberMe?: boolean;
   readonly deviceLabel?: string | null;
+  /** Resolved by the transport's trusted-proxy policy — never a raw client header. */
+  readonly clientIp?: string | null;
+  readonly userAgent?: string | null;
 }
 
 export interface AuthServiceOptions {
@@ -213,6 +219,8 @@ export class AuthService {
         deviceLabel,
         remembered: rememberMe,
         expiresAt: sessionDraft.expiresAt,
+        ipAddress: input.clientIp ?? null,
+        userAgent: sanitizeUserAgent(input.userAgent ?? null),
       });
       this.options.emailVerificationTokens.create({
         id: verificationDraft.id,
@@ -254,11 +262,16 @@ export class AuthService {
       deviceLabel: draft.deviceLabel,
       remembered: draft.remembered,
       expiresAt: draft.expiresAt,
+      ipAddress: input.clientIp ?? null,
+      userAgent: sanitizeUserAgent(input.userAgent ?? null),
     });
     return await this.buildAuthResult(user, draft);
   }
 
-  async refresh(refreshToken: string): Promise<AuthResult> {
+  async refresh(
+    refreshToken: string,
+    client?: { clientIp?: string | null; userAgent?: string | null },
+  ): Promise<AuthResult> {
     const refreshTokenHash = await this.options.tokenService.hashRefreshToken(refreshToken);
     const record = this.options.userSessions.findByRefreshTokenHash(refreshTokenHash);
     const nowIso = this.nowIso();
@@ -279,6 +292,10 @@ export class AuthService {
       nextRefreshTokenHash,
       nowIso,
       nowIso,
+      {
+        ipAddress: client?.clientIp ?? null,
+        userAgent: sanitizeUserAgent(client?.userAgent ?? null),
+      },
     );
     if (!rotated) {
       throw new UnauthorizedError("Refresh token is invalid, expired, or revoked.");
@@ -308,7 +325,7 @@ export class AuthService {
   }
 
   listSessions(userId: string, currentSessionId: string): SessionSummary[] {
-    return this.options.userSessions.listActiveForUser(userId, this.nowIso()).map((session) => ({
+    return this.options.userSessions.listForUser(userId, this.nowIso()).map((session) => ({
       ...session,
       current: session.id === currentSessionId,
     }));

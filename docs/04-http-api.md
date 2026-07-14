@@ -51,7 +51,14 @@ Header: `Authorization: Bearer <accessToken>`
 
 ### `GET /api/auth/sessions`
 Header: `Authorization: Bearer <accessToken>`
-200 → `{ success: true, data: { sessions: [{ id, deviceLabel, remembered, createdAt, lastUsedAt, expiresAt, current }] } }`
+200 → `{ success: true, data: { sessions: [{ id, deviceLabel, remembered, createdAt, lastUsedAt, expiresAt, current, ipAddress, userAgent, revokedAt }] } }`
+
+`ipAddress` (resolved via the trusted-proxy policy, never a raw client header) and `userAgent`
+(control-characters stripped, max 400 chars) are captured at login/register and refreshed on every
+token rotation; both are `null` for sessions created before migration 0010. The list contains the
+caller's unexpired sessions including recently revoked ones as client history: `revokedAt` is
+`null` for active sessions and set for revoked ones (revoked rows disappear once the session
+cleanup job purges them). No external geolocation service is involved.
 
 ### `DELETE /api/auth/sessions/:sessionId`
 Header: `Authorization: Bearer <accessToken>`

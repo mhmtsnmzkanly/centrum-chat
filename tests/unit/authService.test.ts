@@ -7,6 +7,7 @@ import { ConflictError } from "../../src/shared/errors/conflictError.ts";
 import { FakeUserRepository } from "../support/fakeUserRepository.ts";
 import type {
   NewUserSession,
+  SessionClientMetadata,
   UserSessionRecord,
   UserSessionRepository,
 } from "../../src/domain/auth/userSessionRepository.port.ts";
@@ -91,6 +92,8 @@ class FakeUserSessionRepository implements UserSessionRepository {
       issuedAt: new Date().toISOString(),
       lastUsedAt: new Date().toISOString(),
       revokedAt: null,
+      ipAddress: token.ipAddress ?? null,
+      userAgent: token.userAgent ?? null,
     };
     this.recordsById.set(record.id, record);
     return record;
@@ -111,12 +114,19 @@ class FakeUserSessionRepository implements UserSessionRepository {
     nextRefreshTokenHash: string,
     lastUsedAt: string,
     nowIso: string,
+    client?: SessionClientMetadata,
   ): UserSessionRecord | null {
     const record = this.recordsById.get(id);
     if (!record) return null;
     if (record.refreshTokenHash !== currentRefreshTokenHash) return null;
     if (record.revokedAt !== null || record.expiresAt < nowIso) return null;
-    const updated = { ...record, refreshTokenHash: nextRefreshTokenHash, lastUsedAt };
+    const updated = {
+      ...record,
+      refreshTokenHash: nextRefreshTokenHash,
+      lastUsedAt,
+      ipAddress: client?.ipAddress ?? record.ipAddress,
+      userAgent: client?.userAgent ?? record.userAgent,
+    };
     this.recordsById.set(id, updated);
     return updated;
   }
@@ -155,11 +165,9 @@ class FakeUserSessionRepository implements UserSessionRepository {
     return count;
   }
 
-  listActiveForUser(userId: string, nowIso: string) {
+  listForUser(userId: string, nowIso: string) {
     return [...this.recordsById.values()]
-      .filter((record) =>
-        record.userId === userId && record.revokedAt === null && record.expiresAt >= nowIso
-      )
+      .filter((record) => record.userId === userId && record.expiresAt >= nowIso)
       .map((record) => ({
         id: record.id,
         deviceLabel: record.deviceLabel,
@@ -167,6 +175,9 @@ class FakeUserSessionRepository implements UserSessionRepository {
         createdAt: record.issuedAt,
         lastUsedAt: record.lastUsedAt,
         expiresAt: record.expiresAt,
+        ipAddress: record.ipAddress,
+        userAgent: record.userAgent,
+        revokedAt: record.revokedAt,
       }));
   }
 
@@ -877,10 +888,64 @@ Deno.test("AuthService.listSessions and revokeSession use the trusted current se
     otherSessionId,
   );
   assertEquals(revoked.revokedCurrent, false);
-  assertEquals(
-    auth.listSessions(String(decodeJwtPayload(second.accessToken).sub), currentSessionId).length,
-    1,
+  const afterRevoke = auth.listSessions(
+    String(decodeJwtPayload(second.accessToken).sub),
+    currentSessionId,
   );
+  // The revoked session stays listed as history, flagged via revokedAt.
+  assertEquals(afterRevoke.length, 2);
+  assertEquals(afterRevoke.find((s) => s.id === otherSessionId)?.revokedAt !== null, true);
+  assertEquals(afterRevoke.find((s) => s.id === currentSessionId)?.revokedAt, null);
+});
+
+Deno.test("AuthService captures session client metadata at login/register, updates it on refresh, and sanitizes the user-agent", async () => {
+  const { auth } = makeAdvancedAuthService();
+  await auth.register({
+    username: "alice",
+    email: "alice@example.com",
+    password: "correct-horse-battery",
+    displayName: "Alice",
+    clientIp: "203.0.113.9",
+    userAgent: "Mozilla/5.0\u0007(X11; Linux) Firefox/128",
+  });
+  const login = await auth.login({
+    email: "alice@example.com",
+    password: "correct-horse-battery",
+    clientIp: "198.51.100.7",
+    userAgent: "A".repeat(500),
+  });
+  const userId = String(decodeJwtPayload(login.accessToken).sub);
+  const currentSessionId = String(decodeJwtPayload(login.accessToken).sid);
+
+  const sessions = auth.listSessions(userId, currentSessionId);
+  const registered = sessions.find((s) => s.id !== currentSessionId)!;
+  const current = sessions.find((s) => s.id === currentSessionId)!;
+  // Control characters are stripped, and an oversized user-agent is bounded.
+  assertEquals(registered.ipAddress, "203.0.113.9");
+  assertEquals(registered.userAgent, "Mozilla/5.0 (X11; Linux) Firefox/128");
+  assertEquals(current.ipAddress, "198.51.100.7");
+  assertEquals(current.userAgent?.length, 400);
+
+  // Refresh from a new network updates the stored client metadata.
+  await auth.refresh(login.refreshToken, {
+    clientIp: "192.0.2.44",
+    userAgent: "Refreshed-Agent/1.0",
+  });
+  const refreshed = auth.listSessions(userId, currentSessionId)
+    .find((s) => s.id === currentSessionId)!;
+  assertEquals(refreshed.ipAddress, "192.0.2.44");
+  assertEquals(refreshed.userAgent, "Refreshed-Agent/1.0");
+
+  // Sessions created without client context keep null metadata.
+  const anonymous = await auth.login({
+    email: "alice@example.com",
+    password: "correct-horse-battery",
+  });
+  const anonymousId = String(decodeJwtPayload(anonymous.accessToken).sid);
+  const anonymousSession = auth.listSessions(userId, anonymousId)
+    .find((s) => s.id === anonymousId)!;
+  assertEquals(anonymousSession.ipAddress, null);
+  assertEquals(anonymousSession.userAgent, null);
 });
 
 Deno.test("AuthService.completePasswordReset revokes all sessions and sends a password-changed notice", async () => {
@@ -979,8 +1044,8 @@ Deno.test("AuthService.completeEmailChange keeps the email pending until token c
   assertEquals(users.findById(userId)?.email, "alice.new@example.com");
   assertEquals(users.findById(userId)?.emailVerifiedAt !== null, true);
   assertEquals(
-    userSessions.listActiveForUser(userId, "9999-12-31T00:00:00.000Z").some((session) =>
-      session.id === firstSessionId
+    userSessions.listForUser(userId, "9999-12-31T00:00:00.000Z").some((session) =>
+      session.id === firstSessionId && session.revokedAt === null
     ),
     false,
   );

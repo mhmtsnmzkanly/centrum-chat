@@ -1109,12 +1109,19 @@
                             <if is-truthy="sessionItem.remembered">
                               <span class="badge bg-secondary ms-2">Remembered</span>
                             </if>
+                            <if is-truthy="sessionItem.revoked">
+                              <span class="badge bg-danger ms-2">Revoked</span>
+                            </if>
                           </div>
+                          <div class="small text-muted">IP: ${sessionItem.ipDisplay}</div>
+                          <div class="small text-muted text-break">Client: ${sessionItem.clientDisplay}</div>
                           <div class="small text-muted">Created: ${sessionItem.createdAt}</div>
                           <div class="small text-muted">Last used: ${sessionItem.lastUsedAt}</div>
                           <div class="small text-muted">Expires: ${sessionItem.expiresAt}</div>
                         </div>
-                        <button type="button" class="btn btn-sm btn-outline-danger" data-on-click="revokeSession" data-session-id="${sessionItem.id}">Revoke</button>
+                        <if is-truthy="sessionItem.canRevoke">
+                          <button type="button" class="btn btn-sm btn-outline-danger" data-on-click="revokeSession" data-session-id="${sessionItem.id}">Revoke</button>
+                        </if>
                       </div>
                     </div>
                   </for>

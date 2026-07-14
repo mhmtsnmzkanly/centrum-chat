@@ -50,7 +50,14 @@ export class LoginRoute implements RouteHandler {
       throw new CaptchaRequiredError("CAPTCHA verification is required.");
     }
 
-    const result = await this.authService.login({ email, password, rememberMe, deviceLabel });
+    const result = await this.authService.login({
+      email,
+      password,
+      rememberMe,
+      deviceLabel,
+      clientIp: ctx.clientIp,
+      userAgent: ctx.request.headers.get("user-agent"),
+    });
     return successResponse(
       this.codec,
       { user: result.profile, accessToken: result.accessToken, refreshToken: result.refreshToken },

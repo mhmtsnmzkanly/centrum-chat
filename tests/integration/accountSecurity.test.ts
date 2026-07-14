@@ -590,6 +590,77 @@ Deno.test("Account security HTTP routes list sessions, reject cross-user revoke,
   }
 });
 
+Deno.test("Session list exposes client metadata captured at login, updated on refresh, and keeps revoked sessions as history", async () => {
+  const harness = await bootHarness();
+  try {
+    const registered = await harness.registerUser("alice");
+
+    // A second session from a distinct client (custom IP + User-Agent).
+    const loginResponse = await harness.dispatchHttp("/api/auth/login", {
+      method: "POST",
+      headers: { ...jsonHeaders(), "user-agent": "IntegrationBrowser/9.9" },
+      clientIp: "203.0.113.9",
+      body: JSON.stringify({
+        email: registered.email,
+        password: "correct-horse-battery",
+        deviceLabel: "phone",
+      }),
+    });
+    assertEquals(loginResponse.status, 200);
+    const loginData = (await parseJson(loginResponse)).data as Record<string, unknown>;
+    const loginAccessToken = String(loginData.accessToken);
+    const loginRefreshToken = String(loginData.refreshToken);
+
+    async function listSessions(): Promise<Array<Record<string, unknown>>> {
+      const response = await harness.dispatchHttp("/api/auth/sessions", {
+        headers: jsonHeaders(loginAccessToken),
+      });
+      assertEquals(response.status, 200);
+      const body = await parseJson(response);
+      return (body.data as Record<string, unknown>).sessions as Array<Record<string, unknown>>;
+    }
+
+    let sessions = await listSessions();
+    assertEquals(sessions.length, 2);
+    const current = sessions.find((s) => s.current === true)!;
+    const other = sessions.find((s) => s.current !== true)!;
+    assertEquals(current.ipAddress, "203.0.113.9");
+    assertEquals(current.userAgent, "IntegrationBrowser/9.9");
+    assertEquals(current.revokedAt, null);
+    // The registration session used the harness default socket address and no UA header.
+    assertEquals(other.ipAddress, "127.0.0.1");
+    assertEquals(other.userAgent, null);
+
+    // Refresh from a new network/client updates the stored metadata.
+    const refreshResponse = await harness.dispatchHttp("/api/auth/refresh", {
+      method: "POST",
+      headers: { ...jsonHeaders(), "user-agent": "RefreshedClient/2.0" },
+      clientIp: "198.51.100.7",
+      body: JSON.stringify({ refreshToken: loginRefreshToken }),
+    });
+    assertEquals(refreshResponse.status, 200);
+    sessions = await listSessions();
+    const refreshed = sessions.find((s) => s.id === current.id)!;
+    assertEquals(refreshed.ipAddress, "198.51.100.7");
+    assertEquals(refreshed.userAgent, "RefreshedClient/2.0");
+
+    // Revoking the other session keeps it listed as history, flagged via revokedAt.
+    const revokeResponse = await harness.dispatchHttp(
+      `/api/auth/sessions/${encodeURIComponent(String(other.id))}`,
+      { method: "DELETE", headers: jsonHeaders(loginAccessToken) },
+    );
+    assertEquals(revokeResponse.status, 200);
+    sessions = await listSessions();
+    assertEquals(sessions.length, 2);
+    const revoked = sessions.find((s) => s.id === other.id)!;
+    assertEquals(typeof revoked.revokedAt, "string");
+    // Active sessions are ordered before revoked history entries.
+    assertEquals(sessions[0]?.id, current.id);
+  } finally {
+    await harness.cleanup();
+  }
+});
+
 Deno.test("Email verification uses PUBLIC_BASE_URL and exactly one concurrent completion succeeds", async () => {
   const harness = await bootHarness();
   try {

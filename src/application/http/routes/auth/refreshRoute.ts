@@ -28,7 +28,10 @@ export class RefreshRoute implements RouteHandler {
     const body = asRecord(decodeJsonBody(this.codec, await ctx.request.text()));
     const refreshToken = requireString(body, "refreshToken");
 
-    const result = await this.authService.refresh(refreshToken);
+    const result = await this.authService.refresh(refreshToken, {
+      clientIp: ctx.clientIp,
+      userAgent: ctx.request.headers.get("user-agent"),
+    });
     return successResponse(
       this.codec,
       { accessToken: result.accessToken, refreshToken: result.refreshToken },
