@@ -29,12 +29,59 @@ export const STATUS_BADGES = {
   },
 };
 
+// ── Per-conversation scroll position memory (session-only) ─────────
+// Saved when leaving a conversation, applied after its messages re-render.
+// Several candidate anchor ids are kept so a deleted anchor message falls
+// back to the next still-existing one; the raw scrollTop is the last resort.
 const NEAR_BOTTOM_PX = 100;
+const scrollPositions = new Map();
 
 export function isStreamNearBottom() {
   const stream = document.getElementById("messageStream");
   if (!stream) return true;
   return stream.scrollHeight - stream.scrollTop - stream.clientHeight < NEAR_BOTTOM_PX;
+}
+
+export function saveScrollPosition(destKey) {
+  const stream = document.getElementById("messageStream");
+  if (!stream || !destKey) return;
+  if (isStreamNearBottom()) {
+    // At the bottom the default follow-latest behavior is what the user wants.
+    scrollPositions.delete(destKey);
+    return;
+  }
+  const streamTop = stream.getBoundingClientRect().top;
+  const anchors = [];
+  for (const el of stream.querySelectorAll(".message-group, .system-message-row")) {
+    const rect = el.getBoundingClientRect();
+    if (rect.bottom > streamTop) {
+      anchors.push({ id: el.id, offset: rect.top - streamTop });
+      if (anchors.length >= 3) break;
+    }
+  }
+  scrollPositions.set(destKey, { anchors, scrollTop: stream.scrollTop });
+}
+
+/** Returns true when a saved position was applied (and consumed). */
+export function restoreScrollPosition(destKey) {
+  const saved = scrollPositions.get(destKey);
+  if (!saved) return false;
+  const stream = document.getElementById("messageStream");
+  if (!stream) return false;
+  scrollPositions.delete(destKey);
+  const streamTop = stream.getBoundingClientRect().top;
+  for (const anchor of saved.anchors) {
+    const el = document.getElementById(anchor.id);
+    if (!el) continue; // message deleted -> next candidate anchor
+    stream.scrollTop += el.getBoundingClientRect().top - streamTop - anchor.offset;
+    return true;
+  }
+  stream.scrollTop = Math.min(saved.scrollTop, stream.scrollHeight);
+  return true;
+}
+
+export function hasSavedScrollPosition(destKey) {
+  return scrollPositions.has(destKey);
 }
 
 export function activeConversationId() {
@@ -74,9 +121,14 @@ export function closeDestinationDropdown() {
 }
 
 export function setActiveDestination(type, value) {
+  const nextKey = `${type}_${value}`;
+  const prevKey = store.get("activeDestKey");
+  if (prevKey && prevKey !== nextKey) {
+    saveScrollPosition(prevKey);
+  }
   store.set("activeDest", { type, value });
-  store.set("activeDestKey", `${type}_${value}`);
-  store.set(`notifications.${type}_${value}`, 0);
+  store.set("activeDestKey", nextKey);
+  store.set(`notifications.${nextKey}`, 0);
   store.set("typingState.active", false);
   // The FAB counter belongs to one conversation; it never carries over.
   store.set("scrollFabCount", 0);

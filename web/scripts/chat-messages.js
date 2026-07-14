@@ -3,6 +3,7 @@ import { TOKENS } from "./chat-auth.js";
 import { wsClient } from "./chat-socket.js";
 import { ToastService } from "./chat-api.js";
 import { playBeep } from "./chat-dialogs.js";
+import { hasSavedScrollPosition, restoreScrollPosition } from "./chat-conversations.js";
 
 export const HELPERS = {
   sanitize: (str) => {
@@ -292,6 +293,13 @@ store.subscribe("activeMessages", (newMsgs, oldMsgs) => {
   setTimeout(() => {
     const stream = document.getElementById("messageStream");
     if (!stream || !newMsgs) return;
+
+    // Returning to a conversation with a remembered position wins over the
+    // default follow-latest behavior (see chat-conversations.js).
+    const destKey = store.get("activeDestKey");
+    if (newMsgs.length > 0 && hasSavedScrollPosition(destKey) && restoreScrollPosition(destKey)) {
+      return;
+    }
 
     const lastMsg = newMsgs[newMsgs.length - 1];
     // "Own message" only forces a jump when the list actually grew: decorative
