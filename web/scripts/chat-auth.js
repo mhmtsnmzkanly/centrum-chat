@@ -120,7 +120,19 @@ export function onAuthLoss(fn) {
   authLossHandler = fn;
 }
 
+const authCleanupCallbacks = [];
+export function registerAuthCleanup(fn) {
+  authCleanupCallbacks.push(fn);
+}
+
 export function clearAuthenticatedState(message = null, toastType = "info") {
+  for (const cb of authCleanupCallbacks) {
+    try {
+      cb();
+    } catch (err) {
+      console.error("Auth cleanup callback error:", err);
+    }
+  }
   TOKENS.clear();
   store.set("session.loggedIn", false);
   store.set("session.user", null);

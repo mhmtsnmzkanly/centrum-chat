@@ -1,4 +1,4 @@
-import { mount } from "./lime-csr.js";
+import { mount, setDevMode } from "./lime-csr.js";
 import { controlCenterStore } from "./control-center-store.js";
 import { initShell, shellHandlers } from "./control-center-shell.js";
 import { initNavigation, navigationHandlers } from "./control-center-navigation.js";
@@ -10,6 +10,8 @@ import { initSettingsModule, settingsHandlers } from "./control-center-settings.
 import { initAuditModule, auditHandlers } from "./control-center-audit.js";
 import { initOwnerModule, ownerHandlers } from "./control-center-owner.js";
 import { initDialogs } from "./control-center-dialogs.js";
+
+setDevMode(false);
 
 const handlers = {
   ...shellHandlers,
@@ -23,11 +25,51 @@ const handlers = {
   ...ownerHandlers,
 };
 
+// Static sidebar configuration rendered by tpl-cc-sidebar. Visibility and
+// active state stay reactive through showNavGroup*/showTab_*/navClass_*
+// store computeds; this array only describes structure, icons, and labels.
+const NAV_GROUPS = [
+  {
+    id: "moderation",
+    title: "Moderation",
+    showPath: "showNavGroupModeration",
+    items: [
+      { tab: "reports", icon: "bi-chat-left-text", label: "Reports Queue" },
+      { tab: "moderation-audit", icon: "bi-journal-text", label: "Moderation Audit" },
+    ],
+  },
+  {
+    id: "administration",
+    title: "Administration",
+    showPath: "showNavGroupAdministration",
+    items: [
+      { tab: "users", icon: "bi-people", label: "Users" },
+      { tab: "channels", icon: "bi-hash", label: "Channels" },
+      { tab: "roles", icon: "bi-person-badge", label: "Roles" },
+      { tab: "settings", icon: "bi-sliders", label: "System Settings" },
+      { tab: "security-audit", icon: "bi-file-earmark-lock", label: "Security Audit" },
+    ],
+  },
+  {
+    id: "owner",
+    title: "Owner Only",
+    showPath: "showNavGroupOwner",
+    items: [
+      { tab: "ownership-transfer", icon: "bi-key", label: "Ownership Transfer" },
+    ],
+  },
+];
+
 document.addEventListener("DOMContentLoaded", async () => {
   // 1. Mount the control-center template
   const appRoot = document.getElementById("control-center-app");
   if (appRoot) {
-    mount("control-center", {}, appRoot, controlCenterStore, { handlers });
+    mount("control-center", {
+      target: appRoot,
+      context: { navGroups: NAV_GROUPS },
+      store: controlCenterStore,
+      handlers,
+    });
   }
 
   // 2. Initialize UI modules

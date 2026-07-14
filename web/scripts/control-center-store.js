@@ -44,6 +44,8 @@ const DEFAULT_STATE = {
   selectedUserDetails: null,
   selectedUserLoading: false,
   selectedUserError: null,
+  // Two-way draft behind the editable-account-fields form; seeded per selection.
+  userEditDraft: { displayName: "", bio: "", disabled: false },
 
   // Channels Management
   channels: [],
@@ -61,6 +63,8 @@ const DEFAULT_STATE = {
 
   // System Settings
   settings: null,
+  settingsState: {},
+  renderedVersions: {},
   settingsLoading: false,
   settingsError: null,
 
@@ -147,6 +151,7 @@ class Store {
         badgeClass: `report-badge ${r.status}`,
         statusText: r.status.replace("_", " "),
         targetTypeUpper: r.targetType.toUpperCase(),
+        reasonCodeUpper: r.reasonCode ? r.reasonCode.toUpperCase() : "",
         formattedDate: formatDate(r.createdAt),
       }));
     });
@@ -201,6 +206,7 @@ class Store {
         ...e,
         actionUpper: e.actionCode ? e.actionCode.toUpperCase() : "",
         targetTypeUpper: e.targetType ? e.targetType.toUpperCase() : "",
+        targetDisplay: `${e.targetType || "N/A"}: ${e.targetId || "N/A"}`,
         formattedDate: formatDate(e.createdAt),
         outcomeClass: e.outcome === "success" ? "bg-success-subtle text-success border border-success-subtle" : "bg-danger-subtle text-danger border border-danger-subtle",
         metadataFormatted: JSON.stringify(e.metadata || {}, null, 2),
@@ -215,6 +221,7 @@ class Store {
         ...e,
         actionUpper: e.actionCode ? e.actionCode.toUpperCase() : "",
         targetTypeUpper: e.targetType ? e.targetType.toUpperCase() : "",
+        targetDisplay: `${e.targetType || "N/A"}: ${e.targetId || "N/A"}`,
         formattedDate: formatDate(e.createdAt),
         outcomeClass: e.outcome === "success" ? "bg-success-subtle text-success border border-success-subtle" : "bg-danger-subtle text-danger border border-danger-subtle",
         metadataFormatted: JSON.stringify(e.metadata || {}, null, 2),
@@ -227,6 +234,93 @@ class Store {
     });
     this.store.computed("securityAuditEventsCountLabel", ["securityAuditEvents"], () => {
       return (this.store.get("securityAuditEvents") || []).length + " events";
+    });
+    this.store.computed("moderationAuditEmpty", ["moderationAuditEvents"], () => {
+      return (this.store.get("moderationAuditEvents") || []).length === 0;
+    });
+    this.store.computed("securityAuditEmpty", ["securityAuditEvents"], () => {
+      return (this.store.get("securityAuditEvents") || []).length === 0;
+    });
+
+    // 8. Shell / top bar / operator card
+    this.store.computed("showShell", ["operator", "accessDenied"], () => {
+      return !!this.store.get("operator") && !this.store.get("accessDenied");
+    });
+
+    const TAB_TITLES = {
+      reports: "Reports Queue",
+      "moderation-audit": "Moderation Audit",
+      users: "Users",
+      channels: "Channels",
+      roles: "Roles",
+      settings: "System Settings",
+      "security-audit": "Security Audit",
+      "ownership-transfer": "Ownership Transfer",
+    };
+    this.store.computed("workspaceTitleText", ["currentTab"], () => {
+      return TAB_TITLES[this.store.get("currentTab")] || "Control Center";
+    });
+
+    this.store.computed("operatorAvatarText", ["operator"], () => {
+      const op = this.store.get("operator");
+      const name = op?.displayName || op?.username || "OP";
+      return name.slice(0, 2).toUpperCase();
+    });
+    this.store.computed("operatorRoleUpper", ["operator"], () => {
+      const op = this.store.get("operator");
+      return (op?.role || "operator").toUpperCase();
+    });
+    this.store.computed("operatorBadgeClass", ["operator"], () => {
+      const badges = {
+        owner: "bg-danger",
+        admin: "bg-primary",
+        moderator: "bg-info text-dark",
+      };
+      return badges[this.store.get("operator")?.role] || "bg-secondary";
+    });
+
+    // 9. Reports queue + investigation helpers
+    this.store.computed("reportsListCountLabel", ["reports"], () => {
+      const count = (this.store.get("reports") || []).length;
+      return count === 1 ? "1 report" : `${count} reports`;
+    });
+    this.store.computed("reportsListEmpty", ["reports", "reportsLoading"], () => {
+      return !this.store.get("reportsLoading") &&
+        (this.store.get("reports") || []).length === 0;
+    });
+    this.store.computed("selectedReportFormattedDate", ["selectedReportDetails"], () => {
+      return formatDate(this.store.get("selectedReportDetails")?.createdAt);
+    });
+    this.store.computed("selectedReportStatusClass", ["selectedReportDetails"], () => {
+      const status = this.store.get("selectedReportDetails")?.status || "open";
+      return `badge report-badge ${status}`;
+    });
+    this.store.computed(
+      "showAssignButton",
+      ["selectedReportDetails", "operator", "capabilities"],
+      () => {
+        const det = this.store.get("selectedReportDetails");
+        const op = this.store.get("operator");
+        const caps = this.store.get("capabilities");
+        return !!(caps?.moderation.reportsAssign && det && op &&
+          det.assignedModeratorId !== op.id &&
+          (det.status === "open" || det.status === "in_review"));
+      },
+    );
+    this.store.computed(
+      "canApplySanctions",
+      ["capabilities", "selectedReportDetails"],
+      () => {
+        const caps = this.store.get("capabilities");
+        const det = this.store.get("selectedReportDetails");
+        const canApply = !!(caps && (caps.moderation.sanctionsMessageMute ||
+          caps.moderation.sanctionsInteractionRestriction ||
+          caps.moderation.sanctionsAccountSuspension));
+        return canApply && det?.targetType === "user";
+      },
+    );
+    this.store.computed("canRevokeSanctions", ["capabilities"], () => {
+      return !!this.store.get("capabilities")?.moderation.sanctionsRevoke;
     });
   }
 
@@ -301,6 +395,7 @@ class Store {
       selectedUserDetails: null,
       selectedUserLoading: false,
       selectedUserError: null,
+      userEditDraft: { displayName: "", bio: "", disabled: false },
       channels: [],
       channelsLoading: false,
       channelsError: null,
@@ -312,6 +407,8 @@ class Store {
       rolesLoading: false,
       rolesError: null,
       settings: null,
+      settingsState: {},
+      renderedVersions: {},
       settingsLoading: false,
       settingsError: null,
       auditEvents: [],
@@ -598,6 +695,11 @@ class Store {
 
       this.update({
         selectedUserDetails: res.user,
+        userEditDraft: {
+          displayName: res.user.displayName || "",
+          bio: res.user.bio || "",
+          disabled: !!res.user.accountDisabledAt,
+        },
         selectedUserLoading: false,
       });
       // Contextual loading of user's sanctions

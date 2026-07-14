@@ -1,10 +1,10 @@
 import { store, CONFIG, coverStyleFor } from "./chat-store.js";
 import { wsClient } from "./chat-socket.js";
-import { TOKENS, clearAuthenticatedState, onAuthLoss, STORAGE, SESSION_STORAGE, tryRefreshTokens } from "./chat-auth.js";
+import { TOKENS, clearAuthenticatedState, onAuthLoss, STORAGE, SESSION_STORAGE, tryRefreshTokens, registerAuthCleanup } from "./chat-auth.js";
 import { apiFetch, ToastService, CAPTCHA, currentDeviceLabel, makeClientError, refreshAccountSecurityState, submitSafetyReport } from "./chat-api.js";
 import { HELPERS, MAPPERS, decorateMessage, patchMessageById } from "./chat-messages.js";
 import { showModal, hideModal, playBeep, hideSplashLoader } from "./chat-dialogs.js";
-import { activeConversationId, setRoomMessages, appendRoomMessage, markConversationAsRead, closeDestinationDropdown, setActiveDestination, openDmWithUser, loadDrafts, STATUS_BADGES } from "./chat-conversations.js";
+import { activeConversationId, setRoomMessages, appendRoomMessage, markConversationAsRead, closeDestinationDropdown, setActiveDestination, openDmWithUser, loadDrafts, STATUS_BADGES, setDraft, cancelPendingDraftPersistence } from "./chat-conversations.js";
 import { UploadOverlay, destKeyForConversation, setupDragDropZone } from "./chat-media.js";
 import { applySessionProfile, seedPreferencesForm, refreshUserProfile } from "./chat-profile.js";
 
@@ -250,13 +250,15 @@ export function applyTheme(theme) {
 // ── Message-search history (account-scoped, local-only) ─────────────
 const SEARCH_HISTORY_LIMIT = 10;
 
-function searchHistoryStorageKey() {
-  const user = store.get("session.user");
-  return user ? `chat_search_history_${user.id}` : null;
+function searchHistoryStorageKey(userId) {
+  const uId = userId || store.get("session.user")?.id;
+  return uId ? `chat_search_history_${uId}` : null;
 }
 
 export function loadSearchHistory() {
-  const key = searchHistoryStorageKey();
+  const user = store.get("session.user");
+  if (!user) return;
+  const key = searchHistoryStorageKey(user.id);
   if (!key) return;
   try {
     const parsed = JSON.parse(STORAGE.getItem(key) || "[]");
@@ -269,9 +271,9 @@ export function loadSearchHistory() {
   }
 }
 
-function persistSearchHistory(entries) {
+function persistSearchHistory(entries, userId) {
   store.set("searchHistory", entries);
-  const key = searchHistoryStorageKey();
+  const key = searchHistoryStorageKey(userId);
   if (!key) return;
   if (entries.length === 0) {
     STORAGE.removeItem(key);
@@ -280,12 +282,112 @@ function persistSearchHistory(entries) {
   }
 }
 
-export function recordSearchHistory(query) {
+export function recordSearchHistory(query, userId) {
+  if (!userId) return;
+  const currentUser = store.get("session.user");
+  if (!currentUser || currentUser.id !== userId) return;
+  if (!store.get("session.loggedIn")) return;
+
   const trimmed = (query || "").trim();
   if (trimmed === "") return;
   const rest = (store.get("searchHistory") || []).filter((q) => q !== trimmed);
-  persistSearchHistory([trimmed, ...rest].slice(0, SEARCH_HISTORY_LIMIT));
+  persistSearchHistory([trimmed, ...rest].slice(0, SEARCH_HISTORY_LIMIT), userId);
 }
+
+let searchHistoryRecordTimer = null;
+
+export function cancelPendingSearchPersistence() {
+  if (searchHistoryRecordTimer) {
+    clearTimeout(searchHistoryRecordTimer);
+    searchHistoryRecordTimer = null;
+  }
+}
+
+registerAuthCleanup(cancelPendingSearchPersistence);
+
+store.subscribe("searchState.userQuery", async (query) => {
+  const trimmed = (query || "").trim();
+  if (trimmed === "") {
+    store.set("searchState.searchResults", []);
+    return;
+  }
+  const user = store.get("session.user");
+  if (!user) return;
+  const originatingUserId = user.id;
+  
+  try {
+    const res = await wsClient.request("search.users", { query: trimmed });
+    
+    if (
+      !store.get("session.loggedIn") ||
+      store.get("session.user")?.id !== originatingUserId ||
+      (store.get("searchState.userQuery") || "").trim() !== trimmed
+    ) {
+      return;
+    }
+    
+    store.set("searchState.searchResults", res.users.map(MAPPERS.userSummary));
+  } catch (err) {
+    console.error("User search failed:", err);
+  }
+});
+
+store.subscribe("searchState.messageQuery", async (query) => {
+  const trimmed = (query || "").trim();
+  clearTimeout(searchHistoryRecordTimer);
+  searchHistoryRecordTimer = null;
+  
+  if (trimmed === "") {
+    store.set("searchState.searchResultsMessages", null);
+    return;
+  }
+  const conversationId = activeConversationId();
+  if (!conversationId) return;
+  
+  const user = store.get("session.user");
+  if (!user) return;
+  const originatingUserId = user.id;
+  
+  try {
+    const res = await wsClient.request("search.messages", { conversationId, query: trimmed });
+    
+    if (
+      !store.get("session.loggedIn") ||
+      store.get("session.user")?.id !== originatingUserId ||
+      activeConversationId() !== conversationId ||
+      (store.get("searchState.messageQuery") || "").trim() !== trimmed
+    ) {
+      return;
+    }
+    
+    const messages = res.messages.map(MAPPERS.message);
+    await ensureUsersKnown(messages.map((m) => m.authorId));
+    
+    if (
+      !store.get("session.loggedIn") ||
+      store.get("session.user")?.id !== originatingUserId ||
+      activeConversationId() !== conversationId ||
+      (store.get("searchState.messageQuery") || "").trim() !== trimmed
+    ) {
+      return;
+    }
+    
+    store.set("searchState.searchResultsMessages", messages);
+    
+    searchHistoryRecordTimer = setTimeout(() => {
+      if (
+        store.get("session.loggedIn") &&
+        store.get("session.user")?.id === originatingUserId &&
+        activeConversationId() === conversationId &&
+        (store.get("searchState.messageQuery") || "").trim() === trimmed
+      ) {
+        recordSearchHistory(trimmed, originatingUserId);
+      }
+    }, 1200);
+  } catch (err) {
+    console.error("Message search failed:", err);
+  }
+});
 
 export function applySystemTheme(theme) {
   if (theme === "dark") {
@@ -1027,7 +1129,10 @@ export const handlers = {
   handleSearchInputKeydown(e) {
     if (e.key === "Enter") {
       e.preventDefault();
-      recordSearchHistory(store.get("searchState.messageQuery"));
+      const user = store.get("session.user");
+      if (user) {
+        recordSearchHistory(store.get("searchState.messageQuery"), user.id);
+      }
     }
   },
 
@@ -1035,7 +1140,10 @@ export const handlers = {
     e?.preventDefault?.();
     const query = el.getAttribute("data-query");
     if (!query) return;
-    recordSearchHistory(query);
+    const user = store.get("session.user");
+    if (user) {
+      recordSearchHistory(query, user.id);
+    }
     store.set("searchState.messageQuery", query);
     const input = document.getElementById("messageSearchInput");
     if (input) input.focus();
@@ -1046,11 +1154,17 @@ export const handlers = {
     e?.preventDefault?.();
     const query = el.getAttribute("data-query");
     if (!query) return;
-    persistSearchHistory((store.get("searchHistory") || []).filter((q) => q !== query));
+    const user = store.get("session.user");
+    if (user) {
+      persistSearchHistory((store.get("searchHistory") || []).filter((q) => q !== query), user.id);
+    }
   },
 
   clearSearchHistory() {
-    persistSearchHistory([]);
+    const user = store.get("session.user");
+    if (user) {
+      persistSearchHistory([], user.id);
+    }
   },
 
   triggerFileAttach() {
@@ -1200,6 +1314,13 @@ export const handlers = {
           replyToId: replyTarget ? replyTarget.id : undefined,
           attachmentId: attachmentId || undefined,
         });
+      }
+
+      const user = store.get("session.user");
+      const activeDestKey = store.get("activeDestKey");
+      if (user && activeDestKey) {
+        cancelPendingDraftPersistence();
+        setDraft(activeDestKey, "", user.id);
       }
 
       store.set("chatForm.messageInput", "");

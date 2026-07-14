@@ -1,7 +1,7 @@
 import { store } from "./chat-store.js";
 import { wsClient } from "./chat-socket.js";
 import { hideModal } from "./chat-dialogs.js";
-import { STORAGE } from "./chat-auth.js";
+import { STORAGE, registerAuthCleanup } from "./chat-auth.js";
 
 export const STATUS_BADGES = {
   online: {
@@ -86,13 +86,15 @@ export function hasSavedScrollPosition(destKey) {
 }
 
 // ── Per-conversation composer drafts (account-scoped, local-only) ──
-function draftsStorageKey() {
-  const user = store.get("session.user");
-  return user ? `chat_drafts_${user.id}` : null;
+function draftsStorageKey(userId) {
+  const uId = userId || store.get("session.user")?.id;
+  return uId ? `chat_drafts_${uId}` : null;
 }
 
 export function loadDrafts() {
-  const key = draftsStorageKey();
+  const user = store.get("session.user");
+  if (!user) return;
+  const key = draftsStorageKey(user.id);
   if (!key) return;
   try {
     const parsed = JSON.parse(STORAGE.getItem(key) || "{}");
@@ -108,8 +110,12 @@ export function loadDrafts() {
   }
 }
 
-export function setDraft(destKey, text) {
-  if (!destKey) return;
+export function setDraft(destKey, text, userId) {
+  if (!destKey || !userId) return;
+  const currentUser = store.get("session.user");
+  if (!currentUser || currentUser.id !== userId) return;
+  if (!store.get("session.loggedIn")) return;
+
   const drafts = { ...(store.get("drafts") || {}) };
   if ((text || "").trim() === "") {
     if (!(destKey in drafts)) return;
@@ -118,7 +124,7 @@ export function setDraft(destKey, text) {
     drafts[destKey] = text;
   }
   store.set("drafts", drafts);
-  const key = draftsStorageKey();
+  const key = draftsStorageKey(userId);
   if (!key) return;
   if (Object.keys(drafts).length === 0) {
     STORAGE.removeItem(key);
@@ -126,6 +132,42 @@ export function setDraft(destKey, text) {
     STORAGE.setItem(key, JSON.stringify(drafts));
   }
 }
+
+let draftPersistTimer = null;
+
+export function cancelPendingDraftPersistence() {
+  if (draftPersistTimer) {
+    clearTimeout(draftPersistTimer);
+    draftPersistTimer = null;
+  }
+}
+
+registerAuthCleanup(cancelPendingDraftPersistence);
+
+store.subscribe("chatForm.messageInput", (value) => {
+  if (!store.get("session.loggedIn")) return;
+  const user = store.get("session.user");
+  if (!user) return;
+  const originatingUserId = user.id;
+  const destKey = store.get("activeDestKey");
+  
+  clearTimeout(draftPersistTimer);
+  draftPersistTimer = null;
+  
+  if ((value || "").trim() === "") {
+    setDraft(destKey, "", originatingUserId);
+  } else {
+    draftPersistTimer = setTimeout(() => {
+      if (
+        store.get("session.loggedIn") &&
+        store.get("session.user")?.id === originatingUserId &&
+        store.get("activeDestKey") === destKey
+      ) {
+        setDraft(destKey, value || "", originatingUserId);
+      }
+    }, 500);
+  }
+});
 
 export function activeConversationId() {
   const dest = store.get("activeDest");
@@ -164,11 +206,14 @@ export function closeDestinationDropdown() {
 }
 
 export function setActiveDestination(type, value) {
+  const user = store.get("session.user");
   const nextKey = `${type}_${value}`;
   const prevKey = store.get("activeDestKey");
   if (prevKey && prevKey !== nextKey) {
     saveScrollPosition(prevKey);
-    setDraft(prevKey, store.get("chatForm.messageInput") || "");
+    if (user) {
+      setDraft(prevKey, store.get("chatForm.messageInput") || "", user.id);
+    }
   }
   store.set("activeDest", { type, value });
   store.set("activeDestKey", nextKey);

@@ -61,8 +61,69 @@
       <!-- We will mount into here -->
     </div>
 
+    <!-- ═══════════════ ROOT TEMPLATE ═══════════════
+         Composition only: every section lives in its own <template> below and
+         is pulled in through <partial> (lime-csr DOCS.md §3.10). Reactive
+         bindings always read the store, so partial context isolation never
+         hides state — only the sidebar receives static config via props. -->
     <template id="tpl-control-center">
-      <!-- ACCESS DENIED / UNAUTHENTICATED STATE -->
+      <partial name="cc-access-denied"></partial>
+
+      <!-- Sidebar backdrop (closes sidebar when tapped outside on mobile) -->
+      <div id="sidebar-backdrop" aria-hidden="true"></div>
+
+      <!-- MAIN CONTROL CENTER WORKSPACE SHELL -->
+      <div id="control-center-shell"
+        data-show="showShell"
+        class="flex-grow-1 d-flex flex-column flex-md-row">
+        <partial name="cc-sidebar" groups="navGroups"></partial>
+
+        <!-- MAIN PANEL CONTENT AREA -->
+        <main class="flex-grow-1 d-flex flex-column" role="main"
+          aria-label="Workspace Content">
+          <partial name="cc-topbar"></partial>
+
+          <!-- GLOBAL CONTRACT UNAVAILABLE BANNER -->
+          <div id="contract-unavailable-banner"
+            class="d-none alert alert-warning rounded-0 border-0 border-bottom mb-0 d-flex align-items-center gap-2"
+            role="alert">
+            <i class="bi bi-exclamation-triangle-fill fs-5"></i>
+            <div>
+              <strong>Contract Limitation:</strong> Certain administration features are not currently supported by the active backend API version.
+            </div>
+          </div>
+
+          <!-- TAB PANELS WORKSPACE -->
+          <div
+            class="tab-panels-workspace flex-grow-1 position-relative overflow-y-auto p-3 p-md-4">
+            <partial name="cc-panel-reports"></partial>
+            <partial name="cc-panel-moderation-audit"></partial>
+            <partial name="cc-panel-users"></partial>
+            <partial name="cc-panel-channels"></partial>
+            <partial name="cc-panel-roles"></partial>
+            <partial name="cc-panel-settings"></partial>
+            <partial name="cc-panel-security-audit"></partial>
+            <partial name="cc-panel-ownership"></partial>
+          </div>
+        </main>
+      </div>
+
+      <!-- DIALOGS AND MODAL WORKSPACES -->
+      <partial name="cc-modal-apply-sanction"></partial>
+      <partial name="cc-modal-revoke-sanction"></partial>
+      <partial name="cc-modal-create-channel"></partial>
+      <partial name="cc-modal-edit-channel"></partial>
+      <partial name="cc-modal-confirm"></partial>
+
+      <!-- TOAST NOTIFICATION CONTAINER -->
+      <div class="toast-container position-fixed bottom-0 end-0 p-3"
+        id="toast-container" style="z-index: 1100;">
+        <!-- Toast injected dynamically -->
+      </div>
+    </template>
+
+    <!-- ═══════════════ ACCESS DENIED / UNAUTHENTICATED STATE ═══════════════ -->
+    <template id="tpl-cc-access-denied">
       <div id="access-denied-view"
         data-show="accessDenied"
         class="flex-grow-1 d-flex align-items-center justify-content-center p-3"
@@ -83,1052 +144,974 @@
           </div>
         </div>
       </div>
+    </template>
 
-      <!-- Sidebar backdrop (closes sidebar when tapped outside on mobile) -->
-      <div id="sidebar-backdrop" aria-hidden="true"></div>
+    <!-- ═══════════════ SIDEBAR NAVIGATION ═══════════════
+         Nav groups/items come from the static navGroups config passed as a
+         partial prop; visibility and active state stay reactive through the
+         showNavGroup*/showTab_*/navClass_* store computeds. -->
+    <template id="tpl-cc-sidebar">
+      <aside class="sidebar-aside d-flex flex-column p-3 gap-3 border-end"
+        role="complementary">
+        <div class="brand-header d-flex align-items-center gap-2">
+          <span
+            class="logo-icon"><i class="bi bi-shield-lock-fill text-primary fs-3"></i></span>
+          <div class="d-flex flex-column">
+            <h1 class="h6 fw-bold mb-0 text-dark-mode-override">CentrumChat</h1>
+            <span class="text-muted text-uppercase tracking-wider fw-semibold"
+              style="font-size: 0.6rem;">Control Center</span>
+          </div>
+        </div>
 
-      <!-- MAIN CONTROL CENTER WORKSPACE SHELL -->
-      <div id="control-center-shell"
-        data-show="showShell"
-        class="flex-grow-1 d-flex flex-column flex-md-row">
-        <!-- SIDEBAR LANDMARK NAVIGATION -->
-        <aside class="sidebar-aside d-flex flex-column p-3 gap-3 border-end"
-          role="complementary">
-          <div class="brand-header d-flex align-items-center gap-2">
+        <!-- GROUPED NAVIGATION LINKS -->
+        <nav class="nav flex-column gap-3 flex-grow-1 sidebar-nav-container"
+          role="navigation" aria-label="Control Center Navigation">
+          <for each="groups" as="group">
+            <div class="nav-group" id="nav-group-${group.id}" data-show="${group.showPath}">
+              <h2
+                class="nav-group-title text-muted text-uppercase fw-bold">${group.title}</h2>
+              <ul class="list-unstyled d-flex flex-column gap-1 mb-0">
+                <for each="group.items" as="item">
+                  <li data-show="showTab_${item.tab}">
+                    <button class="btn btn-sidebar w-100 text-start {nav}"
+                      data-nav="navClass_${item.tab}" data-tab="${item.tab}" role="tab" data-on-click="clickTab">
+                      <i class="bi ${item.icon} me-2"></i>${item.label}
+                    </button>
+                  </li>
+                </for>
+              </ul>
+            </div>
+          </for>
+        </nav>
+
+        <!-- OPERATOR CARD FOOTER -->
+        <div
+          class="sidebar-footer border-top pt-3 d-flex align-items-center gap-2"
+          id="operator-badge-card">
+          <div class="avatar-placeholder flex-shrink-0"
+            id="operator-avatar" data-text="operatorAvatarText">OP</div>
+          <div
+            class="d-flex flex-column text-start flex-grow-1 overflow-hidden">
+            <span class="fw-semibold text-dark-mode-override text-truncate"
+              id="operator-name" data-text="operator.displayName">Operator</span>
             <span
-              class="logo-icon"><i class="bi bi-shield-lock-fill text-primary fs-3"></i></span>
-            <div class="d-flex flex-column">
-              <h1 class="h6 fw-bold mb-0 text-dark-mode-override">CentrumChat</h1>
-              <span class="text-muted text-uppercase tracking-wider fw-semibold"
-                style="font-size: 0.6rem;">Control Center</span>
-            </div>
+              class="badge {opbadge}"
+              data-opbadge="operatorBadgeClass"
+              id="operator-role"
+              style="font-size: 0.6rem; width: fit-content;" data-text="operatorRoleUpper">OPERATOR</span>
           </div>
+        </div>
+      </aside>
+    </template>
 
-          <!-- GROUPED NAVIGATION LINKS -->
-          <nav class="nav flex-column gap-3 flex-grow-1 sidebar-nav-container"
-            role="navigation" aria-label="Control Center Navigation">
-            <!-- MODERATION SECTION -->
-            <div class="nav-group" id="nav-group-moderation" data-show="showNavGroupModeration">
-              <h2
-                class="nav-group-title text-muted text-uppercase fw-bold">Moderation</h2>
-              <ul class="list-unstyled d-flex flex-column gap-1 mb-0">
-                <li data-show="showTab_reports">
-                  <button class="btn btn-sidebar w-100 text-start {navClass_reports}"
-                    data-navClass_reports="navClass_reports" data-tab="reports" role="tab" data-on-click="clickTab">
-                    <i class="bi bi-chat-left-text me-2"></i>Reports Queue
-                  </button>
-                </li>
-                <li data-show="showTab_moderation-audit">
-                  <button class="btn btn-sidebar w-100 text-start {navClass_moderation-audit}"
-                    data-navClass_moderation-audit="navClass_moderation-audit" data-tab="moderation-audit" role="tab" data-on-click="clickTab">
-                    <i class="bi bi-journal-text me-2"></i>Moderation Audit
-                  </button>
-                </li>
-              </ul>
-            </div>
+    <!-- ═══════════════ TOP WORKSPACE BAR ═══════════════ -->
+    <template id="tpl-cc-topbar">
+      <header
+        class="top-workspace-bar d-flex align-items-center justify-content-between p-3 border-bottom gap-3"
+        role="banner">
+        <div class="d-flex align-items-center gap-2">
+          <!-- Hamburger button: only visible on mobile -->
+          <button id="btn-mobile-sidebar-open"
+            class="btn btn-icon-round d-none"
+            title="Open Navigation" aria-label="Open navigation menu"
+            aria-expanded="false" aria-controls="sidebar-aside">
+            <i class="bi bi-list fs-5"></i>
+          </button>
+          <h2 class="h5 fw-bold mb-0 text-dark-mode-override"
+            id="workspace-title" data-text="workspaceTitleText">Reports Queue</h2>
+        </div>
 
-            <!-- ADMINISTRATION SECTION -->
-            <div class="nav-group" id="nav-group-administration" data-show="showNavGroupAdministration">
-              <h2
-                class="nav-group-title text-muted text-uppercase fw-bold">Administration</h2>
-              <ul class="list-unstyled d-flex flex-column gap-1 mb-0">
-                <li data-show="showTab_users">
-                  <button class="btn btn-sidebar w-100 text-start {navClass_users}"
-                    data-navClass_users="navClass_users" data-tab="users" role="tab" data-on-click="clickTab">
-                    <i class="bi bi-people me-2"></i>Users
-                  </button>
-                </li>
-                <li data-show="showTab_channels">
-                  <button class="btn btn-sidebar w-100 text-start {navClass_channels}"
-                    data-navClass_channels="navClass_channels" data-tab="channels" role="tab" data-on-click="clickTab">
-                    <i class="bi bi-hash me-2"></i>Channels
-                  </button>
-                </li>
-                <li data-show="showTab_roles">
-                  <button class="btn btn-sidebar w-100 text-start {navClass_roles}"
-                    data-navClass_roles="navClass_roles" data-tab="roles" role="tab" data-on-click="clickTab">
-                    <i class="bi bi-person-badge me-2"></i>Roles
-                  </button>
-                </li>
-                <li data-show="showTab_settings">
-                  <button class="btn btn-sidebar w-100 text-start {navClass_settings}"
-                    data-navClass_settings="navClass_settings" data-tab="settings" role="tab" data-on-click="clickTab">
-                    <i class="bi bi-sliders me-2"></i>System Settings
-                  </button>
-                </li>
-                <li data-show="showTab_security-audit">
-                  <button class="btn btn-sidebar w-100 text-start {navClass_security-audit}"
-                    data-navClass_security-audit="navClass_security-audit" data-tab="security-audit" role="tab" data-on-click="clickTab">
-                    <i class="bi bi-file-earmark-lock me-2"></i>Security Audit
-                  </button>
-                </li>
-              </ul>
-            </div>
+        <div class="d-flex align-items-center gap-2">
+          <button id="btn-theme-toggle" class="btn btn-icon-round"
+            title="Toggle Dark/Light Mode" aria-label="Toggle dark mode" data-on-click="toggleCCTheme">
+            <i class="bi bi-moon-stars"></i>
+          </button>
+          <a href="/" class="btn btn-icon-round" id="btn-return-chat"
+            title="Return to Chat" aria-label="Return to chat screen">
+            <i class="bi bi-box-arrow-in-left"></i>
+          </a>
+          <button id="btn-control-logout"
+            class="btn btn-icon-round text-danger" title="Logout Session"
+            aria-label="Logout" data-on-click="logoutCC">
+            <i class="bi bi-power"></i>
+          </button>
+        </div>
+      </header>
+    </template>
 
-            <!-- OWNER SECTION -->
-            <div class="nav-group" id="nav-group-owner" data-show="showNavGroupOwner">
-              <h2
-                class="nav-group-title text-muted text-uppercase fw-bold">Owner Only</h2>
-              <ul class="list-unstyled d-flex flex-column gap-1 mb-0">
-                <li data-show="showTab_ownership-transfer">
-                  <button class="btn btn-sidebar w-100 text-start {navClass_ownership-transfer}"
-                    data-navClass_ownership-transfer="navClass_ownership-transfer" data-tab="ownership-transfer" role="tab" data-on-click="clickTab">
-                    <i class="bi bi-key me-2"></i>Ownership Transfer
-                  </button>
-                </li>
-              </ul>
-            </div>
-          </nav>
-
-          <!-- OPERATOR CARD FOOTER -->
-          <div
-            class="sidebar-footer border-top pt-3 d-flex align-items-center gap-2"
-            id="operator-badge-card">
-            <div class="avatar-placeholder flex-shrink-0"
-              id="operator-avatar" data-text="operator.avatarText">OP</div>
+    <!-- ═══════════════ PANEL: MODERATION REPORTS ═══════════════ -->
+    <template id="tpl-cc-panel-reports">
+      <section id="panel-reports"
+        class="tab-panel flex-grow-1 d-flex flex-column h-100"
+        data-show="showPanel_reports"
+        role="tabpanel">
+        <div class="row g-3 flex-grow-1 h-100 align-items-stretch" id="reports-panel-row">
+          <!-- Left column: reports queue feed -->
+          <div class="col-12 col-lg-5 col-xl-4 d-flex flex-column h-100"
+            style="max-height: 80vh;">
             <div
-              class="d-flex flex-column text-start flex-grow-1 overflow-hidden">
-              <span class="fw-semibold text-dark-mode-override text-truncate"
-                id="operator-name" data-text="operator.displayName">Operator</span>
-              <span
-                class="badge {operatorBadgeClass}"
-                data-operatorBadgeClass="operatorBadgeClass"
-                id="operator-role"
-                style="font-size: 0.6rem; width: fit-content;" data-text="operator.roleUpper">OPERATOR</span>
-            </div>
-          </div>
-        </aside>
-
-        <!-- MAIN PANEL CONTENT AREA -->
-        <main class="flex-grow-1 d-flex flex-column" role="main"
-          aria-label="Workspace Content">
-          <!-- TOP WORKSPACE BAR -->
-          <header
-            class="top-workspace-bar d-flex align-items-center justify-content-between p-3 border-bottom gap-3"
-            role="banner">
-            <div class="d-flex align-items-center gap-2">
-              <!-- Hamburger button: only visible on mobile -->
-              <button id="btn-mobile-sidebar-open"
-                class="btn btn-icon-round d-none"
-                title="Open Navigation" aria-label="Open navigation menu"
-                aria-expanded="false" aria-controls="sidebar-aside">
-                <i class="bi bi-list fs-5"></i>
-              </button>
-              <h2 class="h5 fw-bold mb-0 text-dark-mode-override"
-                id="workspace-title" data-text="workspaceTitleText">Reports Queue</h2>
-            </div>
-
-            <div class="d-flex align-items-center gap-2">
-              <button id="btn-theme-toggle" class="btn btn-icon-round"
-                title="Toggle Dark/Light Mode" aria-label="Toggle dark mode" data-on-click="toggleCCTheme">
-                <i class="bi bi-moon-stars"></i>
-              </button>
-              <a href="/" class="btn btn-icon-round" id="btn-return-chat"
-                title="Return to Chat" aria-label="Return to chat screen">
-                <i class="bi bi-box-arrow-in-left"></i>
-              </a>
-              <button id="btn-control-logout"
-                class="btn btn-icon-round text-danger" title="Logout Session"
-                aria-label="Logout" data-on-click="logoutCC">
-                <i class="bi bi-power"></i>
-              </button>
-            </div>
-          </header>
-
-          <!-- GLOBAL CONTRACT UNAVAILABLE BANNER -->
-          <div id="contract-unavailable-banner"
-            class="d-none alert alert-warning rounded-0 border-0 border-bottom mb-0 d-flex align-items-center gap-2"
-            role="alert">
-            <i class="bi bi-exclamation-triangle-fill fs-5"></i>
-            <div>
-              <strong>Contract Limitation:</strong> Certain administration features are not currently supported by the active backend API version.
-            </div>
-          </div>
-
-          <!-- TAB PANELS WORKSPACE -->
-          <div
-            class="tab-panels-workspace flex-grow-1 position-relative overflow-y-auto p-3 p-md-4">
-            
-            <!-- PANEL: MODERATION REPORTS -->
-            <section id="panel-reports"
-              class="tab-panel flex-grow-1 d-flex flex-column h-100"
-              data-show="showPanel_reports"
-              role="tabpanel">
-              <div class="row g-3 flex-grow-1 h-100 align-items-stretch" id="reports-panel-row">
-                <!-- Left column: reports queue feed -->
-                <div class="col-12 col-lg-5 col-xl-4 d-flex flex-column h-100"
-                  style="max-height: 80vh;">
-                  <div
-                    class="glass-card flex-grow-1 d-flex flex-column overflow-hidden h-100">
-                    <div class="card-header border-bottom p-3">
-                      <div
-                        class="d-flex align-items-center justify-content-between mb-2">
-                        <span
-                          class="fw-semibold text-muted text-uppercase tracking-wider fs-7"
-                          id="reports-count-label" data-text="reportsListCountLabel">0 reports</span>
-                      </div>
-                      <div class="row g-2">
-                        <div class="col-6">
-                          <label for="filter-status"
-                            class="visually-hidden">Filter Status</label>
-                          <select id="filter-status"
-                            class="form-select form-select-sm" data-model="reportsFilters.status" data-on-change="updateReportsFilter">
-                            <option value="open">Open</option>
-                            <option value="in_review">In Review</option>
-                            <option value="resolved">Resolved</option>
-                            <option value="dismissed">Dismissed</option>
-                          </select>
-                        </div>
-                        <div class="col-6">
-                          <label for="filter-target"
-                            class="visually-hidden">Filter Target</label>
-                          <select id="filter-target"
-                            class="form-select form-select-sm" data-model="reportsFilters.targetType" data-on-change="updateReportsFilter">
-                            <option value="">All Targets</option>
-                            <option value="message">Messages</option>
-                            <option value="user">Users</option>
-                            <option value="attachment">Files</option>
-                          </select>
-                        </div>
-                        <div class="col-12">
-                          <div
-                            class="form-check form-switch form-switch-sm m-0">
-                            <input class="form-check-input" type="checkbox"
-                              id="filter-assigned-me" data-model="reportsFilters.assignedToMe" data-on-change="updateReportsFilter">
-                            <label
-                              class="form-check-label text-dark-mode-override"
-                              for="filter-assigned-me">Assigned to me</label>
-                          </div>
-                        </div>
-                      </div>
-                    </div>
-                    
-                    <div class="card-body overflow-y-auto p-0 flex-grow-1" id="reports-list-container">
-                      <if is-truthy="reportsLoading" data-live>
-                        <div class="text-center my-4 text-muted fs-7">
-                          <div class="spinner-border spinner-border-sm me-2" role="status"></div>
-                          <span>Loading reports...</span>
-                        </div>
-                        <else>
-                          <if is-truthy="reportsListEmpty" data-live>
-                            <div class="text-center my-5 text-muted fs-7">
-                              <i class="bi bi-check-circle-fill text-success fs-3 d-block mb-2"></i>
-                              <span>All clear! No reports found.</span>
-                            </div>
-                          </if>
-                          <for each="reportsList" as="rep" key="rep.id" data-live>
-                            <div class="report-item ${rep.activeClass}" role="button" data-on-click="selectReport" data-id="${rep.id}">
-                              <div class="d-flex justify-content-between align-items-center mb-1">
-                                <span class="fw-bold fs-7 text-dark-mode-override">Report #${rep.id}</span>
-                                <span class="badge ${rep.badgeClass}">${rep.statusText}</span>
-                              </div>
-                              <div class="text-muted fs-8 mb-1">
-                                Type: ${rep.targetTypeUpper} | Reason: ${rep.reasonCodeUpper}
-                              </div>
-                              <div class="text-dark-mode-override fs-7 text-truncate">
-                                ${rep.details}
-                              </div>
-                              <div class="text-muted fs-8 text-end mt-1">
-                                ${rep.formattedDate}
-                              </div>
-                            </div>
-                          </for>
-                        </else>
-                      </if>
-                    </div>
-                    <div class="card-footer border-top p-2 text-center">
-                      <button id="btn-load-more-reports"
-                        class="btn btn-sm btn-link text-decoration-none" data-on-click="loadMoreReports" data-show="nextReportsCursor">Load More</button>
-                    </div>
-                  </div>
-                </div>
-
-                <!-- Right column: report investigation workspace -->
-                <div class="col-12 col-lg-7 col-xl-8 d-flex flex-column h-100"
-                  style="max-height: 80vh;">
-                  <div
-                    class="glass-card flex-grow-1 d-flex flex-column overflow-hidden h-100">
-                    <div class="card-body d-flex flex-column h-100 p-0"
-                      id="report-investigation-workspace">
-                      <!-- Mobile back to list button -->
-                      <button class="btn-mobile-back btn btn-sm btn-outline-secondary m-2 mb-0 d-none align-items-center gap-1"
-                        id="btn-reports-back-to-list" aria-label="Back to reports list">
-                        <i class="bi bi-arrow-left"></i> Back to List
-                      </button>
-                      
-                      <!-- Report placeholder or detail panel -->
-                      <if is-truthy="selectedReportId" data-live>
-                        <if is-truthy="selectedReportLoading" data-live>
-                          <div class="my-auto mx-auto text-center text-muted p-5">
-                            <div class="spinner-border text-primary mb-3" role="status"></div>
-                            <span class="d-block">Loading report details & context...</span>
-                          </div>
-                          <else>
-                            <div id="investigation-details" class="d-flex flex-column h-100">
-                              <!-- Header workflow row -->
-                              <div class="p-3 border-bottom d-flex flex-wrap align-items-center justify-content-between gap-2">
-                                <div>
-                                  <h3 class="h6 fw-bold mb-0 text-dark-mode-override">Investigation: #<span data-text="selectedReportDetails.id"></span></h3>
-                                  <span class="text-muted fs-8">Reported on <span data-text="selectedReportFormattedDate"></span></span>
-                                </div>
-                                <div class="d-flex gap-2">
-                                  <if is-truthy="showAssignButton" data-live>
-                                    <button class="btn btn-sm btn-outline-primary" data-on-click="assignReportToMe">
-                                      Assign to Me
-                                    </button>
-                                  </if>
-                                  
-                                  <if is-eq="selectedReportDetails.status" to="open" data-live>
-                                    <button class="btn btn-sm btn-primary" data-on-click="startReviewReport">Start Review</button>
-                                    <button class="btn btn-sm btn-outline-danger" data-on-click="dismissReport">Dismiss</button>
-                                  </if>
-                                  
-                                  <if is-eq="selectedReportDetails.status" to="in_review" data-live>
-                                    <button class="btn btn-sm btn-outline-secondary" data-on-click="returnOpenReport">Return Open</button>
-                                    <button class="btn btn-sm btn-success" data-on-click="resolveReport">Resolve</button>
-                                    <button class="btn btn-sm btn-outline-danger" data-on-click="dismissReport">Dismiss</button>
-                                  </if>
-                                </div>
-                              </div>
-                              
-                              <!-- Main scrollable details body -->
-                              <div class="flex-grow-1 overflow-y-auto p-3 d-flex flex-column gap-3">
-                                <!-- Details card -->
-                                <div class="p-3 border rounded bg-light-subtle text-start">
-                                  <span class="fw-bold text-muted text-uppercase tracking-wider fs-8 mb-2 d-block">Report details</span>
-                                  <div class="fs-7 mb-1 text-dark-mode-override">
-                                    <strong>Reporter ID: </strong><span data-text="selectedReportDetails.reporterUserId"></span>
-                                  </div>
-                                  <div class="fs-7 mb-1 text-dark-mode-override">
-                                    <strong>Reason Code: </strong><span class="badge bg-secondary-subtle text-secondary border" data-text="selectedReportDetails.reasonCode"></span>
-                                  </div>
-                                  <div class="fs-7 mb-2 text-dark-mode-override">
-                                    <strong>Status: </strong><span class="{selectedReportStatusClass}" data-selectedReportStatusClass="selectedReportStatusClass" data-text="selectedReportDetails.status"></span>
-                                  </div>
-                                  <div class="p-2 border rounded bg-body fs-7 text-dark-mode-override fst-italic">
-                                    "<span data-text="selectedReportDetails.details"></span>"
-                                  </div>
-                                </div>
-                                
-                                <!-- Context visualizer card -->
-                                <if is-truthy="selectedReportDetails.targetId" data-live>
-                                  <div class="p-3 border rounded d-flex flex-column gap-2 text-start">
-                                    <span class="fw-bold text-muted text-uppercase tracking-wider fs-8 d-block">Target context</span>
-                                    
-                                    <if is-eq="selectedReportDetails.targetType" to="message" data-live>
-                                      <div class="chat-context-box p-3 d-flex flex-column">
-                                        <for each="selectedReportContext.context" as="msg" key="msg.id" data-live>
-                                          <div class="mb-2 text-start">
-                                            <div class="text-muted fs-8 mb-1">
-                                              ${msg.authorId} at ${msg.createdAt}
-                                            </div>
-                                            <div class="chat-bubble-context text-dark-mode-override">
-                                              ${msg.content}
-                                            </div>
-                                          </div>
-                                        </for>
-                                      </div>
-                                    </if>
-                                    
-                                    <if is-eq="selectedReportDetails.targetType" to="user" data-live>
-                                      <div class="d-flex align-items-center gap-3 p-2 bg-light-subtle rounded border">
-                                        <div class="avatar-placeholder fs-5">U</div>
-                                        <div class="text-start">
-                                          <h4 class="h6 fw-bold mb-0 text-dark-mode-override" data-text="selectedReportContext.target.displayName"></h4>
-                                          <div class="text-muted fs-8">@<span data-text="selectedReportContext.target.username"></span></div>
-                                          <div class="fs-7 mt-1 text-dark-mode-override" data-text="selectedReportContext.target.bio"></div>
-                                        </div>
-                                      </div>
-                                    </if>
-                                    
-                                    <if is-eq="selectedReportDetails.targetType" to="attachment" data-live>
-                                      <div class="p-2 border rounded bg-light-subtle d-flex align-items-center gap-3">
-                                        <i class="bi bi-file-earmark-arrow-down-fill text-primary fs-2"></i>
-                                        <div class="text-start flex-grow-1">
-                                          <h4 class="h6 fw-bold mb-0 text-dark-mode-override" data-text="selectedReportContext.target.fileName"></h4>
-                                          <div class="text-muted fs-8">Type: <span data-text="selectedReportContext.target.mimeType"></span> | Size: <span data-text="selectedReportContext.target.sizeBytes"></span></div>
-                                          <div class="fs-8 text-muted mt-1">Uploader ID: <span data-text="selectedReportContext.target.uploaderId"></span></div>
-                                        </div>
-                                      </div>
-                                    </if>
-                                  </div>
-                                </if>
-                                
-                                <!-- Contextual Sanctions Card -->
-                                <div class="p-3 border rounded d-flex flex-column gap-2 text-start">
-                                  <div class="d-flex align-items-center justify-content-between">
-                                    <span class="fw-bold text-muted text-uppercase tracking-wider fs-8">Target Sanctions History</span>
-                                    <if is-truthy="canApplySanctions" data-live>
-                                      <button class="btn btn-sm btn-danger fs-8" data-on-click="clickApplySanction">Apply Sanction</button>
-                                    </if>
-                                  </div>
-                                  
-                                  <div class="d-flex flex-column gap-2">
-                                    <for each="userSanctionsList" as="s" key="s.id" data-live>
-                                      <div class="p-2 border rounded d-flex justify-content-between align-items-center bg-body">
-                                        <div class="text-start fs-7">
-                                          <div>
-                                            <span class="badge ${s.badgeClass} me-2">${s.typeDisplay}</span>
-                                            <span class="text-muted fs-8">Status: ${s.statusText}</span>
-                                          </div>
-                                          <div class="text-dark-mode-override mt-1">
-                                            Reason: ${s.reasonCode} - Note: ${s.moderatorNote}
-                                          </div>
-                                          <div class="text-muted fs-8">
-                                            Expires: ${s.expiresFormatted}
-                                          </div>
-                                        </div>
-                                        <if is-truthy="canRevokeSanctions" data-live>
-                                          <button class="btn btn-sm btn-outline-warning fs-8" data-on-click="clickRevokeSanction" data-id="${s.id}" data-user-id="${s.userId}">
-                                            Revoke
-                                          </button>
-                                        </if>
-                                      </div>
-                                    </for>
-                                  </div>
-                                </div>
-                              </div>
-                            </div>
-                          </else>
-                        </if>
-                        <else>
-                          <div id="investigation-placeholder" class="my-auto mx-auto text-center text-muted p-5">
-                            <i class="bi bi-chat-square-text fs-1 mb-3 text-primary opacity-50 d-block"></i>
-                            <span>Select a report from the feed to begin investigation</span>
-                          </div>
-                        </else>
-                      </if>
-                    </div>
-                  </div>
-                </div>
-              </div>
-            </section>
-
-            <!-- PANEL: MODERATION AUDIT -->
-            <section id="panel-moderation-audit"
-              class="tab-panel flex-grow-1 d-flex flex-column"
-              data-show="showPanel_moderation-audit"
-              role="tabpanel">
-              <div
-                class="glass-card flex-grow-1 d-flex flex-column overflow-hidden">
+              class="glass-card flex-grow-1 d-flex flex-column overflow-hidden h-100">
+              <div class="card-header border-bottom p-3">
                 <div
-                  class="card-header border-bottom p-3 d-flex flex-wrap gap-2 align-items-center justify-content-between">
+                  class="d-flex align-items-center justify-content-between mb-2">
                   <span
                     class="fw-semibold text-muted text-uppercase tracking-wider fs-7"
-                    data-text="moderationAuditEventsCountLabel">0 events</span>
-                  <div class="d-flex flex-wrap gap-2">
-                    <input type="text" id="mod-audit-actor-id"
-                      class="form-control form-control-sm max-w-150"
-                      placeholder="Actor ID" data-on-input="updateModAuditFilter">
-                    <input type="text" id="mod-audit-target-id"
-                      class="form-control form-control-sm max-w-150"
-                      placeholder="Target ID" data-on-input="updateModAuditFilter">
-                    <button id="btn-clear-mod-audit-filters"
-                      class="btn btn-sm btn-outline-secondary" data-on-click="clearModAuditFilters">Clear</button>
-                  </div>
+                    id="reports-count-label" data-text="reportsListCountLabel">0 reports</span>
                 </div>
-                <div class="card-body p-0 table-responsive flex-grow-1">
-                  <div class="d-table w-100 align-middle">
-                    <div class="d-table-header-group bg-light fw-bold text-muted border-bottom">
-                      <div class="d-table-row">
-                        <div class="d-table-cell p-3">Timestamp</div>
-                        <div class="d-table-cell p-3">Actor</div>
-                        <div class="d-table-cell p-3">Action</div>
-                        <div class="d-table-cell p-3">Target</div>
-                        <div class="d-table-cell p-3">Outcome</div>
-                        <div class="d-table-cell p-3">Details / Metadata</div>
-                      </div>
-                    </div>
-                    <for each="moderationAuditEvents" as="ev" key="ev.id" data-live el="div">
-                      <div class="d-table-row border-bottom hover-row align-middle text-start">
-                        <div class="d-table-cell p-3 fs-8 text-muted">${ev.formattedDate}</div>
-                        <div class="d-table-cell p-3 fw-semibold text-dark-mode-override">${ev.actorUserId}</div>
-                        <div class="d-table-cell p-3">
-                          <span class="badge bg-secondary-subtle text-secondary">${ev.actionCode}</span>
-                        </div>
-                        <div class="d-table-cell p-3 text-muted fs-8">
-                          ${ev.targetType || 'N/A'}: ${ev.targetId || 'N/A'}
-                        </div>
-                        <div class="d-table-cell p-3"><span class="badge ${ev.outcomeClass}">${ev.outcome}</span></div>
-                        <div class="d-table-cell p-3">
-                          <div class="d-flex flex-column gap-1">
-                            <button class="btn btn-xs btn-link text-decoration-none p-0 fs-8 text-start" data-on-click="toggleAuditMeta" data-id="${ev.id}">Show Details</button>
-                            <pre class="pre-metadata-block m-0 d-none text-start" id="meta-${ev.id}">${ev.metadataFormatted}</pre>
-                          </div>
-                        </div>
-                      </div>
-                    </for>
+                <div class="row g-2">
+                  <div class="col-6">
+                    <label for="filter-status"
+                      class="visually-hidden">Filter Status</label>
+                    <select id="filter-status"
+                      class="form-select form-select-sm" data-model="reportsFilters.status" data-on-change="updateReportsFilter">
+                      <option value="open">Open</option>
+                      <option value="in_review">In Review</option>
+                      <option value="resolved">Resolved</option>
+                      <option value="dismissed">Dismissed</option>
+                    </select>
                   </div>
-                  <if is-truthy="auditLoading" data-live>
-                    <div class="text-center p-5 text-muted">
-                      <div class="spinner-border spinner-border-sm me-2" role="status"></div>
-                      Loading audit logs...
-                    </div>
-                    <else>
-                      <if is-eq="moderationAuditEventsCountLabel" to="0 events" data-live>
-                        <div id="mod-audit-placeholder"
-                          class="text-center p-5 text-muted">
-                          <i class="bi bi-journals fs-1 mb-2 d-block"></i>
-                          No audit records match the selected filters.
-                        </div>
-                      </if>
-                    </else>
-                  </if>
-                </div>
-                <div class="card-footer border-top p-2 text-center">
-                  <button id="btn-load-more-mod-audit"
-                    class="btn btn-sm btn-link text-decoration-none" data-on-click="loadMoreModAudit" data-show="nextAuditCursor">Load More</button>
-                </div>
-              </div>
-            </section>
-
-            <!-- PANEL: USERS ADMINISTRATION -->
-            <section id="panel-users"
-              class="tab-panel flex-grow-1 d-flex flex-column h-100"
-              data-show="showPanel_users"
-              role="tabpanel">
-              <div class="row g-3 flex-grow-1 h-100 align-items-stretch" id="users-panel-row">
-                <!-- Left column: users list search -->
-                <div class="col-12 col-lg-5 col-xl-4 d-flex flex-column h-100"
-                  style="max-height: 80vh;">
-                  <div
-                    class="glass-card flex-grow-1 d-flex flex-column overflow-hidden h-100">
-                    <div class="card-header border-bottom p-3">
-                      <div class="mb-2">
-                        <label for="search-users"
-                          class="visually-hidden">Search Users</label>
-                        <div class="input-group input-group-sm">
-                          <span
-                            class="input-group-text"><i class="bi bi-search"></i></span>
-                          <input type="text" id="search-users"
-                            class="form-control"
-                            placeholder="Search by username..." data-on-input="updateUsersFilterDebounced">
-                        </div>
-                      </div>
-                      <div>
-                        <label for="filter-user-role"
-                          class="visually-hidden">Filter by Role</label>
-                        <select id="filter-user-role"
-                          class="form-select form-select-sm" data-on-change="updateUsersFilter">
-                          <option value="">All Roles</option>
-                          <option value="user">User</option>
-                          <option value="moderator">Moderator</option>
-                          <option value="admin">Administrator</option>
-                          <option value="owner">Owner</option>
-                        </select>
-                      </div>
-                    </div>
-                    <div class="card-body overflow-y-auto p-0 flex-grow-1"
-                      id="users-list-container">
-                      <if is-truthy="usersLoading" data-live>
-                        <div class="text-center my-4 text-muted fs-7">
-                          <div class="spinner-border spinner-border-sm me-2" role="status"></div>
-                          <span>Loading users...</span>
-                        </div>
-                        <else>
-                          <for each="usersList" as="u" key="u.id" data-live>
-                            <div class="user-item ${u.activeClass}" role="button" data-on-click="selectUser" data-id="${u.id}">
-                              <div class="d-flex justify-content-between align-items-center mb-1">
-                                <span class="fw-bold fs-7 text-dark-mode-override">${u.displayNameOrUsername}</span>
-                                <span class="badge bg-secondary-subtle text-secondary border">${u.roleUpper}</span>
-                              </div>
-                              <div class="text-muted fs-8">
-                                @${u.username} | ${u.email}
-                              </div>
-                            </div>
-                          </for>
-                        </else>
-                      </if>
-                    </div>
-                    <div class="card-footer border-top p-2 text-center">
-                      <button id="btn-load-more-users"
-                        class="btn btn-sm btn-link text-decoration-none" data-on-click="loadMoreUsers" data-show="nextUsersCursor">Load More</button>
-                    </div>
+                  <div class="col-6">
+                    <label for="filter-target"
+                      class="visually-hidden">Filter Target</label>
+                    <select id="filter-target"
+                      class="form-select form-select-sm" data-model="reportsFilters.targetType" data-on-change="updateReportsFilter">
+                      <option value="">All Targets</option>
+                      <option value="message">Messages</option>
+                      <option value="user">Users</option>
+                      <option value="attachment">Files</option>
+                    </select>
                   </div>
-                </div>
-
-                <!-- Right column: user details workspace -->
-                <div class="col-12 col-lg-7 col-xl-8 d-flex flex-column h-100"
-                  style="max-height: 80vh;">
-                  <div
-                    class="glass-card flex-grow-1 d-flex flex-column overflow-hidden h-100">
-                    <div class="card-body d-flex flex-column h-100 p-0"
-                      id="user-details-workspace">
-                      <!-- Mobile back to list button -->
-                      <button class="btn-mobile-back btn btn-sm btn-outline-secondary m-2 mb-0 d-none align-items-center gap-1"
-                        id="btn-users-back-to-list" aria-label="Back to users list">
-                        <i class="bi bi-arrow-left"></i> Back to List
-                      </button>
-                      
-                      <!-- User detail workspace or placeholder -->
-                      <if is-truthy="selectedUserId" data-live>
-                        <if is-truthy="selectedUserLoading" data-live>
-                          <div class="my-auto mx-auto text-center text-muted p-5">
-                            <div class="spinner-border text-primary mb-3" role="status"></div>
-                            <span class="d-block">Loading user account details...</span>
-                          </div>
-                          <else>
-                            <div id="user-details-content" class="d-flex flex-column h-100">
-                              <!-- Header details card -->
-                              <div class="p-3 border-bottom d-flex align-items-center gap-3 bg-light-subtle text-start">
-                                <div class="avatar-placeholder fs-4">U</div>
-                                <div class="text-start flex-grow-1">
-                                  <h3 class="h6 fw-bold mb-0 text-dark-mode-override" data-text="selectedUserDetails.displayName"></h3>
-                                  <span class="text-muted fs-8">@<span data-text="selectedUserDetails.username"></span></span>
-                                  <div class="text-muted fs-8 mt-1">Bio: <span data-text="selectedUserDetails.bio"></span></div>
-                                </div>
-                                <div>
-                                  <span class="badge bg-primary" data-text="selectedUserDetails.role"></span>
-                                </div>
-                              </div>
-                              
-                              <!-- Settings & Actions Body -->
-                              <div class="flex-grow-1 overflow-y-auto p-3 d-flex flex-column gap-3 text-start">
-                                <!-- Information fields -->
-                                <div class="p-3 border rounded bg-light-subtle">
-                                  <span class="fw-bold text-muted text-uppercase tracking-wider fs-8 mb-2 d-block">System Account Status</span>
-                                  <div class="fs-7 mb-1 text-dark-mode-override">
-                                    <strong>Verification Status: </strong>
-                                    <if is-truthy="selectedUserDetails.emailVerifiedAt" data-live>
-                                      <span class="badge bg-success-subtle text-success border border-success">verified</span>
-                                      <else>
-                                        <span class="badge bg-warning-subtle text-warning border border-warning">unverified</span>
-                                      </else>
-                                    </if>
-                                  </div>
-                                  <div class="fs-7 mb-1 text-dark-mode-override">
-                                    <strong>Account Status: </strong>
-                                    <if is-truthy="selectedUserDetails.accountDisabledAt" data-live>
-                                      <span class="badge bg-danger-subtle text-danger">disabled</span>
-                                      <else>
-                                        <span class="badge bg-success-subtle text-success">active</span>
-                                      </else>
-                                    </if>
-                                  </div>
-                                  <div class="fs-7 mb-1 text-dark-mode-override">
-                                    <strong>Password reset required: </strong>
-                                    <if is-truthy="selectedUserDetails.mustResetPassword" data-live>
-                                      <span>yes</span>
-                                      <else>
-                                        <span>no</span>
-                                      </else>
-                                    </if>
-                                  </div>
-                                  <div class="fs-7 text-dark-mode-override">
-                                    <strong>Email: </strong>
-                                    <span data-text="selectedUserDetails.email"></span>
-                                  </div>
-                                </div>
-
-                                <!-- Editable fields -->
-                                <if is-truthy="capabilities.administration.usersUpdate" data-live>
-                                  <if is-neq="selectedUserDetails.role" to="owner" data-live>
-                                    <form class="p-3 border rounded d-flex flex-column gap-2" data-on-submit="submitUpdateUserForm">
-                                      <span class="fw-bold text-muted text-uppercase tracking-wider fs-8">Editable account fields</span>
-                                      <input type="text" id="edit-user-display-name" class="form-control form-control-sm" value="{display}" data-display="selectedUserDetails.displayName" maxlength="50" placeholder="Display Name">
-                                      <textarea id="edit-user-bio" class="form-control form-control-sm" rows="2" maxlength="500" placeholder="Bio" data-text="selectedUserDetails.bio"></textarea>
-                                      <label class="form-check fs-7">
-                                        <input type="checkbox" id="edit-user-disabled" class="form-check-input me-2" {checked} data-checked="selectedUserDetails.accountDisabledAt">
-                                        <span>Account disabled</span>
-                                      </label>
-                                      <button type="submit" class="btn btn-sm btn-primary">Save allowed fields</button>
-                                    </form>
-                                  </if>
-                                </if>
-
-                                <!-- Administrative Controls -->
-                                <div class="p-3 border rounded border-warning d-flex flex-column gap-2 bg-warning-subtle">
-                                  <span class="fw-bold text-warning-emphasis text-uppercase tracking-wider fs-8 mb-1 d-block">Administrative Controls</span>
-                                  <div class="d-flex flex-wrap gap-2">
-                                    <button class="btn btn-sm btn-outline-warning" data-on-click="revokeUserSessionsBtn" data-show="capabilities.administration.usersRevokeSessions">Revoke Active Sessions</button>
-                                    <button class="btn btn-sm btn-outline-warning" data-on-click="forcePasswordResetBtn" data-show="capabilities.administration.usersForcePasswordReset">Force Password Reset</button>
-                                    <button class="btn btn-sm btn-outline-danger" data-on-click="resetUserAvatarBtn" data-show="capabilities.administration.usersResetMedia">Reset Avatar</button>
-                                    <button class="btn btn-sm btn-outline-danger" data-on-click="resetUserCoverBtn" data-show="capabilities.administration.usersResetMedia">Reset Cover Image</button>
-                                  </div>
-                                </div>
-                              </div>
-                            </div>
-                          </else>
-                        </if>
-                        <else>
-                          <div id="user-details-placeholder"
-                            class="my-auto mx-auto text-center text-muted p-5">
-                            <i
-                              class="bi bi-person-bounding-box fs-1 mb-3 text-primary opacity-50 d-block"></i>
-                            <span>Select a user from the list to view profile details and credentials</span>
-                          </div>
-                        </else>
-                      </if>
-                    </div>
-                  </div>
-                </div>
-              </div>
-            </section>
-
-            <!-- PANEL: CHANNELS CONFIGURATION -->
-            <section id="panel-channels"
-              class="tab-panel flex-grow-1 d-flex flex-column"
-              data-show="showPanel_channels"
-              role="tabpanel">
-              <div
-                class="glass-card flex-grow-1 d-flex flex-column overflow-hidden">
-                <div
-                  class="card-header border-bottom p-3 d-flex align-items-center justify-content-between">
-                  <span
-                    class="fw-semibold text-muted text-uppercase tracking-wider fs-7">Public Chat Channels</span>
-                  <button id="btn-open-create-channel"
-                    class="btn btn-sm btn-primary" data-on-click="openCreateChannelModal">
-                    <i class="bi bi-plus-circle me-1"></i>Create Channel
-                  </button>
-                </div>
-                <div class="card-body p-0 table-responsive flex-grow-1">
-                  <div class="d-table w-100 align-middle">
-                    <div class="d-table-header-group bg-light fw-bold text-muted border-bottom">
-                      <div class="d-table-row">
-                        <div class="d-table-cell p-3">Channel ID</div>
-                        <div class="d-table-cell p-3">Slug</div>
-                        <div class="d-table-cell p-3">Name</div>
-                        <div class="d-table-cell p-3">Description</div>
-                        <div class="d-table-cell p-3">Version</div>
-                        <div class="d-table-cell p-3">Status</div>
-                        <div class="d-table-cell p-3 text-end">Actions</div>
-                      </div>
-                    </div>
-                    <for each="channels" as="chan" key="chan.id" data-live el="div">
-                      <div class="d-table-row border-bottom hover-row align-middle text-start">
-                        <div class="d-table-cell p-3 font-monospace fs-8 text-muted">#${chan.id}</div>
-                        <div class="d-table-cell p-3 fw-semibold text-dark-mode-override">#${chan.slug}</div>
-                        <div class="d-table-cell p-3 fw-semibold text-dark-mode-override">${chan.name}</div>
-                        <div class="d-table-cell p-3 text-truncate text-muted max-w-500">${chan.description}</div>
-                        <div class="d-table-cell p-3 fs-8 text-muted">v${chan.version}</div>
-                        <div class="d-table-cell p-3">
-                          <if is-eq="chan.state" to="archived" data-live>
-                            <span class="badge bg-secondary">Archived</span>
-                            <else>
-                              <span class="badge bg-success-subtle text-success border border-success-subtle">Active</span>
-                            </else>
-                          </if>
-                        </div>
-                        <div class="d-table-cell p-3 text-end">
-                          <div class="d-flex gap-2 justify-content-end">
-                            <button class="btn btn-xs btn-outline-secondary py-1 px-2 fs-8" data-on-click="clickEditChannel" data-id="${chan.id}">Edit</button>
-                            <if is-eq="chan.state" to="archived" data-live>
-                              <button class="btn btn-xs btn-outline-success py-1 px-2 fs-8" data-on-click="restoreChannelBtn" data-id="${chan.id}">Restore</button>
-                              <else>
-                                <button class="btn btn-xs btn-outline-danger py-1 px-2 fs-8" data-on-click="archiveChannelBtn" data-id="${chan.id}">Archive</button>
-                              </else>
-                            </if>
-                          </div>
-                        </div>
-                      </div>
-                    </for>
-                  </div>
-                  <if is-truthy="channelsLoading" data-live>
-                    <div id="channels-loading-placeholder"
-                      class="text-center p-5 text-muted">
-                      <div class="spinner-border spinner-border-sm me-2" role="status"></div>
-                      Loading channels...
-                    </div>
-                  </if>
-                </div>
-              </div>
-            </section>
-
-            <!-- PANEL: ROLES ADMINISTRATION -->
-            <section id="panel-roles"
-              class="tab-panel flex-grow-1 d-flex flex-column"
-              data-show="showPanel_roles"
-              role="tabpanel">
-              <div class="glass-card p-4 text-start">
-                <h3
-                  class="h5 fw-bold mb-3 text-dark-mode-override">Role Gating & Transition Hierarchy</h3>
-                <p class="text-muted fs-7 mb-4">
-                  Only System Owners can assign or revoke administrative roles. System Administrators can manage Moderator privileges. 
-                  Users cannot promote themselves, and owners are protected against accidental self-demotions.
-                </p>
-                <div class="row g-3">
-                  <div class="col-12 col-md-6">
-                    <div class="p-3 border rounded">
-                      <h4
-                        class="h6 fw-bold mb-2 text-dark-mode-override">Select User for Role Update</h4>
-                      <div class="mb-3">
-                        <label for="role-select-user"
-                          class="form-label fs-7">Target User</label>
-                        <select id="role-select-user"
-                          class="form-select form-select-sm" data-on-change="changeRoleUser">
-                          <option value="">Select a user...</option>
-                        </select>
-                      </div>
-                      <div class="mb-3">
-                        <label for="role-assign-value"
-                          class="form-label fs-7">Assign AppRole</label>
-                        <select id="role-assign-value"
-                          class="form-select form-select-sm" disabled data-on-change="changeRoleAssignValue">
-                          <option value="">Select a transition...</option>
-                        </select>
-                      </div>
-                      <button id="btn-save-role-change"
-                        class="btn btn-sm btn-primary w-100"
-                        disabled data-on-click="clickSaveRoleChange">Save Role Change</button>
-                    </div>
-                  </div>
-                  <div class="col-12 col-md-6">
-                    <div class="p-3 border rounded bg-light-subtle">
-                      <h4
-                        class="h6 fw-bold mb-2 text-dark-mode-override">Privilege Matrix</h4>
-                      <ul
-                        class="list-unstyled fs-7 mb-0 d-flex flex-column gap-2">
-                        <li><i class="bi bi-check-circle-fill text-success me-2"></i><strong>Owner:</strong> Full console control, Ownership transfer, Admin appointments.</li>
-                        <li><i class="bi bi-check-circle-fill text-success me-2"></i><strong>Administrator:</strong> Manage Users, Channels, system configs, Security Audit logs.</li>
-                        <li><i class="bi bi-check-circle-fill text-success me-2"></i><strong>Moderator:</strong> Investigate reports and apply permitted temporary sanctions (max 30 days).</li>
-                        <li><i class="bi bi-x-circle-fill text-danger me-2"></i><strong>User:</strong> Standard access, no console permissions.</li>
-                      </ul>
-                    </div>
-                  </div>
-                </div>
-              </div>
-            </section>
-
-            <!-- PANEL: SYSTEM SETTINGS -->
-            <section id="panel-settings"
-              class="tab-panel flex-grow-1 d-flex flex-column"
-              data-show="showPanel_settings"
-              role="tabpanel">
-              <form id="settings-form" class="glass-card p-4 text-start" data-on-submit="submitSettingsForm">
-                <div
-                  class="d-flex align-items-center justify-content-between mb-4 border-bottom pb-2">
-                  <h3
-                    class="h5 fw-bold mb-0 text-dark-mode-override">Global System Parameters</h3>
-                  <button type="submit" id="btn-save-settings"
-                    class="btn btn-sm btn-primary">Save Configuration</button>
-                </div>
-
-                <div class="row g-4">
-                  <!-- Registration group -->
-                  <div class="col-12 col-md-6">
-                    <h4
-                      class="h6 fw-bold mb-3 border-bottom pb-1 text-dark-mode-override">Registration Policy</h4>
-                    <div class="form-check form-switch mb-2">
-                      <input class="form-check-input" type="checkbox"
-                        id="setting-registration-enabled" data-model="settingsState.registration_enabled">
-                      <label class="form-check-label text-dark-mode-override"
-                        for="setting-registration-enabled">Allow user registrations</label>
-                    </div>
-                    <div class="form-check form-switch mb-3">
-                      <input class="form-check-input" type="checkbox"
-                        id="setting-verification-required" data-model="settingsState.email_verification_required">
-                      <label class="form-check-label text-dark-mode-override"
-                        for="setting-verification-required">Require email verification</label>
-                    </div>
-                  </div>
-
-                  <!-- Messaging bounds -->
-                  <div class="col-12 col-md-6">
-                    <h4
-                      class="h6 fw-bold mb-3 border-bottom pb-1 text-dark-mode-override">Messaging Restrictions</h4>
-                    <div class="mb-2">
-                      <label for="setting-max-message"
-                        class="form-label fs-7">Max message length</label>
-                      <input type="number" id="setting-max-message"
-                        class="form-control form-control-sm" min="10"
-                        max="10000" required data-model="settingsState.max_message_length">
-                    </div>
-                    <div class="mb-2">
-                      <label for="setting-max-group-members"
-                        class="form-label fs-7">Max group members</label>
-                      <input type="number" id="setting-max-group-members"
-                        class="form-control form-control-sm" min="3"
-                        max="100" required data-model="settingsState.max_group_members">
-                    </div>
-                    <div class="form-check form-switch mb-2">
-                      <input class="form-check-input" type="checkbox"
-                        id="setting-allow-dms" data-model="settingsState.allow_new_dm">
-                      <label class="form-check-label text-dark-mode-override"
-                        for="setting-allow-dms">Allow new DM opening</label>
-                    </div>
-                    <div class="form-check form-switch mb-2">
-                      <input class="form-check-input" type="checkbox"
-                        id="setting-allow-groups" data-model="settingsState.allow_group_creation">
-                      <label class="form-check-label text-dark-mode-override"
-                        for="setting-allow-groups">Allow user group creation</label>
-                    </div>
-                  </div>
-
-                  <!-- Media bounds -->
-                  <div class="col-12 col-md-6">
-                    <h4
-                      class="h6 fw-bold mb-3 border-bottom pb-1 text-dark-mode-override">Media Size Limits</h4>
-                    <div class="mb-2">
-                      <label for="setting-upload-limit"
-                        class="form-label fs-7">Attachment limit (Bytes)</label>
-                      <input type="number" id="setting-upload-limit"
-                        class="form-control form-control-sm" required data-model="settingsState.max_upload_size_bytes">
-                    </div>
-                    <div class="mb-2">
-                      <label for="setting-avatar-limit"
-                        class="form-label fs-7">Avatar file limit (Bytes)</label>
-                      <input type="number" id="setting-avatar-limit"
-                        class="form-control form-control-sm" required data-model="settingsState.max_avatar_size_bytes">
-                    </div>
-                    <div class="mb-2">
-                      <label for="setting-cover-limit"
-                        class="form-label fs-7">Cover file limit (Bytes)</label>
-                      <input type="number" id="setting-cover-limit"
-                        class="form-control form-control-sm" required data-model="settingsState.max_cover_size_bytes">
-                    </div>
-                  </div>
-
-                  <!-- System properties -->
-                  <div class="col-12 col-md-6">
-                    <h4
-                      class="h6 fw-bold mb-3 border-bottom pb-1 text-dark-mode-override">System Parameters</h4>
-                    <div class="mb-3">
-                      <label for="setting-default-channel"
-                        class="form-label fs-7">Default landing channel ID</label>
-                      <input type="text" id="setting-default-channel"
-                        class="form-control form-control-sm" required data-model="settingsState.default_channel_id">
-                    </div>
+                  <div class="col-12">
                     <div
-                      class="p-3 border border-warning rounded bg-warning-subtle">
-                      <div class="form-check form-switch m-0">
-                        <input class="form-check-input" type="checkbox"
-                          id="setting-maintenance-mode" data-model="settingsState.maintenance_mode" data-on-change="changeMaintenanceMode">
-                        <label
-                          class="form-check-label fw-bold text-warning-emphasis"
-                          for="setting-maintenance-mode">Maintenance Mode</label>
-                      </div>
-                      <small class="text-warning-emphasis d-block mt-1 fs-7">
-                        Blocks normal mutations while preserving reads, health, heartbeat, account recovery, moderation, and authorized administration.
-                      </small>
+                      class="form-check form-switch form-switch-sm m-0">
+                      <input class="form-check-input" type="checkbox"
+                        id="filter-assigned-me" data-model="reportsFilters.assignedToMe" data-on-change="updateReportsFilter">
+                      <label
+                        class="form-check-label text-dark-mode-override"
+                        for="filter-assigned-me">Assigned to me</label>
                     </div>
                   </div>
                 </div>
-              </form>
-            </section>
+              </div>
 
-            <!-- PANEL: SECURITY AUDIT -->
-            <section id="panel-security-audit"
-              class="tab-panel flex-grow-1 d-flex flex-column"
-              data-show="showPanel_security-audit"
-              role="tabpanel">
-              <div
-                class="glass-card flex-grow-1 d-flex flex-column overflow-hidden">
-                <div
-                  class="card-header border-bottom p-3 d-flex flex-wrap gap-2 align-items-center justify-content-between">
-                  <span
-                    class="fw-semibold text-muted text-uppercase tracking-wider fs-7"
-                    data-text="securityAuditEventsCountLabel">0 events</span>
-                  <div class="d-flex flex-wrap gap-2">
-                    <input type="text" id="sec-audit-actor-id"
-                      class="form-control form-control-sm max-w-150"
-                      placeholder="Actor ID" data-on-input="updateSecAuditFilter">
-                    <input type="text" id="sec-audit-action-code"
-                      class="form-control form-control-sm max-w-150"
-                      placeholder="Action Code" data-on-input="updateSecAuditFilter">
-                    <button id="btn-clear-sec-audit-filters"
-                      class="btn btn-sm btn-outline-secondary" data-on-click="clearSecAuditFilters">Clear</button>
+              <!-- Loading/empty states use data-show so the reactive list below
+                   stays permanently subscribed: live blocks nested inside a live
+                   <if> branch do not re-subscribe after a branch rebuild. -->
+              <div class="card-body overflow-y-auto p-0 flex-grow-1" id="reports-list-container">
+                <div class="text-center my-4 text-muted fs-7" data-show="reportsLoading">
+                  <div class="spinner-border spinner-border-sm me-2" role="status"></div>
+                  <span>Loading reports...</span>
+                </div>
+                <div class="text-center my-5 text-muted fs-7" data-show="reportsListEmpty">
+                  <i class="bi bi-check-circle-fill text-success fs-3 d-block mb-2"></i>
+                  <span>All clear! No reports found.</span>
+                </div>
+                <for each="reportsList" as="rep" key="rep.id" data-live>
+                  <div class="report-item ${rep.activeClass}" role="button" data-on-click="selectReport" data-id="${rep.id}">
+                    <div class="d-flex justify-content-between align-items-center mb-1">
+                      <span class="fw-bold fs-7 text-dark-mode-override">Report #${rep.id}</span>
+                      <span class="badge ${rep.badgeClass}">${rep.statusText}</span>
+                    </div>
+                    <div class="text-muted fs-8 mb-1">
+                      Type: ${rep.targetTypeUpper} | Reason: ${rep.reasonCodeUpper}
+                    </div>
+                    <div class="text-dark-mode-override fs-7 text-truncate">
+                      ${rep.details}
+                    </div>
+                    <div class="text-muted fs-8 text-end mt-1">
+                      ${rep.formattedDate}
+                    </div>
+                  </div>
+                </for>
+              </div>
+              <div class="card-footer border-top p-2 text-center">
+                <button id="btn-load-more-reports"
+                  class="btn btn-sm btn-link text-decoration-none" data-on-click="loadMoreReports" data-show="nextReportsCursor">Load More</button>
+              </div>
+            </div>
+          </div>
+
+          <!-- Right column: report investigation workspace -->
+          <div class="col-12 col-lg-7 col-xl-8 d-flex flex-column h-100"
+            style="max-height: 80vh;">
+            <div
+              class="glass-card flex-grow-1 d-flex flex-column overflow-hidden h-100">
+              <div class="card-body d-flex flex-column h-100 p-0"
+                id="report-investigation-workspace">
+                <!-- Mobile back to list button -->
+                <button class="btn-mobile-back btn btn-sm btn-outline-secondary m-2 mb-0 d-none align-items-center gap-1"
+                  id="btn-reports-back-to-list" aria-label="Back to reports list">
+                  <i class="bi bi-arrow-left"></i> Back to List
+                </button>
+
+                <!-- Report placeholder or detail panel (data-show keeps the
+                     detail's reactive lists permanently subscribed) -->
+                <div id="investigation-placeholder" class="my-auto mx-auto text-center text-muted p-5" data-show="showInvestigationPlaceholder">
+                  <i class="bi bi-chat-square-text fs-1 mb-3 text-primary opacity-50 d-block"></i>
+                  <span>Select a report from the feed to begin investigation</span>
+                </div>
+                <div class="my-auto mx-auto text-center text-muted p-5" data-show="showInvestigationLoading">
+                  <div class="spinner-border text-primary mb-3" role="status"></div>
+                  <span class="d-block">Loading report details & context...</span>
+                </div>
+                <div class="d-flex flex-column h-100" data-show="showInvestigationDetails">
+                  <partial name="cc-report-investigation"></partial>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+    </template>
+
+    <!-- ═══════════════ REPORT INVESTIGATION DETAIL ═══════════════ -->
+    <template id="tpl-cc-report-investigation">
+      <div id="investigation-details" class="d-flex flex-column h-100">
+        <!-- Header workflow row -->
+        <div class="p-3 border-bottom d-flex flex-wrap align-items-center justify-content-between gap-2">
+          <div>
+            <h3 class="h6 fw-bold mb-0 text-dark-mode-override">Investigation: #<span data-text="selectedReportDetails.id"></span></h3>
+            <span class="text-muted fs-8">Reported on <span data-text="selectedReportFormattedDate"></span></span>
+          </div>
+          <div class="d-flex gap-2">
+            <button class="btn btn-sm btn-outline-primary" data-on-click="assignReportToMe" data-show="showAssignButton">
+              Assign to Me
+            </button>
+
+            <if is-eq="selectedReportDetails.status" to="open" data-live>
+              <button class="btn btn-sm btn-primary" data-on-click="startReviewReport">Start Review</button>
+              <button class="btn btn-sm btn-outline-danger" data-on-click="dismissReport">Dismiss</button>
+            </if>
+
+            <if is-eq="selectedReportDetails.status" to="in_review" data-live>
+              <button class="btn btn-sm btn-outline-secondary" data-on-click="returnOpenReport">Return Open</button>
+              <button class="btn btn-sm btn-success" data-on-click="resolveReport">Resolve</button>
+              <button class="btn btn-sm btn-outline-danger" data-on-click="dismissReport">Dismiss</button>
+            </if>
+          </div>
+        </div>
+
+        <!-- Main scrollable details body -->
+        <div class="flex-grow-1 overflow-y-auto p-3 d-flex flex-column gap-3">
+          <!-- Details card -->
+          <div class="p-3 border rounded bg-light-subtle text-start">
+            <span class="fw-bold text-muted text-uppercase tracking-wider fs-8 mb-2 d-block">Report details</span>
+            <div class="fs-7 mb-1 text-dark-mode-override">
+              <strong>Reporter ID: </strong><span data-text="selectedReportDetails.reporterUserId"></span>
+            </div>
+            <div class="fs-7 mb-1 text-dark-mode-override">
+              <strong>Reason Code: </strong><span class="badge bg-secondary-subtle text-secondary border" data-text="selectedReportDetails.reasonCode"></span>
+            </div>
+            <div class="fs-7 mb-2 text-dark-mode-override">
+              <strong>Status: </strong><span class="{repstatus}" data-repstatus="selectedReportStatusClass" data-text="selectedReportDetails.status"></span>
+            </div>
+            <div class="p-2 border rounded bg-body fs-7 text-dark-mode-override fst-italic">
+              "<span data-text="selectedReportDetails.details"></span>"
+            </div>
+          </div>
+
+          <!-- Context visualizer card -->
+          <div class="p-3 border rounded d-flex flex-column gap-2 text-start" data-show="selectedReportDetails.targetId">
+            <span class="fw-bold text-muted text-uppercase tracking-wider fs-8 d-block">Target context</span>
+
+            <div class="chat-context-box p-3 d-flex flex-column" data-show="showTargetContextMessage">
+              <for each="selectedReportContext.context" as="msg" key="msg.id" data-live>
+                <div class="mb-2 text-start">
+                  <div class="text-muted fs-8 mb-1">
+                    ${msg.authorId} at ${msg.createdAt}
+                  </div>
+                  <div class="chat-bubble-context text-dark-mode-override">
+                    ${msg.content}
                   </div>
                 </div>
-                <div class="card-body p-0 table-responsive flex-grow-1">
-                  <div class="d-table w-100 align-middle">
-                    <div class="d-table-header-group bg-light fw-bold text-muted border-bottom">
-                      <div class="d-table-row">
-                        <div class="d-table-cell p-3">Timestamp</div>
-                        <div class="d-table-cell p-3">Actor</div>
-                        <div class="d-table-cell p-3">Action</div>
-                        <div class="d-table-cell p-3">Target</div>
-                        <div class="d-table-cell p-3">Outcome</div>
-                        <div class="d-table-cell p-3">Details / Metadata</div>
-                      </div>
+              </for>
+            </div>
+
+            <div class="d-flex align-items-center gap-3 p-2 bg-light-subtle rounded border" data-show="showTargetContextUser">
+              <div class="avatar-placeholder fs-5">U</div>
+              <div class="text-start">
+                <h4 class="h6 fw-bold mb-0 text-dark-mode-override" data-text="selectedReportContext.target.displayName"></h4>
+                <div class="text-muted fs-8">@<span data-text="selectedReportContext.target.username"></span></div>
+                <div class="fs-7 mt-1 text-dark-mode-override" data-text="selectedReportContext.target.bio"></div>
+              </div>
+            </div>
+
+            <div class="p-2 border rounded bg-light-subtle d-flex align-items-center gap-3" data-show="showTargetContextAttachment">
+              <i class="bi bi-file-earmark-arrow-down-fill text-primary fs-2"></i>
+              <div class="text-start flex-grow-1">
+                <h4 class="h6 fw-bold mb-0 text-dark-mode-override" data-text="selectedReportContext.target.fileName"></h4>
+                <div class="text-muted fs-8">Type: <span data-text="selectedReportContext.target.mimeType"></span> | Size: <span data-text="selectedReportContext.target.sizeBytes"></span></div>
+                <div class="fs-8 text-muted mt-1">Uploader ID: <span data-text="selectedReportContext.target.uploaderId"></span></div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Contextual Sanctions Card -->
+          <div class="p-3 border rounded d-flex flex-column gap-2 text-start">
+            <div class="d-flex align-items-center justify-content-between">
+              <span class="fw-bold text-muted text-uppercase tracking-wider fs-8">Target Sanctions History</span>
+              <button class="btn btn-sm btn-danger fs-8" data-on-click="clickApplySanction" data-show="canApplySanctions">Apply Sanction</button>
+            </div>
+
+            <div class="d-flex flex-column gap-2">
+              <for each="userSanctionsList" as="s" key="s.id" data-live>
+                <div class="p-2 border rounded d-flex justify-content-between align-items-center bg-body">
+                  <div class="text-start fs-7">
+                    <div>
+                      <span class="badge ${s.badgeClass} me-2">${s.typeDisplay}</span>
+                      <span class="text-muted fs-8">Status: ${s.statusText}</span>
                     </div>
-                    <for each="securityAuditEvents" as="ev" key="ev.id" data-live el="div">
-                      <div class="d-table-row border-bottom hover-row align-middle text-start">
-                        <div class="d-table-cell p-3 fs-8 text-muted">${ev.formattedDate}</div>
-                        <div class="d-table-cell p-3 fw-semibold text-dark-mode-override">${ev.actorUserId}</div>
-                        <div class="d-table-cell p-3">
-                          <span class="badge bg-secondary-subtle text-secondary">${ev.actionCode}</span>
+                    <div class="text-dark-mode-override mt-1">
+                      Reason: ${s.reasonCode} - Note: ${s.moderatorNote}
+                    </div>
+                    <div class="text-muted fs-8">
+                      Expires: ${s.expiresFormatted}
+                    </div>
+                  </div>
+                  <if is-truthy="s.canRevoke">
+                    <button class="btn btn-sm btn-outline-warning fs-8" data-on-click="clickRevokeSanction" data-id="${s.id}" data-user-id="${s.userId}">
+                      Revoke
+                    </button>
+                  </if>
+                </div>
+              </for>
+            </div>
+          </div>
+        </div>
+      </div>
+    </template>
+
+    <!-- ═══════════════ PANEL: MODERATION AUDIT ═══════════════ -->
+    <template id="tpl-cc-panel-moderation-audit">
+      <section id="panel-moderation-audit"
+        class="tab-panel flex-grow-1 d-flex flex-column"
+        data-show="showPanel_moderation-audit"
+        role="tabpanel">
+        <div
+          class="glass-card flex-grow-1 d-flex flex-column overflow-hidden">
+          <div
+            class="card-header border-bottom p-3 d-flex flex-wrap gap-2 align-items-center justify-content-between">
+            <span
+              class="fw-semibold text-muted text-uppercase tracking-wider fs-7"
+              data-text="moderationAuditEventsCountLabel">0 events</span>
+            <div class="d-flex flex-wrap gap-2">
+              <input type="text" id="mod-audit-actor-id"
+                class="form-control form-control-sm max-w-150"
+                placeholder="Actor ID" data-on-input="updateModAuditFilter">
+              <input type="text" id="mod-audit-target-id"
+                class="form-control form-control-sm max-w-150"
+                placeholder="Target ID" data-on-input="updateModAuditFilter">
+              <button id="btn-clear-mod-audit-filters"
+                class="btn btn-sm btn-outline-secondary" data-on-click="clearModAuditFilters">Clear</button>
+            </div>
+          </div>
+          <div class="card-body p-0 table-responsive flex-grow-1">
+            <div class="d-table w-100 align-middle">
+              <partial name="cc-audit-table-head"></partial>
+              <for each="moderationAuditEvents" as="ev" key="ev.id" data-live el="div">
+                <partial name="cc-audit-row" data="ev"></partial>
+              </for>
+            </div>
+            <if is-truthy="auditLoading" data-live>
+              <div class="text-center p-5 text-muted">
+                <div class="spinner-border spinner-border-sm me-2" role="status"></div>
+                Loading audit logs...
+              </div>
+              <else>
+                <if is-truthy="moderationAuditEmpty" data-live>
+                  <div id="mod-audit-placeholder"
+                    class="text-center p-5 text-muted">
+                    <i class="bi bi-journals fs-1 mb-2 d-block"></i>
+                    No audit records match the selected filters.
+                  </div>
+                </if>
+              </else>
+            </if>
+          </div>
+          <div class="card-footer border-top p-2 text-center">
+            <button id="btn-load-more-mod-audit"
+              class="btn btn-sm btn-link text-decoration-none" data-on-click="loadMoreModAudit" data-show="nextAuditCursor">Load More</button>
+          </div>
+        </div>
+      </section>
+    </template>
+
+    <!-- ═══════════════ PANEL: SECURITY AUDIT ═══════════════ -->
+    <template id="tpl-cc-panel-security-audit">
+      <section id="panel-security-audit"
+        class="tab-panel flex-grow-1 d-flex flex-column"
+        data-show="showPanel_security-audit"
+        role="tabpanel">
+        <div
+          class="glass-card flex-grow-1 d-flex flex-column overflow-hidden">
+          <div
+            class="card-header border-bottom p-3 d-flex flex-wrap gap-2 align-items-center justify-content-between">
+            <span
+              class="fw-semibold text-muted text-uppercase tracking-wider fs-7"
+              data-text="securityAuditEventsCountLabel">0 events</span>
+            <div class="d-flex flex-wrap gap-2">
+              <input type="text" id="sec-audit-actor-id"
+                class="form-control form-control-sm max-w-150"
+                placeholder="Actor ID" data-on-input="updateSecAuditFilter">
+              <input type="text" id="sec-audit-action-code"
+                class="form-control form-control-sm max-w-150"
+                placeholder="Action Code" data-on-input="updateSecAuditFilter">
+              <button id="btn-clear-sec-audit-filters"
+                class="btn btn-sm btn-outline-secondary" data-on-click="clearSecAuditFilters">Clear</button>
+            </div>
+          </div>
+          <div class="card-body p-0 table-responsive flex-grow-1">
+            <div class="d-table w-100 align-middle">
+              <partial name="cc-audit-table-head"></partial>
+              <for each="securityAuditEvents" as="ev" key="ev.id" data-live el="div">
+                <partial name="cc-audit-row" data="ev"></partial>
+              </for>
+            </div>
+            <if is-truthy="auditLoading" data-live>
+              <div class="text-center p-5 text-muted">
+                <div class="spinner-border spinner-border-sm me-2" role="status"></div>
+                Loading audit logs...
+              </div>
+              <else>
+                <if is-truthy="securityAuditEmpty" data-live>
+                  <div id="sec-audit-placeholder"
+                    class="text-center p-5 text-muted">
+                    <i class="bi bi-journals fs-1 mb-2 d-block"></i>
+                    No audit records match the selected filters.
+                  </div>
+                </if>
+              </else>
+            </if>
+          </div>
+          <div class="card-footer border-top p-2 text-center">
+            <button id="btn-load-more-sec-audit"
+              class="btn btn-sm btn-link text-decoration-none" data-on-click="loadMoreSecAudit" data-show="nextAuditCursor">Load More</button>
+          </div>
+        </div>
+      </section>
+    </template>
+
+    <!-- ═══════════════ SHARED: AUDIT TABLE HEADER + ROW ═══════════════
+         One definition serves both audit panels. The row partial receives the
+         mapped event object (data="ev") from each reactive <for> item. -->
+    <template id="tpl-cc-audit-table-head">
+      <div class="d-table-header-group bg-light fw-bold text-muted border-bottom">
+        <div class="d-table-row">
+          <div class="d-table-cell p-3">Timestamp</div>
+          <div class="d-table-cell p-3">Actor</div>
+          <div class="d-table-cell p-3">Action</div>
+          <div class="d-table-cell p-3">Target</div>
+          <div class="d-table-cell p-3">Outcome</div>
+          <div class="d-table-cell p-3">Details / Metadata</div>
+        </div>
+      </div>
+    </template>
+
+    <template id="tpl-cc-audit-row">
+      <div class="d-table-row border-bottom hover-row align-middle text-start">
+        <div class="d-table-cell p-3 fs-8 text-muted">${formattedDate}</div>
+        <div class="d-table-cell p-3 fw-semibold text-dark-mode-override">${actorUserId}</div>
+        <div class="d-table-cell p-3">
+          <span class="badge bg-secondary-subtle text-secondary">${actionCode}</span>
+        </div>
+        <div class="d-table-cell p-3 text-muted fs-8">
+          ${targetDisplay}
+        </div>
+        <div class="d-table-cell p-3"><span class="badge ${outcomeClass}">${outcome}</span></div>
+        <div class="d-table-cell p-3">
+          <div class="d-flex flex-column gap-1">
+            <button class="btn btn-xs btn-link text-decoration-none p-0 fs-8 text-start" data-on-click="toggleAuditMeta" data-id="${id}">Show Details</button>
+            <pre class="pre-metadata-block m-0 d-none text-start" id="meta-${id}">${metadataFormatted}</pre>
+          </div>
+        </div>
+      </div>
+    </template>
+
+    <!-- ═══════════════ PANEL: USERS ADMINISTRATION ═══════════════ -->
+    <template id="tpl-cc-panel-users">
+      <section id="panel-users"
+        class="tab-panel flex-grow-1 d-flex flex-column h-100"
+        data-show="showPanel_users"
+        role="tabpanel">
+        <div class="row g-3 flex-grow-1 h-100 align-items-stretch" id="users-panel-row">
+          <!-- Left column: users list search -->
+          <div class="col-12 col-lg-5 col-xl-4 d-flex flex-column h-100"
+            style="max-height: 80vh;">
+            <div
+              class="glass-card flex-grow-1 d-flex flex-column overflow-hidden h-100">
+              <div class="card-header border-bottom p-3">
+                <div class="mb-2">
+                  <label for="search-users"
+                    class="visually-hidden">Search Users</label>
+                  <div class="input-group input-group-sm">
+                    <span
+                      class="input-group-text"><i class="bi bi-search"></i></span>
+                    <input type="text" id="search-users"
+                      class="form-control"
+                      placeholder="Search by username..." data-on-input="updateUsersFilterDebounced">
+                  </div>
+                </div>
+                <div>
+                  <label for="filter-user-role"
+                    class="visually-hidden">Filter by Role</label>
+                  <select id="filter-user-role"
+                    class="form-select form-select-sm" data-on-change="updateUsersFilter">
+                    <option value="">All Roles</option>
+                    <option value="user">User</option>
+                    <option value="moderator">Moderator</option>
+                    <option value="admin">Administrator</option>
+                    <option value="owner">Owner</option>
+                  </select>
+                </div>
+              </div>
+              <div class="card-body overflow-y-auto p-0 flex-grow-1"
+                id="users-list-container">
+                <if is-truthy="usersLoading" data-live>
+                  <div class="text-center my-4 text-muted fs-7">
+                    <div class="spinner-border spinner-border-sm me-2" role="status"></div>
+                    <span>Loading users...</span>
+                  </div>
+                  <else>
+                    <for each="usersList" as="u" key="u.id" data-live>
+                      <div class="user-item ${u.activeClass}" role="button" data-on-click="selectUser" data-id="${u.id}">
+                        <div class="d-flex justify-content-between align-items-center mb-1">
+                          <span class="fw-bold fs-7 text-dark-mode-override">${u.displayNameOrUsername}</span>
+                          <span class="badge bg-secondary-subtle text-secondary border">${u.roleUpper}</span>
                         </div>
-                        <div class="d-table-cell p-3 text-muted fs-8">
-                          ${ev.targetType || 'N/A'}: ${ev.targetId || 'N/A'}
-                        </div>
-                        <div class="d-table-cell p-3"><span class="badge ${ev.outcomeClass}">${ev.outcome}</span></div>
-                        <div class="d-table-cell p-3">
-                          <div class="d-flex flex-column gap-1">
-                            <button class="btn btn-xs btn-link text-decoration-none p-0 fs-8 text-start" data-on-click="toggleAuditMeta" data-id="${ev.id}">Show Details</button>
-                            <pre class="pre-metadata-block m-0 d-none text-start" id="meta-${ev.id}">${ev.metadataFormatted}</pre>
-                          </div>
+                        <div class="text-muted fs-8">
+                          @${u.username} | ${u.email}
                         </div>
                       </div>
                     </for>
-                  </div>
-                  <if is-truthy="auditLoading" data-live>
-                    <div class="text-center p-5 text-muted">
-                      <div class="spinner-border spinner-border-sm me-2" role="status"></div>
-                      Loading audit logs...
+                  </else>
+                </if>
+              </div>
+              <div class="card-footer border-top p-2 text-center">
+                <button id="btn-load-more-users"
+                  class="btn btn-sm btn-link text-decoration-none" data-on-click="loadMoreUsers" data-show="nextUsersCursor">Load More</button>
+              </div>
+            </div>
+          </div>
+
+          <!-- Right column: user details workspace -->
+          <div class="col-12 col-lg-7 col-xl-8 d-flex flex-column h-100"
+            style="max-height: 80vh;">
+            <div
+              class="glass-card flex-grow-1 d-flex flex-column overflow-hidden h-100">
+              <div class="card-body d-flex flex-column h-100 p-0"
+                id="user-details-workspace">
+                <!-- Mobile back to list button -->
+                <button class="btn-mobile-back btn btn-sm btn-outline-secondary m-2 mb-0 d-none align-items-center gap-1"
+                  id="btn-users-back-to-list" aria-label="Back to users list">
+                  <i class="bi bi-arrow-left"></i> Back to List
+                </button>
+
+                <!-- User detail workspace or placeholder -->
+                <if is-truthy="selectedUserId" data-live>
+                  <if is-truthy="selectedUserLoading" data-live>
+                    <div class="my-auto mx-auto text-center text-muted p-5">
+                      <div class="spinner-border text-primary mb-3" role="status"></div>
+                      <span class="d-block">Loading user account details...</span>
                     </div>
                     <else>
-                      <if is-eq="securityAuditEventsCountLabel" to="0 events" data-live>
-                        <div id="sec-audit-placeholder"
-                          class="text-center p-5 text-muted">
-                          <i class="bi bi-journals fs-1 mb-2 d-block"></i>
-                          No audit records match the selected filters.
-                        </div>
-                      </if>
+                      <partial name="cc-user-details"></partial>
                     </else>
                   </if>
-                </div>
-                <div class="card-footer border-top p-2 text-center">
-                  <button id="btn-load-more-sec-audit"
-                    class="btn btn-sm btn-link text-decoration-none" data-on-click="loadMoreSecAudit" data-show="nextAuditCursor">Load More</button>
+                  <else>
+                    <div id="user-details-placeholder"
+                      class="my-auto mx-auto text-center text-muted p-5">
+                      <i
+                        class="bi bi-person-bounding-box fs-1 mb-3 text-primary opacity-50 d-block"></i>
+                      <span>Select a user from the list to view profile details and credentials</span>
+                    </div>
+                  </else>
+                </if>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+    </template>
+
+    <!-- ═══════════════ USER DETAILS WORKSPACE ═══════════════ -->
+    <template id="tpl-cc-user-details">
+      <div id="user-details-content" class="d-flex flex-column h-100">
+        <!-- Header details card -->
+        <div class="p-3 border-bottom d-flex align-items-center gap-3 bg-light-subtle text-start">
+          <div class="avatar-placeholder fs-4">U</div>
+          <div class="text-start flex-grow-1">
+            <h3 class="h6 fw-bold mb-0 text-dark-mode-override" data-text="selectedUserDetails.displayName"></h3>
+            <span class="text-muted fs-8">@<span data-text="selectedUserDetails.username"></span></span>
+            <div class="text-muted fs-8 mt-1">Bio: <span data-text="selectedUserDetails.bio"></span></div>
+          </div>
+          <div>
+            <span class="badge bg-primary" data-text="selectedUserDetails.role"></span>
+          </div>
+        </div>
+
+        <!-- Settings & Actions Body -->
+        <div class="flex-grow-1 overflow-y-auto p-3 d-flex flex-column gap-3 text-start">
+          <!-- Information fields -->
+          <div class="p-3 border rounded bg-light-subtle">
+            <span class="fw-bold text-muted text-uppercase tracking-wider fs-8 mb-2 d-block">System Account Status</span>
+            <div class="fs-7 mb-1 text-dark-mode-override">
+              <strong>Verification Status: </strong>
+              <if is-truthy="selectedUserDetails.emailVerifiedAt" data-live>
+                <span class="badge bg-success-subtle text-success border border-success">verified</span>
+                <else>
+                  <span class="badge bg-warning-subtle text-warning border border-warning">unverified</span>
+                </else>
+              </if>
+            </div>
+            <div class="fs-7 mb-1 text-dark-mode-override">
+              <strong>Account Status: </strong>
+              <if is-truthy="selectedUserDetails.accountDisabledAt" data-live>
+                <span class="badge bg-danger-subtle text-danger">disabled</span>
+                <else>
+                  <span class="badge bg-success-subtle text-success">active</span>
+                </else>
+              </if>
+            </div>
+            <div class="fs-7 mb-1 text-dark-mode-override">
+              <strong>Password reset required: </strong>
+              <if is-truthy="selectedUserDetails.mustResetPassword" data-live>
+                <span>yes</span>
+                <else>
+                  <span>no</span>
+                </else>
+              </if>
+            </div>
+            <div class="fs-7 text-dark-mode-override">
+              <strong>Email: </strong>
+              <span data-text="selectedUserDetails.email"></span>
+            </div>
+          </div>
+
+          <!-- Editable fields: bound two-way to the userEditDraft seeded by
+               loadUserDetails, so switching users always shows fresh values. -->
+          <if is-truthy="capabilities.administration.usersUpdate" data-live>
+            <if is-neq="selectedUserDetails.role" to="owner" data-live>
+              <form class="p-3 border rounded d-flex flex-column gap-2" data-on-submit="submitUpdateUserForm">
+                <span class="fw-bold text-muted text-uppercase tracking-wider fs-8">Editable account fields</span>
+                <input type="text" id="edit-user-display-name" class="form-control form-control-sm" maxlength="50" placeholder="Display Name" data-model="userEditDraft.displayName">
+                <textarea id="edit-user-bio" class="form-control form-control-sm" rows="2" maxlength="500" placeholder="Bio" data-model="userEditDraft.bio"></textarea>
+                <label class="form-check fs-7">
+                  <input type="checkbox" id="edit-user-disabled" class="form-check-input me-2" data-model="userEditDraft.disabled">
+                  <span>Account disabled</span>
+                </label>
+                <button type="submit" class="btn btn-sm btn-primary">Save allowed fields</button>
+              </form>
+            </if>
+          </if>
+
+          <!-- Administrative Controls -->
+          <div class="p-3 border rounded border-warning d-flex flex-column gap-2 bg-warning-subtle">
+            <span class="fw-bold text-warning-emphasis text-uppercase tracking-wider fs-8 mb-1 d-block">Administrative Controls</span>
+            <div class="d-flex flex-wrap gap-2">
+              <button class="btn btn-sm btn-outline-warning" data-on-click="revokeUserSessionsBtn" data-show="capabilities.administration.usersRevokeSessions">Revoke Active Sessions</button>
+              <button class="btn btn-sm btn-outline-warning" data-on-click="forcePasswordResetBtn" data-show="capabilities.administration.usersForcePasswordReset">Force Password Reset</button>
+              <button class="btn btn-sm btn-outline-danger" data-on-click="resetUserAvatarBtn" data-show="capabilities.administration.usersResetMedia">Reset Avatar</button>
+              <button class="btn btn-sm btn-outline-danger" data-on-click="resetUserCoverBtn" data-show="capabilities.administration.usersResetMedia">Reset Cover Image</button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </template>
+
+    <!-- ═══════════════ PANEL: CHANNELS CONFIGURATION ═══════════════ -->
+    <template id="tpl-cc-panel-channels">
+      <section id="panel-channels"
+        class="tab-panel flex-grow-1 d-flex flex-column"
+        data-show="showPanel_channels"
+        role="tabpanel">
+        <div
+          class="glass-card flex-grow-1 d-flex flex-column overflow-hidden">
+          <div
+            class="card-header border-bottom p-3 d-flex align-items-center justify-content-between">
+            <span
+              class="fw-semibold text-muted text-uppercase tracking-wider fs-7">Public Chat Channels</span>
+            <button id="btn-open-create-channel"
+              class="btn btn-sm btn-primary" data-on-click="openCreateChannelModal">
+              <i class="bi bi-plus-circle me-1"></i>Create Channel
+            </button>
+          </div>
+          <div class="card-body p-0 table-responsive flex-grow-1">
+            <div class="d-table w-100 align-middle">
+              <div class="d-table-header-group bg-light fw-bold text-muted border-bottom">
+                <div class="d-table-row">
+                  <div class="d-table-cell p-3">Channel ID</div>
+                  <div class="d-table-cell p-3">Slug</div>
+                  <div class="d-table-cell p-3">Name</div>
+                  <div class="d-table-cell p-3">Description</div>
+                  <div class="d-table-cell p-3">Version</div>
+                  <div class="d-table-cell p-3">Status</div>
+                  <div class="d-table-cell p-3 text-end">Actions</div>
                 </div>
               </div>
-            </section>
+              <for each="channels" as="chan" key="chan.id" data-live el="div">
+                <partial name="cc-channel-row" data="chan"></partial>
+              </for>
+            </div>
+            <if is-truthy="channelsLoading" data-live>
+              <div id="channels-loading-placeholder"
+                class="text-center p-5 text-muted">
+                <div class="spinner-border spinner-border-sm me-2" role="status"></div>
+                Loading channels...
+              </div>
+            </if>
+          </div>
+        </div>
+      </section>
+    </template>
 
-            <!-- PANEL: OWNER TRANSFER -->
-            <section id="panel-ownership-transfer"
-              class="tab-panel flex-grow-1"
-              data-show="showPanel_ownership-transfer"
-              role="tabpanel">
-              <div class="glass-card p-4 max-w-600 mx-auto text-start">
-                <div class="text-center mb-4">
-                  <i class="bi bi-exclamation-octagon text-danger fs-1"></i>
-                  <h3
-                    class="h5 fw-bold mt-2 text-dark-mode-override">Ownership Transfer</h3>
-                  <p class="text-muted fs-7">
-                    Transferring ownership shifts all root rights to the target user. This demotes your account to System Administrator.
-                    This action is immediate and cannot be undone.
-                  </p>
-                </div>
+    <template id="tpl-cc-channel-row">
+      <div class="d-table-row border-bottom hover-row align-middle text-start">
+        <div class="d-table-cell p-3 font-monospace fs-8 text-muted">#${id}</div>
+        <div class="d-table-cell p-3 fw-semibold text-dark-mode-override">#${slug}</div>
+        <div class="d-table-cell p-3 fw-semibold text-dark-mode-override">${name}</div>
+        <div class="d-table-cell p-3 text-truncate text-muted max-w-500">${description}</div>
+        <div class="d-table-cell p-3 fs-8 text-muted">v${version}</div>
+        <div class="d-table-cell p-3">
+          <if is-eq="state" to="archived">
+            <span class="badge bg-secondary">Archived</span>
+            <else>
+              <span class="badge bg-success-subtle text-success border border-success-subtle">Active</span>
+            </else>
+          </if>
+        </div>
+        <div class="d-table-cell p-3 text-end">
+          <div class="d-flex gap-2 justify-content-end">
+            <button class="btn btn-xs btn-outline-secondary py-1 px-2 fs-8" data-on-click="clickEditChannel" data-id="${id}">Edit</button>
+            <if is-eq="state" to="archived">
+              <button class="btn btn-xs btn-outline-success py-1 px-2 fs-8" data-on-click="restoreChannelBtn" data-id="${id}">Restore</button>
+              <else>
+                <button class="btn btn-xs btn-outline-danger py-1 px-2 fs-8" data-on-click="archiveChannelBtn" data-id="${id}">Archive</button>
+              </else>
+            </if>
+          </div>
+        </div>
+      </div>
+    </template>
 
+    <!-- ═══════════════ PANEL: ROLES ADMINISTRATION ═══════════════ -->
+    <template id="tpl-cc-panel-roles">
+      <section id="panel-roles"
+        class="tab-panel flex-grow-1 d-flex flex-column"
+        data-show="showPanel_roles"
+        role="tabpanel">
+        <div class="glass-card p-4 text-start">
+          <h3
+            class="h5 fw-bold mb-3 text-dark-mode-override">Role Gating & Transition Hierarchy</h3>
+          <p class="text-muted fs-7 mb-4">
+            Only System Owners can assign or revoke administrative roles. System Administrators can manage Moderator privileges.
+            Users cannot promote themselves, and owners are protected against accidental self-demotions.
+          </p>
+          <div class="row g-3">
+            <div class="col-12 col-md-6">
+              <div class="p-3 border rounded">
+                <h4
+                  class="h6 fw-bold mb-2 text-dark-mode-override">Select User for Role Update</h4>
                 <div class="mb-3">
-                  <label for="owner-target-user"
-                    class="form-label fs-7 fw-semibold">Target User</label>
-                  <select id="owner-target-user"
-                    class="form-select form-select-sm" data-on-change="validateOwnerTransferForm">
+                  <label for="role-select-user"
+                    class="form-label fs-7">Target User</label>
+                  <select id="role-select-user"
+                    class="form-select form-select-sm" data-on-change="changeRoleUser">
                     <option value="">Select a user...</option>
                   </select>
                 </div>
-
                 <div class="mb-3">
-                  <label for="owner-confirm-text"
-                    class="form-label fs-7 fw-semibold text-danger">Type TRANSFER to confirm</label>
-                  <input type="text" id="owner-confirm-text"
-                    class="form-control form-control-sm" placeholder="TRANSFER" data-on-input="validateOwnerTransferForm">
+                  <label for="role-assign-value"
+                    class="form-label fs-7">Assign AppRole</label>
+                  <select id="role-assign-value"
+                    class="form-select form-select-sm" disabled data-on-change="changeRoleAssignValue">
+                    <option value="">Select a transition...</option>
+                  </select>
                 </div>
-
-                <button id="btn-confirm-transfer-ownership"
-                  class="btn btn-danger btn-sm w-100" disabled data-on-click="submitTransferOwnership">
-                  Transfer System Ownership
-                </button>
+                <button id="btn-save-role-change"
+                  class="btn btn-sm btn-primary w-100"
+                  disabled data-on-click="clickSaveRoleChange">Save Role Change</button>
               </div>
-            </section>
+            </div>
+            <div class="col-12 col-md-6">
+              <div class="p-3 border rounded bg-light-subtle">
+                <h4
+                  class="h6 fw-bold mb-2 text-dark-mode-override">Privilege Matrix</h4>
+                <ul
+                  class="list-unstyled fs-7 mb-0 d-flex flex-column gap-2">
+                  <li><i class="bi bi-check-circle-fill text-success me-2"></i><strong>Owner:</strong> Full console control, Ownership transfer, Admin appointments.</li>
+                  <li><i class="bi bi-check-circle-fill text-success me-2"></i><strong>Administrator:</strong> Manage Users, Channels, system configs, Security Audit logs.</li>
+                  <li><i class="bi bi-check-circle-fill text-success me-2"></i><strong>Moderator:</strong> Investigate reports and apply permitted temporary sanctions (max 30 days).</li>
+                  <li><i class="bi bi-x-circle-fill text-danger me-2"></i><strong>User:</strong> Standard access, no console permissions.</li>
+                </ul>
+              </div>
+            </div>
           </div>
-        </main>
-      </div>
+        </div>
+      </section>
+    </template>
 
-      <!-- DIALOGS AND MODAL WORKSPACES -->
+    <!-- ═══════════════ PANEL: SYSTEM SETTINGS ═══════════════ -->
+    <template id="tpl-cc-panel-settings">
+      <section id="panel-settings"
+        class="tab-panel flex-grow-1 d-flex flex-column"
+        data-show="showPanel_settings"
+        role="tabpanel">
+        <form id="settings-form" class="glass-card p-4 text-start" data-on-submit="submitSettingsForm">
+          <div
+            class="d-flex align-items-center justify-content-between mb-4 border-bottom pb-2">
+            <h3
+              class="h5 fw-bold mb-0 text-dark-mode-override">Global System Parameters</h3>
+            <button type="submit" id="btn-save-settings"
+              class="btn btn-sm btn-primary">Save Configuration</button>
+          </div>
 
-      <!-- MODAL: APPLY SANCTION -->
+          <div class="row g-4">
+            <!-- Registration group -->
+            <div class="col-12 col-md-6">
+              <h4
+                class="h6 fw-bold mb-3 border-bottom pb-1 text-dark-mode-override">Registration Policy</h4>
+              <div class="form-check form-switch mb-2">
+                <input class="form-check-input" type="checkbox"
+                  id="setting-registration-enabled" data-model="settingsState.registration_enabled">
+                <label class="form-check-label text-dark-mode-override"
+                  for="setting-registration-enabled">Allow user registrations</label>
+              </div>
+              <div class="form-check form-switch mb-3">
+                <input class="form-check-input" type="checkbox"
+                  id="setting-verification-required" data-model="settingsState.email_verification_required">
+                <label class="form-check-label text-dark-mode-override"
+                  for="setting-verification-required">Require email verification</label>
+              </div>
+            </div>
+
+            <!-- Messaging bounds -->
+            <div class="col-12 col-md-6">
+              <h4
+                class="h6 fw-bold mb-3 border-bottom pb-1 text-dark-mode-override">Messaging Restrictions</h4>
+              <div class="mb-2">
+                <label for="setting-max-message"
+                  class="form-label fs-7">Max message length</label>
+                <input type="number" id="setting-max-message"
+                  class="form-control form-control-sm" min="10"
+                  max="10000" required data-model="settingsState.max_message_length">
+              </div>
+              <div class="mb-2">
+                <label for="setting-max-group-members"
+                  class="form-label fs-7">Max group members</label>
+                <input type="number" id="setting-max-group-members"
+                  class="form-control form-control-sm" min="3"
+                  max="100" required data-model="settingsState.max_group_members">
+              </div>
+              <div class="form-check form-switch mb-2">
+                <input class="form-check-input" type="checkbox"
+                  id="setting-allow-dms" data-model="settingsState.allow_new_dm">
+                <label class="form-check-label text-dark-mode-override"
+                  for="setting-allow-dms">Allow new DM opening</label>
+              </div>
+              <div class="form-check form-switch mb-2">
+                <input class="form-check-input" type="checkbox"
+                  id="setting-allow-groups" data-model="settingsState.allow_group_creation">
+                <label class="form-check-label text-dark-mode-override"
+                  for="setting-allow-groups">Allow user group creation</label>
+              </div>
+            </div>
+
+            <!-- Media bounds -->
+            <div class="col-12 col-md-6">
+              <h4
+                class="h6 fw-bold mb-3 border-bottom pb-1 text-dark-mode-override">Media Size Limits</h4>
+              <div class="mb-2">
+                <label for="setting-upload-limit"
+                  class="form-label fs-7">Attachment limit (Bytes)</label>
+                <input type="number" id="setting-upload-limit"
+                  class="form-control form-control-sm" required data-model="settingsState.max_upload_size_bytes">
+              </div>
+              <div class="mb-2">
+                <label for="setting-avatar-limit"
+                  class="form-label fs-7">Avatar file limit (Bytes)</label>
+                <input type="number" id="setting-avatar-limit"
+                  class="form-control form-control-sm" required data-model="settingsState.max_avatar_size_bytes">
+              </div>
+              <div class="mb-2">
+                <label for="setting-cover-limit"
+                  class="form-label fs-7">Cover file limit (Bytes)</label>
+                <input type="number" id="setting-cover-limit"
+                  class="form-control form-control-sm" required data-model="settingsState.max_cover_size_bytes">
+              </div>
+            </div>
+
+            <!-- System properties -->
+            <div class="col-12 col-md-6">
+              <h4
+                class="h6 fw-bold mb-3 border-bottom pb-1 text-dark-mode-override">System Parameters</h4>
+              <div class="mb-3">
+                <label for="setting-default-channel"
+                  class="form-label fs-7">Default landing channel ID</label>
+                <input type="text" id="setting-default-channel"
+                  class="form-control form-control-sm" required data-model="settingsState.default_channel_id">
+              </div>
+              <div
+                class="p-3 border border-warning rounded bg-warning-subtle">
+                <div class="form-check form-switch m-0">
+                  <input class="form-check-input" type="checkbox"
+                    id="setting-maintenance-mode" data-model="settingsState.maintenance_mode" data-on-change="changeMaintenanceMode">
+                  <label
+                    class="form-check-label fw-bold text-warning-emphasis"
+                    for="setting-maintenance-mode">Maintenance Mode</label>
+                </div>
+                <small class="text-warning-emphasis d-block mt-1 fs-7">
+                  Blocks normal mutations while preserving reads, health, heartbeat, account recovery, moderation, and authorized administration.
+                </small>
+              </div>
+            </div>
+          </div>
+        </form>
+      </section>
+    </template>
+
+    <!-- ═══════════════ PANEL: OWNER TRANSFER ═══════════════ -->
+    <template id="tpl-cc-panel-ownership">
+      <section id="panel-ownership-transfer"
+        class="tab-panel flex-grow-1"
+        data-show="showPanel_ownership-transfer"
+        role="tabpanel">
+        <div class="glass-card p-4 max-w-600 mx-auto text-start">
+          <div class="text-center mb-4">
+            <i class="bi bi-exclamation-octagon text-danger fs-1"></i>
+            <h3
+              class="h5 fw-bold mt-2 text-dark-mode-override">Ownership Transfer</h3>
+            <p class="text-muted fs-7">
+              Transferring ownership shifts all root rights to the target user. This demotes your account to System Administrator.
+              This action is immediate and cannot be undone.
+            </p>
+          </div>
+
+          <div class="mb-3">
+            <label for="owner-target-user"
+              class="form-label fs-7 fw-semibold">Target User</label>
+            <select id="owner-target-user"
+              class="form-select form-select-sm" data-on-change="validateOwnerTransferForm">
+              <option value="">Select a user...</option>
+            </select>
+          </div>
+
+          <div class="mb-3">
+            <label for="owner-confirm-text"
+              class="form-label fs-7 fw-semibold text-danger">Type TRANSFER to confirm</label>
+            <input type="text" id="owner-confirm-text"
+              class="form-control form-control-sm" placeholder="TRANSFER" data-on-input="validateOwnerTransferForm">
+          </div>
+
+          <button id="btn-confirm-transfer-ownership"
+            class="btn btn-danger btn-sm w-100" disabled data-on-click="submitTransferOwnership">
+            Transfer System Ownership
+          </button>
+        </div>
+      </section>
+    </template>
+
+    <!-- ═══════════════ MODAL: APPLY SANCTION ═══════════════ -->
+    <template id="tpl-cc-modal-apply-sanction">
       <div class="modal fade" id="dialog-apply-sanction" tabindex="-1"
         role="dialog" aria-labelledby="dialog-apply-sanction-title"
         aria-hidden="true">
@@ -1212,8 +1195,10 @@
           </div>
         </div>
       </div>
+    </template>
 
-      <!-- MODAL: CONFIRM REVOKE SANCTION -->
+    <!-- ═══════════════ MODAL: CONFIRM REVOKE SANCTION ═══════════════ -->
+    <template id="tpl-cc-modal-revoke-sanction">
       <div class="modal fade" id="dialog-revoke-sanction" tabindex="-1"
         role="dialog" aria-labelledby="dialog-revoke-sanction-title"
         aria-hidden="true">
@@ -1251,8 +1236,10 @@
           </div>
         </div>
       </div>
+    </template>
 
-      <!-- MODAL: CREATE CHANNEL -->
+    <!-- ═══════════════ MODAL: CREATE CHANNEL ═══════════════ -->
+    <template id="tpl-cc-modal-create-channel">
       <div class="modal fade" id="dialog-create-channel" tabindex="-1"
         role="dialog" aria-labelledby="dialog-create-channel-title"
         aria-hidden="true">
@@ -1300,8 +1287,10 @@
           </div>
         </div>
       </div>
+    </template>
 
-      <!-- MODAL: EDIT CHANNEL -->
+    <!-- ═══════════════ MODAL: EDIT CHANNEL ═══════════════ -->
+    <template id="tpl-cc-modal-edit-channel">
       <div class="modal fade" id="dialog-edit-channel" tabindex="-1"
         role="dialog" aria-labelledby="dialog-edit-channel-title"
         aria-hidden="true">
@@ -1340,8 +1329,10 @@
           </div>
         </div>
       </div>
+    </template>
 
-      <!-- MODAL: GENERAL CONFIRMATION -->
+    <!-- ═══════════════ MODAL: GENERAL CONFIRMATION ═══════════════ -->
+    <template id="tpl-cc-modal-confirm">
       <div class="modal fade" id="dialog-confirm-action" tabindex="-1"
         role="dialog" aria-labelledby="dialog-confirm-action-title"
         aria-hidden="true">
@@ -1365,12 +1356,6 @@
             </div>
           </div>
         </div>
-      </div>
-
-      <!-- TOAST NOTIFICATION CONTAINER -->
-      <div class="toast-container position-fixed bottom-0 end-0 p-3"
-        id="toast-container" style="z-index: 1100;">
-        <!-- Toast injected dynamically -->
       </div>
     </template>
 

@@ -5,7 +5,7 @@ import { TOKENS, STORAGE } from "./chat-auth.js";
 import { ToastService } from "./chat-api.js";
 import { HELPERS, MAPPERS, patchMessageById } from "./chat-messages.js";
 import { playBeep, hideSplashLoader } from "./chat-dialogs.js";
-import { activeConversationId, setRoomMessages, appendRoomMessage, setActiveDestination, isStreamNearBottom, setDraft } from "./chat-conversations.js";
+import { activeConversationId, setRoomMessages, appendRoomMessage, setActiveDestination, isStreamNearBottom } from "./chat-conversations.js";
 import { UploadOverlay, destKeyForConversation, setupDragDropZone } from "./chat-media.js";
 import { refreshUserProfile } from "./chat-profile.js";
 import { applySystemTheme } from "./shared-theme.js";
@@ -18,7 +18,6 @@ import {
   showReactionUsersPopover,
   ChatService,
   ensureUsersKnown,
-  recordSearchHistory,
 } from "./chat-handlers.js";
 
 setDevMode(false);
@@ -211,65 +210,7 @@ wsClient.addEventListener("room.updated", () => {
   loadInitialData();
 });
 
-// ── Live search wiring ───────────────────────────────────────────
-store.subscribe("searchState.userQuery", async (query) => {
-  const trimmed = (query || "").trim();
-  if (trimmed === "") {
-    store.set("searchState.searchResults", []);
-    return;
-  }
-  try {
-    const res = await wsClient.request("search.users", { query: trimmed });
-    store.set("searchState.searchResults", res.users.map(MAPPERS.userSummary));
-  } catch (err) {
-    console.error("User search failed:", err);
-  }
-});
 
-let searchHistoryRecordTimer = null;
-store.subscribe("searchState.messageQuery", async (query) => {
-  const trimmed = (query || "").trim();
-  clearTimeout(searchHistoryRecordTimer);
-  if (trimmed === "") {
-    store.set("searchState.searchResultsMessages", null);
-    return;
-  }
-  const conversationId = activeConversationId();
-  if (!conversationId) return;
-  try {
-    const res = await wsClient.request("search.messages", { conversationId, query: trimmed });
-    const messages = res.messages.map(MAPPERS.message);
-    await ensureUsersKnown(messages.map((m) => m.authorId));
-    store.set("searchState.searchResultsMessages", messages);
-    // Record into local search history once typing pauses, so intermediate
-    // keystrokes ("he", "hel", "hello") don't pollute the list.
-    searchHistoryRecordTimer = setTimeout(() => {
-      if ((store.get("searchState.messageQuery") || "").trim() === trimmed) {
-        recordSearchHistory(trimmed);
-      }
-    }, 1200);
-  } catch (err) {
-    console.error("Message search failed:", err);
-  }
-});
-
-// ── Composer draft persistence ───────────────────────────────────
-// Keeps the account-scoped draft store in sync while the user types, so a
-// reload mid-composition doesn't lose the text. Sending clears the input,
-// which persists an empty draft (= removal) through the same path.
-let draftPersistTimer = null;
-store.subscribe("chatForm.messageInput", (value) => {
-  if (!store.get("session.loggedIn")) return;
-  const destKey = store.get("activeDestKey");
-  clearTimeout(draftPersistTimer);
-  draftPersistTimer = setTimeout(() => {
-    // A conversation switch mid-debounce already saved this draft synchronously;
-    // persisting under the new key would attach the text to the wrong conversation.
-    if (store.get("activeDestKey") === destKey) {
-      setDraft(destKey, value || "");
-    }
-  }, 500);
-});
 
 // ── Bootstrap Modal triggers / accessibility details ─────────────
 document.addEventListener("click", (e) => {

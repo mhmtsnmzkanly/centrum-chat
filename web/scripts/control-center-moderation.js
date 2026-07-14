@@ -24,7 +24,8 @@ export const moderationHandlers = {
   },
 
   async assignReportToMe(e, el) {
-    const id = el.getAttribute("data-id");
+    const id = el.getAttribute("data-id") ||
+      controlCenterStore.getState().selectedReportId;
     const state = controlCenterStore.getState();
     const rep = state.reports.find(r => r.id === id) || state.selectedReportDetails;
     if (rep && state.operator) {
@@ -38,7 +39,8 @@ export const moderationHandlers = {
   },
 
   async startReviewReport(e, el) {
-    const id = el.getAttribute("data-id");
+    const id = el.getAttribute("data-id") ||
+      controlCenterStore.getState().selectedReportId;
     try {
       await controlCenterStore.transitionReport(id, "open", "in_review");
       renderToast("success", "Review started.");
@@ -48,7 +50,8 @@ export const moderationHandlers = {
   },
 
   async returnOpenReport(e, el) {
-    const id = el.getAttribute("data-id");
+    const id = el.getAttribute("data-id") ||
+      controlCenterStore.getState().selectedReportId;
     try {
       await controlCenterStore.transitionReport(id, "in_review", "open");
       renderToast("success", "Report returned to open queue.");
@@ -58,7 +61,8 @@ export const moderationHandlers = {
   },
 
   async resolveReport(e, el) {
-    const id = el.getAttribute("data-id");
+    const id = el.getAttribute("data-id") ||
+      controlCenterStore.getState().selectedReportId;
     try {
       await controlCenterStore.transitionReport(id, "in_review", "resolved");
       renderToast("success", "Report resolved.");
@@ -68,7 +72,8 @@ export const moderationHandlers = {
   },
 
   async dismissReport(e, el) {
-    const id = el.getAttribute("data-id");
+    const id = el.getAttribute("data-id") ||
+      controlCenterStore.getState().selectedReportId;
     const state = controlCenterStore.getState();
     const rep = state.reports.find(r => r.id === id) || state.selectedReportDetails;
     if (rep) {

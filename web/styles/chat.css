@@ -2682,9 +2682,22 @@ body.dark-mode .focus-exit-btn {
 }
 
 .search-history-chip:hover,
-.search-history-chip:focus {
+.search-history-chip:focus-within {
   border-color: var(--primary-color);
   box-shadow: 0 0 0 3px var(--primary-glow);
+}
+
+.search-history-btn {
+  border: none;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  padding: 0;
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  cursor: pointer;
+  outline: none;
 }
 
 .search-history-remove {
