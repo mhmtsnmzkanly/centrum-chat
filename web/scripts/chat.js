@@ -252,7 +252,12 @@ wsClient.onReconnect = () => {
 // Mount the app template
 const appRoot = document.getElementById("app");
 if (appRoot) {
-  mount("app", {}, appRoot, store, { handlers });
+  mount("app", {
+    context: {},
+    target: appRoot,
+    store,
+    handlers,
+  });
 }
 
 globalThis.__centrum = { store, wsClient };
