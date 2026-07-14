@@ -11,10 +11,9 @@ const handlersJs = await Deno.readTextFile(
 const authJs = await Deno.readTextFile(
   new URL("../../web/scripts/chat-auth.js", import.meta.url),
 );
-const chatJs = await Deno.readTextFile(new URL("../../web/scripts/chat.js", import.meta.url));
 
 Deno.test("search history is stored per account in local storage only", () => {
-  assert(handlersJs.includes("`chat_search_history_${user.id}`"));
+  assert(handlersJs.includes("`chat_search_history_${uId}`"));
   // History must never leave the client: no server request may carry it.
   assert(!handlersJs.includes('wsClient.request("search.history"'));
 });
@@ -37,8 +36,8 @@ Deno.test("search bar renders the history panel with apply/remove/clear controls
 });
 
 Deno.test("live search records history only after typing pauses", () => {
-  assert(chatJs.includes("searchHistoryRecordTimer = setTimeout("));
-  assert(chatJs.includes("recordSearchHistory(trimmed)"));
+  assert(handlersJs.includes("searchHistoryRecordTimer = setTimeout("));
+  assert(handlersJs.includes("recordSearchHistory(trimmed, originatingUserId)"));
 });
 
 Deno.test("logout resets in-memory search history and focus mode", () => {

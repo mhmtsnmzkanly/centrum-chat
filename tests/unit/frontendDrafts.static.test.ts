@@ -13,18 +13,21 @@ const handlersJs = await Deno.readTextFile(
 const authJs = await Deno.readTextFile(
   new URL("../../web/scripts/chat-auth.js", import.meta.url),
 );
-const chatJs = await Deno.readTextFile(new URL("../../web/scripts/chat.js", import.meta.url));
 
 Deno.test("drafts are stored per account and per conversation, locally only", () => {
-  assert(conversationsJs.includes("`chat_drafts_${user.id}`"));
-  assert(conversationsJs.includes("export function setDraft(destKey, text)"));
+  assert(conversationsJs.includes("`chat_drafts_${uId}`"));
+  assert(conversationsJs.includes("export function setDraft(destKey, text, userId)"));
   // Empty drafts are removed instead of stored, and an empty map drops the key.
   assert(conversationsJs.includes("delete drafts[destKey];"));
   assert(conversationsJs.includes("STORAGE.removeItem(key);"));
 });
 
 Deno.test("conversation switch saves the old draft and restores the new one", () => {
-  assert(conversationsJs.includes('setDraft(prevKey, store.get("chatForm.messageInput") || "")'));
+  assert(
+    conversationsJs.includes(
+      'setDraft(prevKey, store.get("chatForm.messageInput") || "", user.id)',
+    ),
+  );
   assert(
     conversationsJs.includes(
       'store.set("chatForm.messageInput", store.get(`drafts.${nextKey}`) || "")',
@@ -33,8 +36,8 @@ Deno.test("conversation switch saves the old draft and restores the new one", ()
 });
 
 Deno.test("typing persists the draft after a debounce, guarded against mid-switch races", () => {
-  assert(chatJs.includes("draftPersistTimer = setTimeout("));
-  assert(chatJs.includes('if (store.get("activeDestKey") === destKey)'));
+  assert(conversationsJs.includes("draftPersistTimer = setTimeout("));
+  assert(conversationsJs.includes('store.get("activeDestKey") === destKey'));
 });
 
 Deno.test("login loads drafts and seeds the composer; logout clears them", () => {

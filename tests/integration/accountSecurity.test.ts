@@ -611,14 +611,14 @@ Deno.test("Session list exposes client metadata captured at login, updated on re
     const loginAccessToken = String(loginData.accessToken);
     const loginRefreshToken = String(loginData.refreshToken);
 
-    async function listSessions(): Promise<Array<Record<string, unknown>>> {
+    const listSessions = async (): Promise<Array<Record<string, unknown>>> => {
       const response = await harness.dispatchHttp("/api/auth/sessions", {
         headers: jsonHeaders(loginAccessToken),
       });
       assertEquals(response.status, 200);
       const body = await parseJson(response);
       return (body.data as Record<string, unknown>).sessions as Array<Record<string, unknown>>;
-    }
+    };
 
     let sessions = await listSessions();
     assertEquals(sessions.length, 2);
