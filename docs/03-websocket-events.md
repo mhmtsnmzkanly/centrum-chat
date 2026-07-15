@@ -182,7 +182,7 @@ type Preferences = { sound, desktopNotifications, dmPrivacy, groupPrivacy, theme
 ## Standard error codes
 
 `VALIDATION_ERROR`, `UNAUTHORIZED`, `FORBIDDEN`, `NOT_FOUND`, `CONFLICT`, `RATE_LIMITED`,
-`EMAIL_VERIFICATION_REQUIRED`, `INTERNAL_ERROR`. Every handler failure maps to one of these via the application-layer error
+`EMAIL_VERIFICATION_REQUIRED`, `ONBOARDING_REQUIRED`, `INTERNAL_ERROR`. Every handler failure maps to one of these via the application-layer error
 boundary (see architecture doc §7) — a client never needs to branch on anything else.
 
 ## Module: System

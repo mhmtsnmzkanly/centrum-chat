@@ -1,111 +1,17 @@
 import * as Errors from "./control-center-errors.js";
-import { TOKEN_KEYS, parseJwt } from "./shared-auth.js";
+import {
+  authenticatedFetch,
+  authPageUrl,
+  TokenStorage,
+} from "./shared-auth.js";
 
-const SAFE_RETRY_METHODS = new Set(["GET", "HEAD", "OPTIONS"]);
-let refreshPromise = null;
-
-const storage = {
-  get local() {
-    return (globalThis.window || globalThis).localStorage;
-  },
-  get session() {
-    return (globalThis.window || globalThis).sessionStorage;
-  },
-};
-
-function readStored(store, key) {
-  try {
-    const value = store.getItem(key);
-    if (!value) return null;
-    const parsed = JSON.parse(value);
-    if (
-      typeof parsed?.accessToken !== "string" ||
-      typeof parsed?.refreshToken !== "string"
-    ) {
-      store.removeItem(key);
-      return null;
-    }
-    return parsed;
-  } catch {
-    store.removeItem(key);
-    return null;
-  }
-}
-
-export const TokenStorage = {
-  get() {
-    const persistent = readStored(storage.local, TOKEN_KEYS.persistent);
-    const session = readStored(storage.session, TOKEN_KEYS.session);
-    if (persistent) {
-      if (session) storage.session.removeItem(TOKEN_KEYS.session);
-      return persistent;
-    }
-    return session;
-  },
-  set(tokens, rememberMe = false) {
-    this.clear();
-    const serialized = JSON.stringify(tokens);
-    (rememberMe ? storage.local : storage.session).setItem(
-      rememberMe ? TOKEN_KEYS.persistent : TOKEN_KEYS.session,
-      serialized,
-    );
-  },
-  clear() {
-    storage.local.removeItem(TOKEN_KEYS.persistent);
-    storage.session.removeItem(TOKEN_KEYS.session);
-  },
-  isPersistent() {
-    return readStored(storage.local, TOKEN_KEYS.persistent) !== null;
-  },
-};
+export { TokenStorage };
 
 export function handleAuthLoss() {
   TokenStorage.clear();
   globalThis.controlCenterStore?.clearSensitiveState();
   const location = (globalThis.window || globalThis).location;
-  if (location) location.href = "/";
-}
-
-async function refreshTokens() {
-  if (refreshPromise) return await refreshPromise;
-  const current = TokenStorage.get();
-  if (!current?.refreshToken) throw new Errors.UnauthorizedError();
-  const persistent = TokenStorage.isPersistent();
-  refreshPromise = (async () => {
-    const response = await fetch("/api/auth/refresh", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ refreshToken: current.refreshToken }),
-    });
-    const envelope = await response.json().catch(() => null);
-    if (!response.ok || !envelope?.success || !envelope.data?.accessToken) {
-      throw new Errors.UnauthorizedError();
-    }
-    const tokens = {
-      accessToken: envelope.data.accessToken,
-      refreshToken: envelope.data.refreshToken,
-    };
-    TokenStorage.set(tokens, persistent);
-    return tokens.accessToken;
-  })();
-  try {
-    return await refreshPromise;
-  } finally {
-    refreshPromise = null;
-  }
-}
-
-async function getAccessToken() {
-  const tokens = TokenStorage.get();
-  if (!tokens?.accessToken) throw new Errors.UnauthorizedError();
-  const payload = parseJwt(tokens.accessToken);
-  if (!payload || typeof payload.exp !== "number") {
-    throw new Errors.UnauthorizedError();
-  }
-  if (payload.exp - Math.floor(Date.now() / 1000) < 10) {
-    return await refreshTokens();
-  }
-  return tokens.accessToken;
+  if (location) location.replace(authPageUrl("/control-center"));
 }
 
 function serverError(response, envelope) {
@@ -131,32 +37,13 @@ function serverError(response, envelope) {
 }
 
 async function apiFetch(path, options = {}, retry = true) {
-  const method = (options.method || "GET").toUpperCase();
-  let token;
-  try {
-    token = await getAccessToken();
-  } catch (error) {
-    handleAuthLoss();
-    throw error;
-  }
   let response;
   try {
-    response = await fetch(path, {
-      ...options,
-      headers: { ...options.headers, Authorization: `Bearer ${token}` },
-    });
+    response = await authenticatedFetch(path, options, retry);
   } catch {
     throw new Errors.NetworkError();
   }
   if (response.status === 401) {
-    if (retry && SAFE_RETRY_METHODS.has(method)) {
-      try {
-        await refreshTokens();
-        return await apiFetch(path, options, false);
-      } catch {
-        // Authentication loss is handled below.
-      }
-    }
     handleAuthLoss();
     throw new Errors.UnauthorizedError();
   }
@@ -366,5 +253,3 @@ export const ControlCenterApi = {
     );
   },
 };
-
-export const __test = { apiFetch, parseJwt, TOKEN_KEYS };

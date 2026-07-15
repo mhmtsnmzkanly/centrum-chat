@@ -9,6 +9,7 @@ export class PublicConfigRoute implements RouteHandler {
     private readonly codec: ProtocolCodec,
     private readonly captchaProvider: "development" | "turnstile" | "none",
     private readonly captchaSiteKey: string,
+    private readonly emailVerificationRequired: () => boolean = () => false,
   ) {}
   handle(_ctx: HttpRequestContext): Response {
     return successResponse(this.codec, {
@@ -16,6 +17,7 @@ export class PublicConfigRoute implements RouteHandler {
         provider: this.captchaProvider,
         siteKey: this.captchaSiteKey || null,
       },
+      emailVerificationRequired: this.emailVerificationRequired(),
     }, 200);
   }
 }

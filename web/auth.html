@@ -1,0 +1,232 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+  <meta name="description" content="Sign in to CentrumChat or finish setting up your account.">
+  <title>CentrumChat Account</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="/styles/auth.css">
+</head>
+<body>
+  <div class="auth-background" aria-hidden="true">
+    <span></span><span></span><span></span>
+  </div>
+
+  <main class="auth-layout">
+    <section class="auth-card" aria-labelledby="auth-title">
+      <header class="auth-brand">
+        <div class="auth-logo" aria-hidden="true">C</div>
+        <div>
+          <p class="eyebrow">CentrumChat</p>
+          <h1 id="auth-title" tabindex="-1" data-i18n="title">Welcome to your workspace</h1>
+        </div>
+      </header>
+
+      <nav id="auth-nav" class="auth-nav" aria-label="Authentication choices">
+        <button type="button" data-action="show-sign-in" data-i18n="nav.signIn">Sign in</button>
+        <button type="button" data-action="show-register" data-i18n="nav.register">Create account</button>
+      </nav>
+
+      <div id="status-region" class="status-region" role="status" aria-live="polite"></div>
+      <div id="error-summary" class="error-summary" role="alert" tabindex="-1" hidden></div>
+
+      <section data-auth-view="resolving-session" aria-labelledby="resolving-heading">
+        <div class="loading-mark" aria-hidden="true"></div>
+        <h2 id="resolving-heading" tabindex="-1" data-i18n="resolving.title">Restoring your session</h2>
+        <p data-i18n="resolving.body">Please wait while we securely check this browser.</p>
+      </section>
+
+      <section data-auth-view="sign-in" aria-labelledby="signin-heading" hidden>
+        <h2 id="signin-heading" tabindex="-1" data-i18n="signIn.title">Sign in</h2>
+        <p data-i18n="signIn.body">Continue to chat or the Control Center.</p>
+        <form id="sign-in-form" novalidate>
+          <div class="field">
+            <label for="sign-in-identity" data-i18n="fields.identity">Username or email</label>
+            <input id="sign-in-identity" name="identity" autocomplete="username" required aria-describedby="sign-in-identity-hint sign-in-identity-error">
+            <small id="sign-in-identity-hint" data-i18n="hints.identity">Use the username or email attached to your account.</small>
+            <small id="sign-in-identity-error" class="field-error" aria-live="polite"></small>
+          </div>
+          <div class="field password-field">
+            <label for="sign-in-password" data-i18n="fields.password">Password</label>
+            <div class="password-control">
+              <input id="sign-in-password" name="password" type="password" autocomplete="current-password" required aria-describedby="sign-in-password-error">
+              <button type="button" data-password-toggle="sign-in-password" aria-pressed="false" data-i18n="actions.showPassword">Show</button>
+            </div>
+            <small id="sign-in-password-error" class="field-error" aria-live="polite"></small>
+          </div>
+          <label class="check-row"><input id="sign-in-remember" type="checkbox"> <span data-i18n="fields.remember">Remember me on this browser</span></label>
+          <div id="captcha-login" class="captcha-slot"></div>
+          <button class="primary-action" type="submit" data-i18n="actions.signIn">Sign in</button>
+          <button class="text-action" type="button" data-action="show-reset-request" data-i18n="actions.forgotPassword">Forgot your password?</button>
+        </form>
+      </section>
+
+      <section data-auth-view="register-account" aria-labelledby="register-heading" hidden>
+        <div class="step-label" data-i18n="steps.account">Step 1 of 3 · Account</div>
+        <h2 id="register-heading" tabindex="-1" data-i18n="register.title">Create your account</h2>
+        <p data-i18n="register.body">Start with the credentials used to secure your account.</p>
+        <form id="register-form" novalidate>
+          <div class="field">
+            <label for="register-username" data-i18n="fields.username">Username</label>
+            <input id="register-username" name="username" autocomplete="username" minlength="3" maxlength="20" pattern="[A-Za-z0-9_]+" required aria-describedby="register-username-hint register-username-error">
+            <small id="register-username-hint" data-i18n="hints.username">3–20 letters, numbers, or underscores.</small>
+            <small id="register-username-error" class="field-error" aria-live="polite"></small>
+          </div>
+          <div class="field">
+            <label for="register-display-name" data-i18n="fields.displayName">Display name</label>
+            <input id="register-display-name" name="displayName" autocomplete="name" maxlength="50" required aria-describedby="register-display-name-error">
+            <small id="register-display-name-error" class="field-error" aria-live="polite"></small>
+          </div>
+          <div class="field">
+            <label for="register-email" data-i18n="fields.email">Email address</label>
+            <input id="register-email" name="email" type="email" autocomplete="email" maxlength="254" required aria-describedby="register-email-error">
+            <small id="register-email-error" class="field-error" aria-live="polite"></small>
+          </div>
+          <div class="field password-field">
+            <label for="register-password" data-i18n="fields.password">Password</label>
+            <div class="password-control">
+              <input id="register-password" name="password" type="password" autocomplete="new-password" minlength="8" maxlength="128" required aria-describedby="register-password-hint register-password-error">
+              <button type="button" data-password-toggle="register-password" aria-pressed="false" data-i18n="actions.showPassword">Show</button>
+            </div>
+            <small id="register-password-hint" data-i18n="hints.password">Use at least 8 characters.</small>
+            <small id="register-password-error" class="field-error" aria-live="polite"></small>
+          </div>
+          <label class="check-row"><input id="register-remember" type="checkbox"> <span data-i18n="fields.remember">Remember me on this browser</span></label>
+          <div id="captcha-register" class="captcha-slot"></div>
+          <button class="primary-action" type="submit" data-i18n="actions.createAccount">Create account</button>
+        </form>
+      </section>
+
+      <section data-auth-view="onboarding-preferences" aria-labelledby="preferences-heading" hidden>
+        <div class="step-label" data-i18n="steps.preferences">Step 2 of 3 · Profile and preferences</div>
+        <h2 id="preferences-heading" tabindex="-1" data-i18n="preferences.title">Make CentrumChat yours</h2>
+        <p data-i18n="preferences.body">These choices are saved to your account and can be changed later.</p>
+        <form id="preferences-form" novalidate>
+          <div class="field">
+            <label for="onboarding-bio" data-i18n="fields.bio">Bio</label>
+            <textarea id="onboarding-bio" maxlength="280" rows="3" aria-describedby="onboarding-bio-hint onboarding-bio-error"></textarea>
+            <small id="onboarding-bio-hint" data-i18n="hints.bio">A short introduction, up to 280 characters.</small>
+            <small id="onboarding-bio-error" class="field-error" aria-live="polite"></small>
+          </div>
+          <div class="form-grid">
+            <div class="field">
+              <label for="onboarding-avatar" data-i18n="fields.avatar">Prepared avatar</label>
+              <select id="onboarding-avatar" required></select>
+            </div>
+            <div class="field">
+              <label for="onboarding-cover" data-i18n="fields.cover">Prepared cover</label>
+              <select id="onboarding-cover" required></select>
+            </div>
+            <div class="field">
+              <label for="onboarding-color" data-i18n="fields.nameColor">Name color</label>
+              <input id="onboarding-color" type="color" value="#0284c7" required aria-describedby="onboarding-color-error">
+              <small id="onboarding-color-error" class="field-error" aria-live="polite"></small>
+            </div>
+            <div class="field">
+              <label for="onboarding-theme" data-i18n="fields.theme">Theme</label>
+              <select id="onboarding-theme"><option value="dark" data-i18n="options.dark">Dark</option><option value="light" data-i18n="options.light">Light</option></select>
+            </div>
+          </div>
+          <fieldset>
+            <legend data-i18n="privacy.title">Privacy choices</legend>
+            <div class="field">
+              <label for="onboarding-dm-privacy" data-i18n="fields.dmPrivacy">Who may start a direct message?</label>
+              <select id="onboarding-dm-privacy">
+                <option value="everyone" data-i18n="privacy.everyone">Everyone</option>
+                <option value="group_members" data-i18n="privacy.groupMembers">People sharing a group with me</option>
+                <option value="no_one" data-i18n="privacy.noOne">No one</option>
+              </select>
+              <small data-i18n="hints.dmPrivacy">This controls new direct interactions, not existing history.</small>
+            </div>
+            <div class="field">
+              <label for="onboarding-group-privacy" data-i18n="fields.groupPrivacy">Who may add you to a group?</label>
+              <select id="onboarding-group-privacy">
+                <option value="everyone" data-i18n="privacy.everyone">Everyone</option>
+                <option value="dm_contacts" data-i18n="privacy.dmContacts">People with an existing direct conversation</option>
+                <option value="no_one" data-i18n="privacy.noOne">No one</option>
+              </select>
+            </div>
+          </fieldset>
+          <label class="check-row"><input id="onboarding-sound" type="checkbox" checked> <span data-i18n="fields.sound">Play message sounds</span></label>
+          <label class="check-row"><input id="onboarding-notifications" type="checkbox"> <span data-i18n="fields.desktopNotifications">Enable desktop notifications</span></label>
+          <button type="button" class="secondary-action" id="request-notification-permission" data-i18n="actions.requestNotification">Request browser notification permission</button>
+          <p class="field-note" data-i18n="hints.notification">Permission is requested only when you press this button. A denial will not block setup.</p>
+          <button class="primary-action" type="submit" data-i18n="actions.saveContinue">Save and continue</button>
+          <button class="text-action" type="button" data-action="logout" data-i18n="actions.signOut">Sign out</button>
+        </form>
+      </section>
+
+      <section data-auth-view="verification-required" aria-labelledby="verification-heading" hidden>
+        <div class="step-label" data-i18n="steps.verification">Step 3 of 3 · Email verification</div>
+        <h2 id="verification-heading" tabindex="-1" data-i18n="verification.title">Verify your email</h2>
+        <p><span data-i18n="verification.address">We sent a verification link to</span> <strong id="verification-email"></strong>.</p>
+        <p data-i18n="verification.body">The link expires. You can request a fresh link if needed; setup finishes only after the server confirms verification.</p>
+        <div class="action-stack">
+          <button class="primary-action" type="button" data-action="check-verification" data-i18n="actions.checkedEmail">I verified my email</button>
+          <button class="secondary-action" type="button" data-action="resend-verification" data-i18n="actions.resend">Resend verification email</button>
+          <button class="text-action" type="button" data-action="logout" data-i18n="actions.signOut">Sign out</button>
+        </div>
+      </section>
+
+      <section data-auth-view="password-reset-request" aria-labelledby="reset-request-heading" hidden>
+        <h2 id="reset-request-heading" tabindex="-1" data-i18n="resetRequest.title">Reset your password</h2>
+        <p data-i18n="resetRequest.body">The response is the same whether or not an account exists.</p>
+        <form id="reset-request-form" novalidate>
+          <div class="field">
+            <label for="reset-email" data-i18n="fields.email">Email address</label>
+            <input id="reset-email" type="email" autocomplete="email" required aria-describedby="reset-email-error">
+            <small id="reset-email-error" class="field-error" aria-live="polite"></small>
+          </div>
+          <div id="captcha-password-reset" class="captcha-slot"></div>
+          <button class="primary-action" type="submit" data-i18n="actions.sendReset">Send reset email</button>
+          <button class="text-action" type="button" data-action="show-sign-in" data-i18n="actions.backSignIn">Back to sign in</button>
+        </form>
+      </section>
+
+      <section data-auth-view="password-reset-complete" aria-labelledby="reset-complete-heading" hidden>
+        <h2 id="reset-complete-heading" tabindex="-1" data-i18n="resetComplete.title">Choose a new password</h2>
+        <form id="reset-complete-form" novalidate>
+          <div class="field password-field">
+            <label for="reset-new-password" data-i18n="fields.newPassword">New password</label>
+            <div class="password-control">
+              <input id="reset-new-password" type="password" autocomplete="new-password" minlength="8" maxlength="128" required aria-describedby="reset-new-password-error">
+              <button type="button" data-password-toggle="reset-new-password" aria-pressed="false" data-i18n="actions.showPassword">Show</button>
+            </div>
+            <small id="reset-new-password-error" class="field-error" aria-live="polite"></small>
+          </div>
+          <div class="field">
+            <label for="reset-confirm-password" data-i18n="fields.confirmPassword">Confirm new password</label>
+            <input id="reset-confirm-password" type="password" autocomplete="new-password" required aria-describedby="reset-confirm-password-error">
+            <small id="reset-confirm-password-error" class="field-error" aria-live="polite"></small>
+          </div>
+          <button class="primary-action" type="submit" data-i18n="actions.resetPassword">Reset password</button>
+          <button class="text-action" type="button" data-action="show-sign-in" data-i18n="actions.backSignIn">Back to sign in</button>
+        </form>
+      </section>
+
+      <section data-auth-view="permission-denied" aria-labelledby="permission-heading" hidden>
+        <h2 id="permission-heading" tabindex="-1" data-i18n="permission.title">Control Center permission required</h2>
+        <p data-i18n="permission.body">You are authenticated, but the backend did not grant this account Control Center access.</p>
+        <div class="action-stack"><a class="primary-action link-action" href="/" data-i18n="actions.goChat">Go to chat</a><button class="secondary-action" type="button" data-action="logout" data-i18n="actions.signOut">Sign out</button></div>
+      </section>
+
+      <section data-auth-view="redirecting" aria-labelledby="redirect-heading" hidden>
+        <div class="loading-mark" aria-hidden="true"></div>
+        <h2 id="redirect-heading" tabindex="-1" data-i18n="redirect.title">Opening CentrumChat</h2>
+      </section>
+
+      <section data-auth-view="fatal-error" aria-labelledby="fatal-heading" hidden>
+        <h2 id="fatal-heading" tabindex="-1" data-i18n="fatal.title">We could not continue</h2>
+        <p id="fatal-message"></p>
+        <button class="primary-action" type="button" data-action="show-sign-in" data-i18n="actions.backSignIn">Back to sign in</button>
+      </section>
+    </section>
+  </main>
+
+  <script src="https://challenges.cloudflare.com/turnstile/v0/api.js?render=explicit" defer></script>
+  <script type="module" src="/scripts/auth.js"></script>
+</body>
+</html>

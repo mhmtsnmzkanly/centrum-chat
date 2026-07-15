@@ -15,6 +15,8 @@ Everything else is WebSocket (see `03-websocket-events.md`). All responses use t
 Body: `{ username, email, password, displayName, rememberMe?, deviceLabel? }`
 201 → `{ success: true, data: { user: Profile, accessToken, refreshToken } }`
 Also creates a verification token and triggers verification mail delivery after commit.
+New accounts start with the required profile/preferences onboarding step incomplete; registration
+does not grant normal application or WebSocket access by itself.
 Errors: `VALIDATION_ERROR` (bad format), `CONFLICT` (username or email taken).
 
 ### `POST /api/auth/login`
@@ -48,6 +50,46 @@ Errors: `UNAUTHORIZED` (bad current password), `VALIDATION_ERROR` (missing field
 ### `GET /api/auth/account`
 Header: `Authorization: Bearer <accessToken>`
 200 → `{ success: true, data: { email, emailVerifiedAt, pendingEmail } }`
+
+### `GET /api/auth/onboarding`
+
+Header: `Authorization: Bearer <accessToken>`
+
+200 →
+`{ success: true, data: { authenticated: true, onboardingComplete, currentOnboardingStep, email, emailVerified, emailVerificationRequired, allowedNextActions, profile, preferences } }`
+
+`currentOnboardingStep` is `preferences`, `email-verification`, or `complete`. The server computes
+the result from persisted `users.onboarding_preferences_completed_at`, the account's
+`email_verified_at`, and the authoritative runtime `email_verification_required` setting. Clients
+cannot submit an onboarding-complete flag. Existing users were backfilled as preferences-complete
+by migration 0011; newly registered users start with a null preferences-completion timestamp.
+
+When preferences are incomplete, `allowedNextActions` is
+`["completePreferences", "logout"]`. When verification is required after preferences it is
+`["completeEmailVerification", "resendVerificationEmail", "logout"]`; a complete account receives
+`["enterApplication", "logout"]`.
+
+### `POST /api/auth/onboarding/preferences`
+
+Header: `Authorization: Bearer <accessToken>`
+
+Body:
+`{ bio, avatarSeed, coverIndex, nameColor, sound, desktopNotifications, dmPrivacy, groupPrivacy, theme }`
+
+All fields are required. `nameColor` uses `#RRGGBB`; `bio` is at most 280 characters;
+`avatarSeed` is a prepared seed of 1–100 characters; `coverIndex` is a non-negative integer.
+Privacy and theme values are the same canonical values as the WebSocket `preferences.update`
+contract. Custom avatar/cover uploads are not accepted by this route.
+
+200 → the same authoritative onboarding status DTO returned by `GET /api/auth/onboarding`, with
+the persisted `profile` and `preferences` values. Profile, preference, and completion-timestamp
+updates run in one transaction. Repeating the request is idempotent: accepted values may be updated,
+but the original completion timestamp is retained and no duplicate state is created.
+
+Errors: `UNAUTHORIZED`, `VALIDATION_ERROR`, `RATE_LIMITED`. When e-mail verification is disabled,
+an accepted request completes onboarding immediately. When it is enabled for an unverified account,
+the response moves to `email-verification`; only the existing verification completion route can
+make the account eligible for application access.
 
 ### `GET /api/auth/sessions`
 Header: `Authorization: Bearer <accessToken>`
@@ -107,6 +149,20 @@ Access JWT: short-lived (15 min), payload `{ sub: userId, username, sid, iat, ex
 with `JWT_SECRET` from config. Refresh tokens are opaque random values, stored hashed
 (`user_sessions.refresh_token_hash`), rotated on each use, and scoped to a user-session row with
 either `SESSION_DEFAULT_TTL_MS` or `SESSION_REMEMBERED_TTL_MS` absolute expiry.
+
+Normal application access is denied with `ONBOARDING_REQUIRED` until the preferences step is
+persisted. If preferences are complete but mandatory e-mail verification is still pending, access
+is denied with `EMAIL_VERIFICATION_REQUIRED`. Authentication, token refresh/logout, account
+recovery, verification, account-security, and onboarding routes remain available so an incomplete
+account can finish setup. The WebSocket upgrade enforces the same policy before returning 101.
+
+### `GET /api/config/public`
+
+No authentication. 200 →
+`{ success: true, data: { captcha: { provider, siteKey }, emailVerificationRequired } }`.
+The CAPTCHA secret is never exposed. `emailVerificationRequired` is a presentation hint for the
+pre-auth page; authenticated onboarding branching must use `GET /api/auth/onboarding` as the
+authoritative account-specific result.
 
 ## Media Upload
 

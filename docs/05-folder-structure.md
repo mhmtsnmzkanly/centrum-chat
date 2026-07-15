@@ -137,6 +137,8 @@ e.g. `userRepository.port.ts`).
 - `application/http/routes/administration/`: Control Center HTTP contract.
 - `storage/repositories/sqliteAdministrationRepository.ts`: administration SQL.
 
-`web/control-center/` contains the integrated, API-backed Control Center client. Its production
-module graph excludes `fixtures/` and `tests/`, and the HTTP layer serves only an explicit asset
-allow-list. This checkout has no `web/admin/` tree, and `/admin` remains unchanged (not found).
+`web/control-center.html` and the flat `web/scripts/control-center*.js` modules contain the
+integrated, API-backed Control Center client. `web/auth.html` and `web/scripts/shared-auth.js`
+provide the shared authentication boundary for it and the main chat. Public `web/` contains no
+fixtures or frontend tests. This checkout has no `web/admin/` tree, and `/admin` remains unchanged
+(not found).

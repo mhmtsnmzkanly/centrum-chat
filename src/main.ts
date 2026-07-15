@@ -27,6 +27,7 @@ import { WebCryptoPasswordHasher } from "./domain/auth/webCryptoPasswordHasher.t
 import { TokenService } from "./domain/auth/tokenService.ts";
 import { AuthService } from "./domain/auth/authService.ts";
 import { AccountPolicy } from "./domain/auth/accountPolicy.ts";
+import { OnboardingService } from "./domain/auth/onboardingService.ts";
 import { UserService } from "./domain/users/userService.ts";
 import { PresenceService } from "./domain/presence/presenceService.ts";
 import { PreferencesService } from "./domain/preferences/preferencesService.ts";
@@ -92,6 +93,10 @@ import { PasswordResetRequestRoute } from "./application/http/routes/auth/passwo
 import { PasswordResetCompleteRoute } from "./application/http/routes/auth/passwordResetCompleteRoute.ts";
 import { StartEmailChangeRoute } from "./application/http/routes/auth/startEmailChangeRoute.ts";
 import { CompleteEmailChangeRoute } from "./application/http/routes/auth/completeEmailChangeRoute.ts";
+import {
+  CompleteOnboardingPreferencesRoute,
+  GetOnboardingStatusRoute,
+} from "./application/http/routes/auth/onboardingRoutes.ts";
 import { StaticRoute } from "./application/http/routes/staticRoute.ts";
 import { SessionCleanupJob } from "./application/lifecycle/sessionCleanupJob.ts";
 import { WebSocketLifecycleJob } from "./application/lifecycle/webSocketLifecycleJob.ts";
@@ -190,7 +195,8 @@ const settingsService = new SettingsService(administrationRepository, administra
   avatar: config.maxAvatarSizeBytes,
   cover: config.maxCoverSizeBytes,
 });
-const runtimePolicy = new RuntimePolicy(administrationRepository, settingsService);
+const accountPolicy = new AccountPolicy(userRepository, settingsService);
+const runtimePolicy = new RuntimePolicy(administrationRepository, settingsService, accountPolicy);
 const blockPolicy = new BlockPolicy(safetyRepository);
 const sanctionPolicy = new SanctionPolicy(safetyRepository);
 const captchaVerifier = config.captchaAdapter === "none"
@@ -227,7 +233,12 @@ const authService = new AuthService({
   emailChangeTtlMs: config.emailChangeTtlMs,
   publicBaseUrl: config.publicBaseUrl,
 });
-const accountPolicy = new AccountPolicy(userRepository, settingsService);
+const onboardingService = new OnboardingService(
+  userRepository,
+  preferencesRepository,
+  settingsService,
+  transactionManager,
+);
 const userService = new UserService(userRepository);
 const presenceService = new PresenceService(userRepository);
 const preferencesService = new PreferencesService(preferencesRepository);
@@ -286,6 +297,10 @@ const emailChangeStartRateLimiter = new RateLimiter({ maxTokens: 5, refillInterv
 const emailChangeCompleteRateLimiter = new RateLimiter({
   maxTokens: 10,
   refillIntervalMs: 600_000,
+});
+const onboardingPreferencesRateLimiter = new RateLimiter({
+  maxTokens: 10,
+  refillIntervalMs: 60_000,
 });
 const safetyActionRateLimiter = new RateLimiter({ maxTokens: 30, refillIntervalMs: 60_000 });
 const reportCreateRateLimiter = new RateLimiter({ maxTokens: 5, refillIntervalMs: 600_000 });
@@ -415,7 +430,7 @@ const typingService = new TypingService((transition) => {
   );
 });
 
-const wsRegistry = new WebSocketHandlerRegistry(sanctionPolicy, runtimePolicy);
+const wsRegistry = new WebSocketHandlerRegistry(sanctionPolicy, runtimePolicy, accountPolicy);
 wsRegistry.register(new SystemPongHandler());
 wsRegistry.register(new UpdatePresenceHandler(presenceService, connectionManager, codec));
 wsRegistry.register(new GetProfileHandler(userService, blockPolicy));
@@ -595,6 +610,15 @@ registry.register(
   new ChangePasswordRoute(authService, tokenService, codec, changePasswordRateLimiter),
 );
 registry.register(new AccountRoute(authService, tokenService, codec));
+registry.register(new GetOnboardingStatusRoute(onboardingService, tokenService, codec));
+registry.register(
+  new CompleteOnboardingPreferencesRoute(
+    onboardingService,
+    tokenService,
+    codec,
+    onboardingPreferencesRateLimiter,
+  ),
+);
 registry.register(new ListSessionsRoute(authService, tokenService, codec));
 registry.register(
   new RevokeOtherSessionsRoute(
@@ -657,7 +681,12 @@ registry.register(
   ),
 );
 registry.register(
-  new PublicConfigRoute(codec, config.captchaAdapter, config.captchaSiteKey),
+  new PublicConfigRoute(
+    codec,
+    config.captchaAdapter,
+    config.captchaSiteKey,
+    () => settingsService.get<boolean>("email_verification_required"),
+  ),
 );
 registry.register(
   new ListBlockedUsersRoute(
@@ -678,31 +707,49 @@ registry.register(
   new CreateReportRoute(safetyService, tokenService, codec, reportCreateRateLimiter, runtimePolicy),
 );
 registry.register(
-  new ListReportsRoute(safetyService, tokenService, codec, moderationRateLimiter),
+  new ListReportsRoute(safetyService, tokenService, codec, moderationRateLimiter, runtimePolicy),
 );
 registry.register(
-  new GetReportContextRoute(safetyService, tokenService, codec, moderationRateLimiter),
+  new GetReportContextRoute(
+    safetyService,
+    tokenService,
+    codec,
+    moderationRateLimiter,
+    runtimePolicy,
+  ),
 );
 registry.register(
-  new GetReportRoute(safetyService, tokenService, codec, moderationRateLimiter),
+  new GetReportRoute(safetyService, tokenService, codec, moderationRateLimiter, runtimePolicy),
 );
 registry.register(
-  new AssignReportRoute(safetyService, tokenService, codec, moderationRateLimiter),
+  new AssignReportRoute(safetyService, tokenService, codec, moderationRateLimiter, runtimePolicy),
 );
 registry.register(
-  new TransitionReportRoute(safetyService, tokenService, codec, moderationRateLimiter),
+  new TransitionReportRoute(
+    safetyService,
+    tokenService,
+    codec,
+    moderationRateLimiter,
+    runtimePolicy,
+  ),
 );
 registry.register(
-  new ListSanctionsRoute(safetyService, tokenService, codec, moderationRateLimiter),
+  new ListSanctionsRoute(safetyService, tokenService, codec, moderationRateLimiter, runtimePolicy),
 );
 registry.register(
-  new ApplySanctionRoute(safetyService, tokenService, codec, moderationRateLimiter),
+  new ApplySanctionRoute(safetyService, tokenService, codec, moderationRateLimiter, runtimePolicy),
 );
 registry.register(
-  new RevokeSanctionRoute(safetyService, tokenService, codec, moderationRateLimiter),
+  new RevokeSanctionRoute(safetyService, tokenService, codec, moderationRateLimiter, runtimePolicy),
 );
 registry.register(
-  new ListAuditEventsRoute(safetyService, tokenService, codec, moderationRateLimiter),
+  new ListAuditEventsRoute(
+    safetyService,
+    tokenService,
+    codec,
+    moderationRateLimiter,
+    runtimePolicy,
+  ),
 );
 registry.register(
   new ControlCenterMeRoute(
@@ -911,6 +958,7 @@ registry.register(
     tokenService,
     config.mediaRoot,
     codec,
+    accountPolicy,
   ),
 );
 
@@ -980,6 +1028,7 @@ const server = startHttpServer({
       inboundRateLimiter: wsInboundRateLimiter,
       sanctionPolicy,
       runtimePolicy,
+      accountPolicy,
     }),
 });
 logger.info("server started", {

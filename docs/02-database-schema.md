@@ -34,13 +34,14 @@ CREATE TABLE users (
   display_name      TEXT NOT NULL,
   email             TEXT NOT NULL UNIQUE,
   email_verified_at TEXT,
+  onboarding_preferences_completed_at TEXT,       -- NULL for new unfinished accounts
   password_hash     TEXT NOT NULL,
   bio               TEXT NOT NULL DEFAULT '',
   avatar_seed       TEXT,
   avatar_url        TEXT,                          -- uploaded custom avatar, overrides seed
   cover_index       INTEGER NOT NULL DEFAULT 0,
   cover_url         TEXT,                          -- uploaded custom cover
-  name_color        TEXT,                           -- hex, contrast-validated client-side
+  name_color        TEXT,                          -- #RRGGBB validated at application boundary
   status            TEXT NOT NULL DEFAULT 'offline'
                        CHECK (status IN ('online','idle','dnd','offline')),
   last_seen_at      TEXT,

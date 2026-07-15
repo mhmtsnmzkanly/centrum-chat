@@ -18,11 +18,38 @@ Deno.test("SqliteUserRepository: create + findById/findByEmail/findByUsername ro
     assertEquals(created.username, "alice");
     assertEquals(created.status, "offline");
     assertEquals(created.isPremium, false);
+    assertEquals(created.onboardingPreferencesCompletedAt, null);
 
     assertEquals(repo.findById("u-1")?.email, "alice@example.com");
     assertEquals(repo.findByEmail("alice@example.com")?.id, "u-1");
     assertEquals(repo.findByUsername("alice")?.id, "u-1");
     assertEquals(repo.findById("does-not-exist"), null);
+  } finally {
+    await cleanup();
+  }
+});
+
+Deno.test("SqliteUserRepository records onboarding preferences completion once", async () => {
+  const { db, cleanup } = await createTestDb();
+  try {
+    const repo = new SqliteUserRepository(db);
+    repo.create({
+      id: "u-onboarding",
+      username: "onboarding_user",
+      displayName: "Onboarding User",
+      email: "onboarding@example.com",
+      passwordHash: "hash",
+    });
+    const first = repo.markOnboardingPreferencesCompleted(
+      "u-onboarding",
+      "2026-07-15T10:00:00.000Z",
+    );
+    assertEquals(first.onboardingPreferencesCompletedAt, "2026-07-15T10:00:00.000Z");
+    const repeated = repo.markOnboardingPreferencesCompleted(
+      "u-onboarding",
+      "2026-07-15T11:00:00.000Z",
+    );
+    assertEquals(repeated.onboardingPreferencesCompletedAt, "2026-07-15T10:00:00.000Z");
   } finally {
     await cleanup();
   }

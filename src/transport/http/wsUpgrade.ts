@@ -11,6 +11,7 @@ import { isOriginAllowed } from "../../shared/security/originPolicy.ts";
 import { generateId } from "../../shared/id.ts";
 import type { SanctionPolicy } from "../../domain/safety/safetyPolicy.ts";
 import type { RuntimePolicy } from "../../domain/administration/runtimePolicy.ts";
+import type { AccountPolicy } from "../../domain/auth/accountPolicy.ts";
 
 export interface WsUpgradeDeps {
   readonly clientIp: string;
@@ -27,6 +28,7 @@ export interface WsUpgradeDeps {
   };
   readonly sanctionPolicy?: SanctionPolicy;
   readonly runtimePolicy?: RuntimePolicy;
+  readonly accountPolicy?: AccountPolicy;
 }
 
 /**
@@ -57,6 +59,7 @@ export async function handleWsUpgrade(request: Request, deps: WsUpgradeDeps): Pr
     userId = (await verifyAccessToken(deps.tokenService, token)).userId;
     deps.sanctionPolicy?.requireApplicationAccess(userId);
     deps.runtimePolicy?.requireAccountAccess(userId);
+    deps.accountPolicy?.requireOnboardingComplete(userId);
   } catch (error) {
     deps.logger.warn("websocket upgrade rejected: access token verification failed");
     const { payload, httpStatus } = translateError(error, deps.logger);

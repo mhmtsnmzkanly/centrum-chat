@@ -13,6 +13,7 @@ function makeUser(overrides: NewUser & { id: string }): User {
     displayName: overrides.displayName,
     email: overrides.email,
     emailVerifiedAt: null,
+    onboardingPreferencesCompletedAt: null,
     appRole: "user",
     mustResetPassword: false,
     accountDisabledAt: null,
@@ -155,6 +156,18 @@ export class FakeUserRepository implements UserRepository {
       ...existing,
       email,
       emailVerifiedAt: verifiedAt,
+      updatedAt: new Date().toISOString(),
+    };
+    this.usersById.set(id, updated);
+    return updated;
+  }
+
+  markOnboardingPreferencesCompleted(id: string, completedAt: string): User {
+    const existing = this.usersById.get(id);
+    if (!existing) throw new Error("Failed to read back updated user.");
+    const updated: User = {
+      ...existing,
+      onboardingPreferencesCompletedAt: existing.onboardingPreferencesCompletedAt ?? completedAt,
       updatedAt: new Date().toISOString(),
     };
     this.usersById.set(id, updated);

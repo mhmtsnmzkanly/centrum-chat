@@ -56,6 +56,12 @@ Deno.test("HTTP responses include the baseline security headers and HTML CSP", a
     assert(csp.includes("default-src 'self'"));
     assert(csp.includes("script-src 'self'"));
     await page.body?.cancel();
+
+    const authPage = await fetch(`${baseUrl}/auth.html`);
+    const authCsp = authPage.headers.get("content-security-policy");
+    assert(authCsp?.includes("https://challenges.cloudflare.com"));
+    assertEquals(authCsp?.includes("'unsafe-eval'"), false);
+    await authPage.body?.cancel();
   } finally {
     await cleanup();
   }

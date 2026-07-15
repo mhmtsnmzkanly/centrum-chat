@@ -1,5 +1,6 @@
 import { store } from "./chat-store.js";
-import { TOKENS, tryRefreshTokens, clearAuthenticatedState } from "./chat-auth.js";
+import { clearAuthenticatedState } from "./chat-auth.js";
+import { authenticatedFetch } from "./shared-auth.js";
 
 export const ToastService = {
   show: (message, type = "info") => {
@@ -50,10 +51,6 @@ export function makeClientError(code, message) {
   return error;
 }
 
-export function currentDeviceLabel() {
-  return "Web browser";
-}
-
 export function handleSecurityErrorCode(code) {
   if (code === "EMAIL_VERIFICATION_REQUIRED" && store.get("session.loggedIn")) {
     refreshAccountSecurityState().catch(() => {});
@@ -65,50 +62,6 @@ export function handleSecurityErrorCode(code) {
     ToastService.show("This action is unavailable because of an account safety policy.", "warning");
   }
 }
-
-export const CAPTCHA = {
-  tokens: { register: null, login: null, password_reset: null },
-  widgetIds: [],
-  config: null,
-  async initialize() {
-    try {
-      const response = await fetch("/api/config/public");
-      const body = response.ok ? await response.json() : null;
-      this.config = body?.data?.captcha ?? null;
-      if (this.config?.provider !== "turnstile" || !this.config.siteKey) return;
-      const renderAll = () => {
-        if (!window.turnstile) return;
-        for (const [action, elementId] of [
-          ["register", "captchaRegister"],
-          ["login", "captchaLogin"],
-          ["password_reset", "captchaPasswordReset"],
-        ]) {
-          const element = document.getElementById(elementId);
-          if (!element || element.hasChildNodes()) continue;
-          const widgetId = window.turnstile.render(element, {
-            sitekey: this.config.siteKey,
-            action,
-            callback: (token) => this.tokens[action] = token,
-            "expired-callback": () => this.tokens[action] = null,
-            "error-callback": () => this.tokens[action] = null,
-          });
-          this.widgetIds.push(widgetId);
-        }
-      };
-      window.turnstile ? renderAll() : setTimeout(renderAll, 500);
-    } catch (error) {
-      console.warn("CAPTCHA configuration unavailable:", error);
-    }
-  },
-  consume(action) {
-    const token = this.tokens[action];
-    this.tokens[action] = null;
-    if (window.turnstile) {
-      for (const widgetId of this.widgetIds) window.turnstile.reset(widgetId);
-    }
-    return token;
-  },
-};
 
 export async function submitSafetyReport(targetType, targetId) {
   const reasonCode = window.prompt(
@@ -130,11 +83,7 @@ export async function submitSafetyReport(targetType, targetId) {
 
 // HTTP Client (Bearer header + one-shot refresh retry on 401)
 export async function apiFetch(url, options = {}) {
-  const tokens = TOKENS.get();
   options.headers = options.headers || {};
-  if (tokens?.accessToken) {
-    options.headers["Authorization"] = `Bearer ${tokens.accessToken}`;
-  }
 
   if (options.body && !(options.body instanceof FormData) && !options.headers["Content-Type"]) {
     options.headers["Content-Type"] = "application/json";
@@ -142,26 +91,15 @@ export async function apiFetch(url, options = {}) {
 
   let response;
   try {
-    response = await fetch(url, options);
+    response = await authenticatedFetch(url, options);
   } catch (err) {
     ToastService.show("Network error: " + err.message, "error");
     throw err;
   }
 
-  if (response.status === 401 && tokens?.refreshToken) {
-    let refreshed = false;
-    try {
-      refreshed = await tryRefreshTokens();
-    } catch (refreshErr) {
-      clearAuthenticatedState("Session expired. Please log in again.", "warning");
-      throw refreshErr;
-    }
-    if (!refreshed) {
-      clearAuthenticatedState("Session expired. Please log in again.", "warning");
-      throw makeClientError("UNAUTHORIZED", "Session expired. Please log in again.");
-    }
-    options.headers["Authorization"] = `Bearer ${TOKENS.get().accessToken}`;
-    response = await fetch(url, options);
+  if (response.status === 401) {
+    clearAuthenticatedState("Session expired. Please log in again.", "warning");
+    throw makeClientError("UNAUTHORIZED", "Session expired. Please log in again.");
   }
 
   let responseJson;

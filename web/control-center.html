@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="en" data-auth-state="pending">
   <head>
     <meta charset="UTF-8">
     <meta name="viewport"
@@ -27,6 +27,21 @@
     <link rel="stylesheet" href="/styles/control-center.css">
   </head>
   <body>
+    <main id="control-center-permission-denied"
+      class="control-center-permission-denied" hidden>
+      <section class="card shadow-sm"
+        aria-labelledby="control-center-denied-title">
+        <div class="card-body">
+          <h1 id="control-center-denied-title" class="h3">Control Center permission required</h1>
+          <p id="control-center-denied-message">You are signed in, but the backend did not grant this account Control Center access.</p>
+          <div class="d-flex flex-wrap gap-2">
+            <a class="btn btn-primary" href="/">Return to chat</a>
+            <button id="control-center-denied-logout"
+              class="btn btn-outline-secondary" type="button">Sign out</button>
+          </div>
+        </div>
+      </section>
+    </main>
     <!-- FULL SCREEN APP LOADING BAR -->
     <div id="app-loading-screen"
       class="position-fixed top-0 start-0 w-100 h-100 d-flex flex-column align-items-center justify-content-center"
@@ -134,13 +149,15 @@
           </div>
           <h2 class="fw-bold mb-3 text-dark-mode-override">Access Denied</h2>
           <p class="text-muted mb-4">
-            You do not have moderator, administrator, or owner permissions, or your session has expired. Please authenticate with a qualified account.
+            You are signed in, but this account does not have Control Center permission.
           </p>
           <div class="d-flex gap-3 justify-content-center">
             <a href="/" class="btn btn-primary px-4 py-2"
               id="btn-back-to-chat-denied">
-              <i class="bi bi-arrow-left me-2"></i>Return to Chat / Sign In
+              <i class="bi bi-arrow-left me-2"></i>Return to Chat
             </a>
+            <button type="button" class="btn btn-outline-secondary px-4 py-2"
+              data-on-click="logoutCC">Sign Out</button>
           </div>
         </div>
       </div>

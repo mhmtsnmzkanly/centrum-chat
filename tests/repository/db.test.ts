@@ -79,6 +79,10 @@ Deno.test("fresh databases apply every migration and expose the renamed schema",
     assertEquals(userColumns.some((column) => column.name === "app_role"), true);
     assertEquals(userColumns.some((column) => column.name === "system_role"), true);
     assertEquals(userColumns.some((column) => column.name === "must_reset_password"), true);
+    assertEquals(
+      userColumns.some((column) => column.name === "onboarding_preferences_completed_at"),
+      true,
+    );
 
     const sessionColumns = db.prepare("PRAGMA table_info(user_sessions)").all() as Array<
       { name: string }
@@ -96,7 +100,7 @@ Deno.test("fresh databases apply every migration and expose the renamed schema",
     const migrationCount = db
       .prepare("SELECT COUNT(*) as count FROM schema_migrations")
       .get() as { count: number };
-    assertEquals(migrationCount.count, 10);
+    assertEquals(migrationCount.count, 11);
     assertEquals(
       db.prepare(
         "SELECT name FROM sqlite_schema WHERE type='trigger' AND name='reports_validate_target_insert'",
@@ -459,10 +463,15 @@ Deno.test("existing databases on the legacy schema migrate in place without losi
       ).get() as { count: number };
       assertEquals(existingUsersVerified.count, 0);
 
+      const existingUsersOnboarded = migrated.prepare(
+        "SELECT COUNT(*) AS count FROM users WHERE onboarding_preferences_completed_at IS NULL",
+      ).get() as { count: number };
+      assertEquals(existingUsersOnboarded.count, 0);
+
       const migrationCount = migrated
         .prepare("SELECT COUNT(*) as count FROM schema_migrations")
         .get() as { count: number };
-      assertEquals(migrationCount.count, 10);
+      assertEquals(migrationCount.count, 11);
     } finally {
       migrated.close();
     }
@@ -472,7 +481,7 @@ Deno.test("existing databases on the legacy schema migrate in place without losi
       const migrationCount = reopened
         .prepare("SELECT COUNT(*) as count FROM schema_migrations")
         .get() as { count: number };
-      assertEquals(migrationCount.count, 10);
+      assertEquals(migrationCount.count, 11);
     } finally {
       reopened.close();
     }

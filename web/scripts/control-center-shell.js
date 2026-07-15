@@ -1,4 +1,5 @@
 import { handleAuthLoss } from "./control-center-api.js";
+import { logoutBrowserSession } from "./shared-auth.js";
 import { getSystemTheme, applySystemTheme } from "./shared-theme.js";
 
 export function initShell() {
@@ -23,7 +24,11 @@ export const shellHandlers = {
     );
   },
 
-  logoutCC() {
-    handleAuthLoss();
+  async logoutCC() {
+    try {
+      await logoutBrowserSession();
+    } finally {
+      handleAuthLoss();
+    }
   }
 };

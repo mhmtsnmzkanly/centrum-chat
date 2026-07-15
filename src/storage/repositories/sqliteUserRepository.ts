@@ -14,6 +14,7 @@ interface UserRow {
   display_name: string;
   email: string;
   email_verified_at: string | null;
+  onboarding_preferences_completed_at: string | null;
   system_role: "user" | "moderator" | "admin" | "owner";
   must_reset_password: number;
   account_disabled_at: string | null;
@@ -42,6 +43,7 @@ function toUser(row: UserRow): User {
     displayName: row.display_name,
     email: row.email,
     emailVerifiedAt: row.email_verified_at,
+    onboardingPreferencesCompletedAt: row.onboarding_preferences_completed_at,
     appRole: row.system_role,
     mustResetPassword: row.must_reset_password === 1,
     accountDisabledAt: row.account_disabled_at,
@@ -231,6 +233,19 @@ export class SqliteUserRepository implements UserRepository {
     } catch (error) {
       throw this.translateUniqueConstraintError(error);
     }
+
+    const updated = this.findById(id);
+    if (!updated) throw new Error("Failed to read back updated user.");
+    return updated;
+  }
+
+  markOnboardingPreferencesCompleted(id: string, completedAt: string): User {
+    this.db.prepare(
+      `UPDATE users
+       SET onboarding_preferences_completed_at = COALESCE(onboarding_preferences_completed_at, ?),
+           updated_at = strftime('%Y-%m-%dT%H:%M:%fZ','now')
+       WHERE id = ?`,
+    ).run(completedAt, id);
 
     const updated = this.findById(id);
     if (!updated) throw new Error("Failed to read back updated user.");

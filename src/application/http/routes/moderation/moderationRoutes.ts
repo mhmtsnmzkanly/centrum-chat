@@ -14,6 +14,7 @@ import {
 } from "../../../../shared/validation/validator.ts";
 import { REPORT_STATUSES, SANCTION_TYPES } from "../../../../domain/safety/safety.entity.ts";
 import { ValidationError } from "../../../../shared/errors/validationError.ts";
+import type { RuntimePolicy } from "../../../../domain/administration/runtimePolicy.ts";
 
 function page(request: Request): { cursor: string | null; limit: number; url: URL } {
   const url = new URL(request.url);
@@ -41,6 +42,7 @@ abstract class ModerationRoute {
     protected readonly tokenService: TokenService,
     protected readonly codec: ProtocolCodec,
     protected readonly rateLimiter?: RateLimiter,
+    protected readonly runtimePolicy?: RuntimePolicy,
   ) {}
   protected async auth(ctx: HttpRequestContext, operation: string) {
     const auth = await verifyAccessToken(
@@ -48,6 +50,7 @@ abstract class ModerationRoute {
       extractBearerToken(ctx.request.headers.get("authorization")),
     );
     this.safety.sanctions.requireApplicationAccess(auth.userId);
+    this.runtimePolicy?.requireAccountAccess(auth.userId);
     if (this.rateLimiter) {
       requireHttpRateLimit(
         this.rateLimiter,

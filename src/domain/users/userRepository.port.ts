@@ -43,6 +43,8 @@ export interface UserRepository {
   ): User | null;
   markEmailVerified(id: string, verifiedAt: string): User;
   updateEmail(id: string, email: string, verifiedAt: string): User;
+  /** Idempotently records completion of the required onboarding profile/preferences step. */
+  markOnboardingPreferencesCompleted(id: string, completedAt: string): User;
   /** docs/03-websocket-events.md `search.users` — substring match on username or
    * display name. */
   search(query: string, limit: number): User[];

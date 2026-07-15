@@ -442,7 +442,8 @@ koyu temayı elle seçmesi sistem takibini devre dışı bırakmalıdır.
 **Açıklama:** Yazı boyutu, yüksek kontrast ve azaltılmış animasyon tercihlerinin eklenmesi; yeni
 mesajlar ile bağlantı/gönderim durumlarının ekran okuyuculara uygun canlı bölgeler üzerinden
 duyurulması. Klavye odağı, modal focus yönetimi ve renk dışındaki durum göstergeleri chat ile
-Control Center'da birlikte test edilmelidir.
+Control Center'da birlikte manuel olarak doğrulanmalıdır; otomatik frontend testi
+oluşturulmamalıdır.
 
 **Öncelik:** Yüksek
 
@@ -1779,8 +1780,9 @@ redirect döngüleri önlenmeli ve auth kontrolü sırasında korumalı arayüz 
 gösterilmemelidir. Geçerli oturumu olup Control Center yetkisi olmayan kullanıcı auth sayfasına geri
 gönderilmemeli; ayrı bir permission-denied davranışı uygulanmalıdır. Yeni `auth.html`, script, stil
 ve i18n katalogları statik route allow-list'i, CSP, token saklama politikası, güvenlik linkleri,
-erişilebilirlik ve hem chat hem Control Center yönlendirme testleriyle birlikte ele alınmalıdır.
-Yeni kayıtlar, aşağıdaki adım adım kayıt ve onboarding akışı tamamlanmadan chat'e geçirilmemelidir.
+erişilebilirlik ve hem chat hem Control Center için manuel yönlendirme doğrulamasıyla birlikte ele
+alınmalıdır. Bu frontend akışı için otomatik test dosyası oluşturulmamalıdır. Yeni kayıtlar,
+aşağıdaki adım adım kayıt ve onboarding akışı tamamlanmadan chat'e geçirilmemelidir.
 
 **Öncelik:** Yüksek
 
@@ -1788,8 +1790,41 @@ Yeni kayıtlar, aşağıdaki adım adım kayıt ve onboarding akışı tamamlanm
 
 #### Durum
 
-`Bekliyor`
+`Tamamlandı`
 
+- 2026-07-15 — Model: GPT-5 Codex — Efor düzeyi: ortam tarafından sağlanmadı — Ortak auth uygulaması
+  tamamlandı. `web/auth.html` erişilebilir ve responsive bir state machine olarak giriş, kayıt,
+  recovery/security-link callback'leri, oturum geri yükleme ve güvenli hedef yönlendirmesini
+  merkezileştiriyor; `web/scripts/shared-auth.js` token storage, tekilleştirilmiş refresh,
+  authenticated fetch, hesap geçişi koruması, guard ve allow-list tabanlı `returnTo` çözümünün tek
+  kaynağı oldu. Chat ve Control Center korumalı içeriklerini auth/capability çözülmeden mount
+  etmiyor; yetkisiz Control Center kullanıcısı ayrı permission-denied ekranı görüyor. İlgili
+  dosyalar: `web/auth.html`, `web/styles/auth.css`, `web/scripts/auth.js`,
+  `web/scripts/auth-i18n.js`, `web/scripts/shared-auth.js`, `web/index.html`,
+  `web/control-center.html`, `web/styles/chat.css`, `web/styles/control-center.css`,
+  `web/scripts/chat.js`, `web/scripts/chat-api.js`, `web/scripts/chat-auth.js`,
+  `web/scripts/chat-handlers.js`, `web/scripts/chat-store.js`, `web/scripts/control-center.js`,
+  `web/scripts/control-center-api.js`, `web/scripts/control-center-shell.js`,
+  `src/application/http/routes/config/publicConfigRoute.ts`, `src/main.ts`,
+  `tests/integration/staticRoute.test.ts`, `tests/integration/httpSecurity.test.ts`, `AGENTS.md`,
+  `TODOS.md`, `docs/04-http-api.md`, `docs/05-folder-structure.md` ve
+  `docs/06-implementation-plan.md`. Coupled migration: `db/migrations/0011_user_onboarding.sql`.
+  Sonuçlar: odaklı backend testleri 24/24; `deno fmt --check` 279 dosya geçti; `deno task check`
+  geçti; `deno task lint` 263 dosya geçti; üç ardışık `deno task test` çalıştırmasının her biri
+  364/364 geçti. `deno test --allow-read web/control-center/tests/` NOT APPLICABLE; kullanıcı
+  frontend testlerini istemiyor. Geçici SQLite + Chromium ile 20 akış, geçerli verification/reset
+  linkleri, yetkili ve yetkisiz Control Center, 390px mobil görünüm, klavye doğrulama odağı,
+  back/forward ve URL token temizliği doğrulandı; uncaught browser hatası görülmedi. Canlı Resend ve
+  Turnstile servisleri kullanılmadı; production-adapter doğrulaması kalan tek ortam sınırlamasıdır.
+
+- 2026-07-15 — Model: GPT-5 Codex — Efor düzeyi: ortam tarafından sağlanmadı — Uygulama başladı.
+  Plan: mevcut browser auth davranışını tek modülde merkezileştirmek, güvenli `returnTo` ve korumalı
+  sayfa guard'larını eklemek, bağımsız ve erişilebilir `auth.html` state machine'ini kurmak,
+  recovery linklerini taşımak, Control Center permission-denied ayrımını korumak ve frontend
+  akışlarını manuel tarayıcı doğrulamasıyla kontrol etmek.
+- 2026-07-15 — Kullanıcı frontend testlerini istemiyor. Auth, chat guard ve Control Center guard
+  davranışları manuel tarayıcı doğrulamasıyla raporlanacak; otomatik frontend test dosyası
+  oluşturulmayacak veya kaldırılan suite geri getirilmeyecek.
 - 2026-07-13 — Model: GPT-5 Codex — Kayıt adımlarının sırası netleştirildi: bilgiler → preferences →
   yalnızca zorunluysa e-posta doğrulama. Önceki nottaki e-posta doğrulama → preferences sırası bu
   kararla geçersizdir.
@@ -1824,7 +1859,8 @@ eksik kalan adımdan devam etmelidir. Eski kullanıcılar migration sırasında 
 edilmeli; doğrudan URL ile chat'e gitmek zorunlu adımları atlatmamalı; buna karşılık auth, hesap
 güvenliği ve onboarding işlemleri tamamlanmamış kullanıcı için erişilebilir kalmalıdır. Adımların
 sırası, ilerleme göstergesi, geri dönüş davranışı, hata kodları, i18n anahtarları, erişilebilirlik
-ve `email_verification_required` açık/kapalı entegrasyon testleri birlikte uygulanmalıdır.
+ve `email_verification_required` açık/kapalı backend entegrasyon testleri birlikte uygulanmalıdır.
+Frontend adım geçişleri ve etkileşimleri manuel tarayıcı doğrulamasıyla kontrol edilmelidir.
 
 **Öncelik:** Yüksek
 
@@ -1832,8 +1868,44 @@ ve `email_verification_required` açık/kapalı entegrasyon testleri birlikte uy
 
 #### Durum
 
-`Bekliyor`
+`Tamamlandı`
 
+- 2026-07-15 — Model: GPT-5 Codex — Efor düzeyi: ortam tarafından sağlanmadı — Onboarding uçtan uca
+  tamamlandı. `0011_user_onboarding.sql` eski kullanıcıları tamamlanmış olarak backfill ediyor, yeni
+  kullanıcıları eksik başlatıyor; `OnboardingService` profil ve preferences verisini tek transaction
+  içinde doğrulayıp kalıcılaştırıyor ve runtime e-posta politikasına göre güvenilir adımı
+  hesaplıyor. WebSocket upgrade/dispatch, media, safety, moderation ve administration sınırları
+  incomplete hesabı backend'de reddediyor. İlgili dosyalar:
+  `db/migrations/0011_user_onboarding.sql`, `src/domain/auth/onboardingService.ts`,
+  `src/domain/auth/onboardingRequiredError.ts`, `src/domain/auth/accountPolicy.ts`,
+  `src/application/http/routes/auth/onboardingRoutes.ts`,
+  `src/application/http/routes/config/publicConfigRoute.ts`,
+  `src/application/http/routes/media/serveMediaRoute.ts`,
+  `src/application/http/routes/moderation/moderationRoutes.ts`,
+  `src/application/middleware/errorBoundary.ts`, `src/application/websocket/registry.ts`,
+  `src/domain/administration/runtimePolicy.ts`, `src/domain/users/user.entity.ts`,
+  `src/domain/users/userRepository.port.ts`, `src/storage/repositories/sqliteUserRepository.ts`,
+  `src/transport/http/wsUpgrade.ts`, `src/main.ts`, `tests/unit/onboardingService.test.ts`,
+  `tests/repository/onboardingMigration.test.ts`, `tests/repository/db.test.ts`,
+  `tests/repository/sqliteUserRepository.test.ts`, `tests/integration/onboarding.test.ts`,
+  `tests/support/fakeUserRepository.ts`, `docs/02-database-schema.md`, `docs/03-websocket-events.md`
+  ve `docs/04-http-api.md`. Fresh DB, 0010→0011 upgrade, existing-user backfill, new-user NULL
+  default, idempotent completion, verification açık/kapalı dalları ve resume davranışı geçti; geçici
+  DB'de `foreign_key_check=[]`, `integrity_check=ok`. Odaklı backend testleri 24/24 ve üç tam suite
+  364/364 ×3 geçti. Frontend onboarding otomasyonu NOT APPLICABLE; kullanıcı frontend testlerini
+  istemiyor. Chromium'da adım 1→2, reload/resume, verification kapalı tamamlama, verification açık
+  Step 3 zorlaması, server-confirmed resume, bildirim izninin yalnız açık tıklamayla istenmesi ve
+  chat bypass engeli doğrulandı. Canlı Resend/Turnstile doğrulanmadı; diğer zorunlu katman veya
+  bilinen işlevsel eksik kalmadı.
+
+- 2026-07-15 — Model: GPT-5 Codex — Efor düzeyi: ortam tarafından sağlanmadı — Uygulama başladı.
+  Plan: `0011` migration ile eski kullanıcıları tamamlanmış ve yeni kullanıcıları eksik kabul eden
+  kalıcı onboarding durumu eklemek; dar kapsamlı HTTP onboarding status/complete akışını aynı profil
+  ve preference kurallarıyla uygulamak; WebSocket ve normal uygulama erişimini backend'de kapatmak;
+  doğrulama ayarının açık/kapalı dallarını backend testleriyle ve arayüzü manuel doğrulamak.
+- 2026-07-15 — Kullanıcı frontend testlerini istemiyor. Onboarding politikası, migration ve HTTP
+  sözleşmesi backend testleriyle; onboarding arayüzü ise manuel tarayıcı doğrulamasıyla kontrol
+  edilecek.
 - 2026-07-14 — Model: GPT-5 Codex — Onboarding preferences adımından özel avatar ve kapak dosyası
   yükleme çıkarıldı. Bu adımda yalnızca bio, `avatarSeed`, `coverIndex`, `nameColor` ve mevcut
   preferences alanları düzenlenecek; özel medya yükleme daha sonra profil ekranından yapılacak.
@@ -1859,7 +1931,8 @@ yerelleştirilmiş karşılık istemcide merkezi hata-kodu eşlemesiyle seçilme
 backend politikalarında kalmalı ve çeviri sistemi hiçbir güvenlik kararının kaynağı olmamalıdır.
 Yeni locale ve katalog dosyaları eklenirken Control Center statik dosya allow-list'i, CSP sınırları,
 HTML dil özellikleri, tarih/saat ve çoğul ifade biçimlendirmesi, erişilebilirlik metinleri ve her
-iki istemcinin statik testleri birlikte güncellenmelidir.
+iki istemcinin manuel locale, fallback, erişilebilirlik ve CSP doğrulamaları birlikte yapılmalıdır;
+otomatik frontend test dosyası oluşturulmamalıdır.
 
 **Öncelik:** Yüksek
 

@@ -10,6 +10,7 @@ import { extractBearerToken, verifyAccessToken } from "../../../middleware/authM
 import { ForbiddenError } from "../../../../shared/errors/forbiddenError.ts";
 import { NotFoundError } from "../../../../shared/errors/notFoundError.ts";
 import { openMediaFile } from "./mediaStorage.ts";
+import type { AccountPolicy } from "../../../../domain/auth/accountPolicy.ts";
 
 /** docs/04-http-api.md "GET /media/:id": avatars are served unauthenticated (an `<img>`
  * tag never sends an `Authorization` header); message attachments are gated by the same
@@ -29,6 +30,7 @@ export class ServeMediaRoute implements RouteHandler {
     private readonly tokenService: TokenService,
     private readonly mediaRoot: string,
     private readonly codec: ProtocolCodec,
+    private readonly accountPolicy?: Pick<AccountPolicy, "requireOnboardingComplete">,
   ) {}
 
   async handle(ctx: HttpRequestContext): Promise<Response> {
@@ -76,6 +78,7 @@ export class ServeMediaRoute implements RouteHandler {
       new URL(ctx.request.url).searchParams.get("token");
     const auth = await verifyAccessToken(this.tokenService, bearerToken);
     const userId = auth.userId;
+    this.accountPolicy?.requireOnboardingComplete(userId);
     if (!attachment.messageId) {
       if (attachment.uploaderId !== userId) {
         throw new ForbiddenError("You cannot access an attachment uploaded by another user.");

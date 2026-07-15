@@ -10,6 +10,11 @@ import { initSettingsModule, settingsHandlers } from "./control-center-settings.
 import { initAuditModule, auditHandlers } from "./control-center-audit.js";
 import { initOwnerModule, ownerHandlers } from "./control-center-owner.js";
 import { initDialogs } from "./control-center-dialogs.js";
+import {
+  guardProtectedPage,
+  logoutBrowserSession,
+  resolveControlCenterAccess,
+} from "./shared-auth.js";
 
 setDevMode(false);
 
@@ -60,7 +65,34 @@ const NAV_GROUPS = [
   },
 ];
 
-document.addEventListener("DOMContentLoaded", async () => {
+async function initializeControlCenter() {
+  const account = await guardProtectedPage("/control-center");
+  if (!account) return;
+  document.getElementById("control-center-denied-logout")?.addEventListener("click", async () => {
+    await logoutBrowserSession();
+    window.location.replace("/auth.html?returnTo=%2Fcontrol-center");
+  });
+  const access = await resolveControlCenterAccess().catch(() => null);
+  if (!access) {
+    document.documentElement.dataset.authState = "error";
+    document.getElementById("app-loading-screen")?.remove();
+    const denied = document.getElementById("control-center-permission-denied");
+    if (denied) denied.hidden = false;
+    const title = document.getElementById("control-center-denied-title");
+    if (title) title.textContent = "Control Center access could not be resolved";
+    const message = document.getElementById("control-center-denied-message");
+    if (message) message.textContent = "Try again after checking your connection.";
+    return;
+  }
+  if (!access.allowed) {
+    document.documentElement.dataset.authState = "denied";
+    document.getElementById("app-loading-screen")?.remove();
+    const denied = document.getElementById("control-center-permission-denied");
+    if (denied) denied.hidden = false;
+    return;
+  }
+  document.documentElement.dataset.authState = "ready";
+
   // 1. Mount the control-center template
   const appRoot = document.getElementById("control-center-app");
   if (appRoot) {
@@ -116,4 +148,10 @@ document.addEventListener("DOMContentLoaded", async () => {
     loader.style.visibility = "hidden";
     setTimeout(() => loader.remove(), 400);
   }
-});
+}
+
+if (document.readyState === "loading") {
+  document.addEventListener("DOMContentLoaded", initializeControlCenter, { once: true });
+} else {
+  void initializeControlCenter();
+}

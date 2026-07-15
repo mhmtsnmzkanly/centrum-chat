@@ -194,8 +194,10 @@ working slice of the architecture rather than stubbing it out.
   backend permissions remain the authorization boundary.
 - Integrate the existing browser credential policy, clear sensitive state after access loss, and do
   not automatically replay destructive requests after token refresh.
-- Serve only an explicit allow-list from `web/control-center/`; fixture, test, and handoff files stay
-  private while existing `/admin` route behavior remains unchanged.
+- Serve the flat `web/control-center.html` and `web/scripts/control-center*.js` assets through the
+  production static route; keep fixture, test, and handoff files out of public `web/` while existing
+  `/admin` route behavior remains unchanged.
 - Preserve conflict input for explicit resubmission and invalidate stale list/detail responses.
-- Verify static routes, production-route mappings, fixture isolation, frontend security properties,
-  and the complete repository suite.
+- Verify static routes, production-route mappings, fixture isolation, and frontend security
+  properties manually; run the complete backend repository suite separately. Do not add an
+  automated frontend test suite.

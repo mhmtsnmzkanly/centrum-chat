@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="en" data-auth-state="pending">
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
@@ -50,116 +50,7 @@
 
   <!-- ═══════════════ ROOT TEMPLATE ═══════════════ -->
   <template id="tpl-app">
-    <if is-truthy="session.loggedIn" data-live>
-      <partial name="chat-card"></partial>
-      <else>
-        <partial name="auth-card"></partial>
-      </else>
-    </if>
-  </template>
-
-  <!-- ═══════════════ AUTHENTICATION CARD ═══════════════ -->
-  <template id="tpl-auth-card">
-    <div class="glass-card auth-card">
-      <div class="text-center mb-4">
-        <h1 class="h3 font-weight-bold mb-2" style="font-weight: 700; letter-spacing: -0.5px; color: var(--text-dark);">
-          💬 CentrumChat
-        </h1>
-        <p class="text-muted small">Connect modernly, chat beautifully.</p>
-      </div>
-
-      <!-- Tabs Navigation -->
-      <ul class="nav nav-pills nav-pills-custom justify-content-center mb-4" role="tablist">
-        <li class="nav-item" role="presentation">
-          <button class="nav-link {signinclass}" data-signinclass="authState.signinClass" data-on-click="showSignInTab" type="button" role="tab">Sign In</button>
-        </li>
-        <li class="nav-item" role="presentation">
-          <button class="nav-link {signupclass}" data-signupclass="authState.signupClass" data-on-click="showSignUpTab" type="button" role="tab">Sign Up</button>
-        </li>
-      </ul>
-
-      <!-- Tabs Content -->
-      <if is-truthy="authState.resetMode" data-live>
-        <div class="tab-pane show active" role="tabpanel">
-          <if is-truthy="authState.resetToken" data-live>
-            <form data-on-submit="completePasswordReset" novalidate>
-              <div class="mb-3">
-                <label for="resetNewPassword" class="form-label small font-weight-semibold">New password</label>
-                <input type="password" class="form-control" id="resetNewPassword" placeholder="Minimum 8 characters" data-model="authState.resetNewPassword" autocomplete="new-password" required>
-              </div>
-              <div class="mb-3">
-                <label for="resetConfirmPassword" class="form-label small font-weight-semibold">Confirm new password</label>
-                <input type="password" class="form-control" id="resetConfirmPassword" placeholder="Repeat your new password" data-model="authState.resetConfirmPassword" autocomplete="new-password" required>
-              </div>
-              <button type="submit" class="btn btn-primary w-100 py-3 mb-2">Reset Password</button>
-              <button type="button" class="btn btn-outline-secondary w-100" data-on-click="cancelPasswordReset">Back to Sign In</button>
-            </form>
-            <else>
-              <form data-on-submit="requestPasswordReset" novalidate>
-                <div class="mb-3">
-                  <label for="resetEmail" class="form-label small font-weight-semibold">Email address</label>
-                  <input type="email" class="form-control" id="resetEmail" placeholder="name@domain.com" data-model="authState.resetEmail" autocomplete="email" required>
-                </div>
-                <div id="captchaPasswordReset" class="mb-3"></div>
-                <button type="submit" class="btn btn-primary w-100 py-3 mb-2">Send Reset Email</button>
-                <button type="button" class="btn btn-outline-secondary w-100" data-on-click="cancelPasswordReset">Back to Sign In</button>
-              </form>
-            </else>
-          </if>
-        </div>
-        <else>
-          <if is-eq="authState.activeTab" to="signin" data-live="authState.activeTab">
-            <!-- Sign In Panel -->
-            <div class="tab-pane show active" role="tabpanel">
-              <form data-on-submit="handleSignIn" novalidate>
-                <div class="mb-3">
-                  <label for="signinEmail" class="form-label small font-weight-semibold">Username or email address</label>
-                  <input type="text" class="form-control" id="signinEmail" placeholder="Enter username or email..." data-model="authState.signinEmail" autocomplete="username" required>
-                </div>
-                <div class="mb-3">
-                  <label for="signinPassword" class="form-label small font-weight-semibold">Password</label>
-                  <input type="password" class="form-control" id="signinPassword" placeholder="••••••••" data-model="authState.signinPassword" autocomplete="current-password" required>
-                </div>
-                <div class="d-flex align-items-center justify-content-between mb-4">
-                  <div class="form-check">
-                    <input class="form-check-input" type="checkbox" id="signinRememberMe" data-model="authState.signinRememberMe">
-                    <label class="form-check-label small" for="signinRememberMe">Remember me</label>
-                  </div>
-                  <button type="button" class="btn btn-link btn-sm text-decoration-none p-0" data-on-click="showPasswordResetRequest">Forgot password?</button>
-                </div>
-                <div id="captchaLogin" class="mb-3"></div>
-                <button type="submit" class="btn btn-primary w-100 py-3">Sign In to Workspace</button>
-              </form>
-            </div>
-            <else>
-              <!-- Sign Up Panel -->
-              <div class="tab-pane show active" role="tabpanel">
-                <form data-on-submit="handleSignUp" novalidate>
-                  <div class="mb-3">
-                    <label for="signupUsername" class="form-label small font-weight-semibold">Username</label>
-                    <input type="text" class="form-control" id="signupUsername" placeholder="e.g. john_doe" data-model="authState.signupUsername" autocomplete="username" required>
-                  </div>
-                  <div class="mb-3">
-                    <label for="signupEmail" class="form-label small font-weight-semibold">Email address</label>
-                    <input type="email" class="form-control" id="signupEmail" placeholder="name@domain.com" data-model="authState.signupEmail" autocomplete="email" required>
-                  </div>
-                  <div class="mb-3">
-                    <label for="signupPassword" class="form-label small font-weight-semibold">Password</label>
-                    <input type="password" class="form-control" id="signupPassword" placeholder="Minimum 8 characters" data-model="authState.signupPassword" autocomplete="new-password" required>
-                  </div>
-                  <div class="form-check mb-4">
-                    <input class="form-check-input" type="checkbox" id="signupRememberMe" data-model="authState.signupRememberMe">
-                    <label class="form-check-label small" for="signupRememberMe">Keep me signed in on this browser</label>
-                  </div>
-                  <div id="captchaRegister" class="mb-3"></div>
-                  <button type="submit" class="btn btn-primary w-100 py-3">Create Free Account</button>
-                </form>
-              </div>
-            </else>
-          </if>
-        </else>
-      </if>
-    </div>
+    <partial name="chat-card"></partial>
   </template>
 
   <!-- ═══════════════ MAIN CHAT CONTAINER ═══════════════ -->
@@ -1158,8 +1049,6 @@
   <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
   <!-- Emoji Mart Library -->
   <script src="https://cdn.jsdelivr.net/npm/emoji-mart@5.5.2/dist/browser.js"></script>
-  <script src="https://challenges.cloudflare.com/turnstile/v0/api.js?render=explicit" defer></script>
-
   <script type="module" src="/scripts/chat.js"></script>
 </body>
 </html>

@@ -657,3 +657,11 @@ body.dark-mode .table {
   --bs-table-hover-color: var(--text-dark) !important;
   --bs-table-hover-bg: rgba(255, 255, 255, 0.04) !important;
 }
+html[data-auth-state="pending"] #control-center-app {
+  visibility: hidden;
+}
+
+.control-center-permission-denied {
+  width: min(42rem, calc(100% - 2rem));
+  margin: 10vh auto 0;
+}

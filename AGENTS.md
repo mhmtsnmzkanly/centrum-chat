@@ -31,8 +31,9 @@ presence — with full account security (verification, reset, email change, sess
 
 - Backend: Deno 2.x + TypeScript, no ORM, no web framework, native `Deno.serve` + native WebSocket.
 - Storage: SQLite via Deno's built-in `node:sqlite` (`DatabaseSync`), WAL mode, foreign keys ON.
-- Frontends: plain HTML/CSS/JS in `web/` (main chat UI) and `web/control-center/` (operator UI).
-  There is **no `web/admin/` directory in this checkout**; `/admin` is intentionally a 404.
+- Frontends: plain HTML/CSS/JS in `web/`: `auth.html` is the shared auth/onboarding UI, `index.html`
+  is the protected chat UI, and `control-center.html` is the protected operator UI. There is **no
+  `web/admin/` directory in this checkout**; `/admin` is intentionally a 404.
 
 Deliberately out of scope (decisions, not gaps — see `README.md` and
 `docs/06-implementation-plan.md`): horizontal scaling / multi-process pub-sub, a binary `EnfCodec`
@@ -63,8 +64,8 @@ Important facts:
   must type-check under all three.
 - `deno fmt`/`deno lint` **exclude `docs/`, `media/`, and `web/`**. Frontend JS is not formatted or
   linted by the toolchain; match its existing style manually.
-- Frontend verification is manual. Do not create frontend test files under `tests/`; `tests/` is
-  reserved for backend, protocol, repository, and transport behavior.
+- Frontend verification is manual. Do not create automated frontend test files anywhere in the
+  repository; `tests/` is reserved for backend, protocol, repository, and transport behavior.
 - The only external dependency is `jsr:@std/assert` in backend tests. Production `src/**` has zero
   third-party dependencies. Do not add any without explicit architectural approval.
 
@@ -85,8 +86,10 @@ src/storage/db.ts                openDatabase (migration runner), withTransactio
 src/storage/repositories/        Sqlite*Repository — ALL SQL lives here
 src/shared/                      config, errors, logging, validation, rate limiting, security headers/origin, id
 db/migrations/                   NNNN_description.sql, applied in order at boot
-web/index.html|js|css            main chat UI (single-file JS app)
-web/control-center/              operator UI (moderation + administration), served at /control-center
+web/auth.html + scripts/auth*.js shared authentication/recovery/onboarding state machine
+web/index.html + scripts/chat*.js protected main chat UI
+web/control-center.html + scripts/control-center*.js protected operator UI, served at /control-center
+web/scripts/shared-auth.js       authoritative browser token/refresh/auth-fetch/returnTo/guard logic
 tests/unit|integration|protocol|repository/   see §19
 tests/support/                   fakes, testDatabase.ts, legacyDatabase.ts, wsTestClient.ts
 docs/                            design + contracts; see §16 and §24
@@ -192,8 +195,9 @@ Hard prohibitions:
   `0007_account_security_and_recovery` (token tables, session metadata, `email_verified_at`),
   `0008_user_safety_moderation_and_captcha` (blocks/reports/sanctions/audit, final-report triggers),
   `0009_backend_administration` (`system_role`, final-owner triggers, channel lifecycle,
-  `system_settings`). Migration count will grow — check the directory, don't trust this list as
-  permanent.
+  `system_settings`), `0010_session_client_metadata`, and `0011_user_onboarding` (existing-user
+  backfill and new-user preferences onboarding state). Migration count will grow — check the
+  directory, don't trust this list as permanent.
 - Major tables by domain: identity (`users`, `user_sessions`, `email_verification_tokens`,
   `password_reset_tokens`, `email_change_tokens`, `user_preferences`), conversations
   (`conversations`, `conversation_memberships`, `conversation_reads`, `direct_conversation_pairs`),
@@ -268,6 +272,11 @@ Implemented in `src/domain/auth/authService.ts` + `tokenService.ts` + the routes
   `email_verification_required` setting): may authenticate and manage their own account security,
   but cannot send messages, open DMs, create groups, add members, upload media, react, or use global
   user search.
+- **Onboarding-incomplete accounts** may use authentication, recovery, verification,
+  account-security, and `/api/auth/onboarding*` routes, but
+  `AccountPolicy.requireOnboardingComplete` rejects the full application WebSocket and normal
+  application mutations. Completion is computed from persisted preferences completion plus the
+  runtime verification policy; the browser cannot set a completion flag.
 
 Invariants that must never be weakened:
 
@@ -279,8 +288,8 @@ Invariants that must never be weakened:
 - Already-issued access tokens stay cryptographically valid until expiry after session revocation —
   by design (short TTL); runtime checks (`SanctionPolicy`, `RuntimePolicy`) still apply per request.
 - Frontend token storage is browser-readable (`localStorage` for remember-me, `sessionStorage`
-  otherwise — `web/index.js`); successful XSS remains a token-exposure risk. The CSP reduces but
-  does not eliminate it.
+  otherwise — `web/scripts/shared-auth.js`); successful XSS remains a token-exposure risk. The CSP
+  reduces but does not eliminate it.
 
 ## 10. HTTP and WebSocket security
 
@@ -304,10 +313,9 @@ Invariants that must never be weakened:
   (`effectiveUploadLimit`).
 - Generic error envelopes; unexpected errors surface only as `INTERNAL_ERROR`.
 - `/health/live` = cheap liveness; `/health/ready` (and compatibility `/health`) = SQLite readiness.
-- Static serving: `StaticRoute("*", web/)` and the **allow-listed** `ControlCenterStaticRoute`
-  (`src/application/http/routes/controlCenterStaticRoute.ts`) — fixtures/tests/Markdown under
-  `web/control-center/` are deliberately not servable. Keep the allow-list in sync when adding
-  Control Center assets.
+- Static serving: `StaticRoute("*", web/)` resolves exact files, extensionless HTML siblings, and
+  directory indexes while rejecting traversal. Do not place tests, fixtures, Markdown handoffs, or
+  internal source material under public `web/`.
 
 ### WebSocket (`src/transport/http/wsUpgrade.ts`, `src/transport/websocket/*`)
 
@@ -461,39 +469,46 @@ Rules:
 
 ## 15. Frontend applications
 
-### Main chat UI — `web/index.html`, `web/index.js`, `web/index.css`
+### Shared auth UI — `web/auth.html`, `web/scripts/auth*.js`, `web/styles/auth.css`
 
-Plain HTML/CSS/JS (one large `index.js`), Bootstrap/fonts from the CDN allow-list in the CSP.
-Tokens: `localStorage` for remember-me, `sessionStorage` otherwise. One HTTP client wrapper and one
-WS client; the WS client answers `system.ping` with `system.pong` fire-and-forget (`web/index.js`
-~line 507). Normal-user safety only: block/unblock, report message/attachment/user, CAPTCHA widgets
-for register/login/password-reset. It must never reference `/api/moderation/*` or `/api/admin/*`.
+The auth page owns sign-in, registration, recovery/security-link callbacks, onboarding, safe
+same-origin `returnTo`, and Control Center permission-denied behavior. `shared-auth.js` is the only
+browser implementation of token storage, refresh serialization, authenticated fetch, account
+resolution, destination validation, and protected-page guards. Auth strings use the small keyed
+catalog in `auth-i18n.js`: English is the default/fallback and Turkish is selected from the browser
+locale when available. Chat and Control Center consume these modules rather than reimplementing
+token or refresh behavior.
+
+### Main chat UI — `web/index.html`, `web/scripts/chat*.js`, `web/styles/chat.css`
+
+Plain HTML/CSS/JS modules, Bootstrap/fonts from the CDN allow-list in the CSP. Tokens:
+`localStorage` for remember-me, `sessionStorage` otherwise. One HTTP client wrapper and one WS
+client; the WS client answers `system.ping` with `system.pong` fire-and-forget. Normal-user safety
+only: block/unblock and report message/attachment/user. It must never reference `/api/moderation/*`
+or `/api/admin/*`.
 
 ### Legacy moderation console
 
 **Does not exist in this checkout.** There is no `web/admin/` directory; `/admin` is intentionally
-not found (`README.md`, `web/control-center/README.md`). Do not create one, and do not describe it
-as present.
+not found. Do not create one, and do not describe it as present.
 
-### Control Center — `web/control-center/`
+### Control Center — `web/control-center.html`, `web/scripts/control-center*.js`
 
-Operator UI served at `/control-center` via an explicit asset allow-list (§10). Boundaries are
-written down in `web/control-center/AGENT_BOUNDARY.md` — read it before touching this directory.
+Operator UI served at `/control-center`. This checkout uses flat `control-center*.js` modules; there
+is no nested `web/control-center/` instruction boundary.
 
 - All capability/identity state comes from `GET /api/control-center/me`; capabilities gate
   **rendering only** — the backend re-authorizes every call.
-- `api/contract.js` is the single adapter mapping the documented contract; `api/controlCenterApi.js`
-  hard-codes `USE_DEVELOPMENT_FIXTURES = false`. Fixtures (`fixtures/developmentFixtures.js`) can
-  only be enabled by a source edit — no URL/storage/DOM activation path, no production fallback, and
-  any role switcher stays fixture-only.
+- `control-center-api.js` is the HTTP adapter and must consume `shared-auth.js`; there is no fixture
+  fallback, URL/storage role switcher, or development activation path.
 - Adapters must not invent endpoints, DTO fields, cursors, or version fields; unavailable backend
   capability stays unavailable in the UI.
 - Untrusted data is rendered with safe DOM construction (`textContent`/element building — see
   `ui/common.js`), not string-interpolated `innerHTML`.
 - Cursor pagination and optimistic-version conflicts follow the contract docs; conflict responses
   re-fetch rather than retry blindly. Sensitive state is cleared on logout.
-- Verify Control Center presentation and interactions manually; do not add frontend tests under
-  `tests/`.
+- Verify Control Center presentation and interactions manually; do not add automated frontend tests
+  anywhere in the repository.
 
 ## 16. API contracts and compatibility
 
@@ -505,7 +520,8 @@ written down in `web/control-center/AGENT_BOUNDARY.md` — read it before touchi
 | Control Center administration/owner routes and DTOs        | `docs/12-control-center-api-contract.md` |
 
 Production code remains authoritative over all of them. A contract change is atomic: backend +
-frontend + tests + the contract document change in the same task. Stable error codes (§6 list:
+frontend + backend tests + the contract document change in the same task. Frontend behavior is
+verified manually and must not gain an automated test suite. Stable error codes (§6 list:
 `VALIDATION_ERROR`, `UNAUTHORIZED`, `FORBIDDEN`, `NOT_FOUND`, `CONFLICT`, `RATE_LIMITED`,
 `BLOCKED_INTERACTION`, `MESSAGE_MUTED`, `INTERACTION_RESTRICTED`, `ACCOUNT_SUSPENDED`,
 `CAPTCHA_REQUIRED`, `EMAIL_VERIFICATION_REQUIRED`, `PERMISSION_DENIED`, the `*_CONFLICT` family,
@@ -539,8 +555,8 @@ Backed by multiple existing examples — follow them:
 - **Tests**: `Deno.test("plain-language behavior description", …)`; unit tests use in-memory fakes
   from `tests/support/`; integration tests boot the real server on port 0 with a temp SQLite file
   and tear down in `finally`.
-- **Frontend**: `web/index.js` is a single-file vanilla-JS app; Control Center uses small ES modules
-  under `ui/`/`api/`/`state/`. Neither is covered by `deno fmt`/`deno lint` — match local style.
+- **Frontend**: auth, chat, and Control Center are vanilla-JS ES modules under `web/scripts/`. They
+  are excluded from root `deno fmt`/`deno lint`; match local style and verify manually.
 - Comments explain _why_ (with doc-section references), not _what_.
 
 ## 18. Logging and secret handling
@@ -573,8 +589,13 @@ Suites (`tests/`, all run by `deno task test`):
 - `tests/protocol/` — codec/envelope shape. `tests/repository/` — each `Sqlite*Repository` against a
   temp DB, including migration-upgrade tests.
 
-Frontend code under `web/` has no automated suite in `tests/`. Do not add static, behavioral, or
-browser frontend test files there; verify frontend changes manually.
+Frontend code under `web/` has no automated suite. Do not add or restore static, behavioral, or
+browser frontend test files under `tests/`, `web/`, or another directory; verify frontend changes
+manually. Do not create or restore `web/control-center/tests/`.
+
+Every final report for work that changes frontend code must state exactly:
+`kullanıcı frontend testlerini istemiyor`. Report frontend verification as manual browser checks,
+and mark any requested frontend-only automated suite as `NOT APPLICABLE` rather than recreating it.
 
 Standard verification before declaring success on any code change:
 
@@ -625,7 +646,7 @@ Agent A (backend) owns:
 - src/domain/<area>/**, src/storage/repositories/<repo>.ts, db/migrations/00NN_*.sql
 - tests/unit|integration|repository/<area>*.test.ts
 Agent B (frontend) owns:
-- web/control-center/ui/<screen>.js, web/control-center/api/contract.js
+- web/control-center.html, web/scripts/control-center-<area>.js
 Forbidden overlap:
 - docs/12-control-center-api-contract.md (owned by Agent A), src/main.ts wiring (Agent A)
 Authoritative contract:
@@ -654,8 +675,7 @@ Authoritative contract:
 - Do not claim audit records are cryptographically tamper-proof.
 - Do not perform broad refactors inside focused security fixes, or mix unrelated feature work into
   migration/integration tasks.
-- Do not create nested `AGENTS.md` files without a task that calls for them; the existing scoped
-  boundary doc is `web/control-center/AGENT_BOUNDARY.md`.
+- Do not create nested `AGENTS.md` files without a task that calls for them.
 
 ## 22. Known limitations (current, verified — preserve or address explicitly)
 
@@ -671,7 +691,7 @@ Authoritative contract:
 - Orphan-attachment cleanup is a process-lifetime `setInterval` (`src/main.ts`); it does not survive
   a restart mid-window.
 - Private channels and channel hard-deletion are intentionally unsupported (channels archive only —
-  `web/control-center/README.md`, `docs/12`).
+  `docs/12`).
 - Resend (mail) and Turnstile (CAPTCHA) production adapters can only be fully verified against the
   live external services; development adapters are used everywhere else, and production config
   rejects them.
@@ -686,8 +706,8 @@ Full (backend or cross-cutting) task:
 3. Define scope and file ownership (especially if parallel agents exist).
 4. If the task changes a contract, update the contract document first (or atomically with code).
 5. Implement the smallest coherent change; new schema = new migration.
-6. Add regression tests beside the existing backend suite for that area. Frontend-only changes are
-   manually verified and must not add files under `tests/`.
+6. Add regression tests beside the existing backend suite for backend behavior. Frontend behavior is
+   manually verified and must not add automated frontend test files anywhere in the repository.
 7. Run focused tests for the touched area, then the full §19 verification; 3× full runs for
    concurrency-sensitive areas.
 8. Report results exactly, including anything unverifiable (external services, live deploys).
@@ -695,10 +715,10 @@ Full (backend or cross-cutting) task:
 Documentation-only task: verify every claim against production code, change only the assigned
 document, run `deno fmt --check <file>` (root Markdown is formatted; `docs/` is fmt-excluded).
 
-Frontend-only task: respect §15 boundaries, change only `web/**` you own, keep the
-`ControlCenterStaticRoute` allow-list in sync for new Control Center assets, run the backend suite
-for regression coverage, and manually verify the affected frontend flows. Do not add frontend test
-files under `tests/`.
+Frontend-only task: respect §15 boundaries, change only `web/**` you own, keep the public
+`StaticRoute` behavior in mind for new assets, run the backend suite for regression coverage, and
+manually verify the affected frontend flows. Do not add automated frontend test files anywhere in
+the repository.
 
 ## 24. Source-of-truth references
 
@@ -713,6 +733,6 @@ files under `tests/`.
 | Safety/moderation design                            | `docs/10-moderation-and-user-safety.md`                                                           |
 | Moderation API contract                             | `docs/11-moderation-api-contract.md`                                                              |
 | Control Center API contract                         | `docs/12-control-center-api-contract.md`                                                          |
-| Control Center integration boundary                 | `web/control-center/AGENT_BOUNDARY.md`, `web/control-center/README.md`                            |
+| Control Center integration boundary                 | `web/control-center.html`, `web/scripts/control-center-contract.js`, `docs/12`                    |
 | Environment variables                               | `.env.example`, `src/shared/config/config.ts`, `README.md` table                                  |
 | Composition/wiring ground truth                     | `src/main.ts`                                                                                     |

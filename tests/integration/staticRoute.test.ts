@@ -38,6 +38,10 @@ Deno.test("StaticRoute resolves exact, extensionless, and directory fallback pat
     assertEquals(responseCCHtml.status, 200);
     assertStringIncludes(responseCCHtml.headers.get("content-type") ?? "", "text/html");
 
+    const responseAuth = await fetch(base + "/auth.html?returnTo=%2Fcontrol-center");
+    assertEquals(responseAuth.status, 200);
+    assertStringIncludes(responseAuth.headers.get("content-type") ?? "", "text/html");
+
     // 3. CSS and JS exact requests
     const responseCSS = await fetch(base + "/styles/chat.css");
     assertEquals(responseCSS.status, 200);
@@ -46,6 +50,16 @@ Deno.test("StaticRoute resolves exact, extensionless, and directory fallback pat
     const responseJS = await fetch(base + "/scripts/chat.js");
     assertEquals(responseJS.status, 200);
     assertStringIncludes(responseJS.headers.get("content-type") ?? "", "application/javascript");
+
+    for (const path of ["/scripts/auth.js", "/scripts/shared-auth.js", "/scripts/auth-i18n.js"]) {
+      const response = await fetch(base + path);
+      assertEquals(response.status, 200);
+      assertStringIncludes(response.headers.get("content-type") ?? "", "application/javascript");
+    }
+
+    const responseAuthCSS = await fetch(base + "/styles/auth.css");
+    assertEquals(responseAuthCSS.status, 200);
+    assertStringIncludes(responseAuthCSS.headers.get("content-type") ?? "", "text/css");
 
     // 4. Query parameters do not affect resolution
     const responseQuery = await fetch(base + "/control-center?tab=users");

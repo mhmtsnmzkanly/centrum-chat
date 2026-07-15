@@ -9,6 +9,7 @@ export interface User {
   readonly displayName: string;
   readonly email: string;
   readonly emailVerifiedAt: string | null;
+  readonly onboardingPreferencesCompletedAt: string | null;
   readonly appRole: AppRole;
   readonly mustResetPassword: boolean;
   readonly accountDisabledAt: string | null;

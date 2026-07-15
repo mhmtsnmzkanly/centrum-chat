@@ -2781,3 +2781,6 @@ body.dark-mode .scroll-bottom-fab {
   border-color: rgba(75, 85, 99, 0.5) !important;
   color: var(--text-dark) !important;
 }
+html[data-auth-state="pending"] #app {
+  visibility: hidden;
+}

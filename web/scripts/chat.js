@@ -1,7 +1,8 @@
 import { mount, setDevMode } from "./lime-csr.js";
 import { store } from "./chat-store.js";
 import { wsClient } from "./chat-socket.js";
-import { TOKENS, STORAGE } from "./chat-auth.js";
+import { STORAGE } from "./chat-auth.js";
+import { guardProtectedPage } from "./shared-auth.js";
 import { ToastService } from "./chat-api.js";
 import { HELPERS, MAPPERS, patchMessageById } from "./chat-messages.js";
 import { playBeep, hideSplashLoader } from "./chat-dialogs.js";
@@ -249,17 +250,18 @@ wsClient.onReconnect = () => {
   }
 };
 
-// Mount the app template
-const appRoot = document.getElementById("app");
-if (appRoot) {
-  mount("app", {
-    context: {},
-    target: appRoot,
-    store,
-    handlers,
-  });
+const account = await guardProtectedPage("/");
+if (account) {
+  document.documentElement.dataset.authState = "ready";
+  const appRoot = document.getElementById("app");
+  if (appRoot) {
+    mount("app", {
+      context: {},
+      target: appRoot,
+      store,
+      handlers,
+    });
+  }
+  globalThis.__centrum = { store, wsClient };
+  await initApp(account);
 }
-
-globalThis.__centrum = { store, wsClient };
-
-initApp();

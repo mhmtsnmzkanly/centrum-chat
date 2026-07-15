@@ -1,12 +1,13 @@
 import { store, CONFIG, coverStyleFor } from "./chat-store.js";
 import { wsClient } from "./chat-socket.js";
-import { TOKENS, clearAuthenticatedState, onAuthLoss, STORAGE, SESSION_STORAGE, tryRefreshTokens, registerAuthCleanup } from "./chat-auth.js";
-import { apiFetch, ToastService, CAPTCHA, currentDeviceLabel, makeClientError, refreshAccountSecurityState, submitSafetyReport } from "./chat-api.js";
+import { TOKENS, clearAuthenticatedState, onAuthLoss, STORAGE, registerAuthCleanup } from "./chat-auth.js";
+import { apiFetch, ToastService, makeClientError, refreshAccountSecurityState, submitSafetyReport } from "./chat-api.js";
 import { HELPERS, MAPPERS, decorateMessage, patchMessageById } from "./chat-messages.js";
 import { showModal, hideModal, playBeep, hideSplashLoader } from "./chat-dialogs.js";
 import { activeConversationId, setRoomMessages, appendRoomMessage, markConversationAsRead, closeDestinationDropdown, setActiveDestination, openDmWithUser, loadDrafts, STATUS_BADGES, setDraft, cancelPendingDraftPersistence } from "./chat-conversations.js";
 import { UploadOverlay, destKeyForConversation, setupDragDropZone } from "./chat-media.js";
 import { applySessionProfile, seedPreferencesForm, refreshUserProfile } from "./chat-profile.js";
+import { logoutBrowserSession } from "./shared-auth.js";
 
 // Load a user's profile into visitorProfile state and open the profile modal.
 // Shared by the message header click, group-member list, and reaction popover.
@@ -232,15 +233,6 @@ export async function afterLogin(profileWire) {
 
   await loadInitialData();
 
-  const pendingEmailChangeToken = store.get("authState.pendingEmailChangeToken");
-  if (pendingEmailChangeToken) {
-    store.set("authState.pendingEmailChangeToken", "");
-    try {
-      await completePendingEmailChangeToken(pendingEmailChangeToken);
-    } catch (err) {
-      console.error("Deferred email change completion failed:", err);
-    }
-  }
 }
 
 export function applyTheme(theme) {
@@ -416,107 +408,9 @@ export async function loadSessionList() {
   store.set("sessionList", sessions);
 }
 
-export async function completePendingEmailChangeToken(token) {
-  await apiFetch("/api/auth/email-change/complete", {
-    method: "POST",
-    body: JSON.stringify({ token }),
-  });
-  await refreshAccountSecurityState();
-  await loadSessionList();
-  ToastService.show("Email address updated successfully.", "success");
-}
-
-export function removeSecurityQueryParam(name) {
-  const url = new URL(window.location.href);
-  if (!url.searchParams.has(name)) return;
-  url.searchParams.delete(name);
-  window.history.replaceState({}, "", url.toString());
-}
-
-export async function handleSecurityQueryParams() {
-  const url = new URL(window.location.href);
-  const verifyToken = url.searchParams.get("verify_email");
-  const resetToken = url.searchParams.get("reset_password");
-  const emailChangeToken = url.searchParams.get("change_email");
-
-  if (verifyToken) {
-    try {
-      await apiFetch("/api/auth/verify-email/complete", {
-        method: "POST",
-        body: JSON.stringify({ token: verifyToken }),
-      });
-      removeSecurityQueryParam("verify_email");
-      if (store.get("session.loggedIn")) {
-        await refreshAccountSecurityState();
-      }
-      ToastService.show("Email verified successfully.", "success");
-    } catch (err) {
-      console.error("Email verification failed:", err);
-    }
-  }
-
-  if (resetToken) {
-    store.set("authState.resetMode", true);
-    store.set("authState.resetToken", resetToken);
-    removeSecurityQueryParam("reset_password");
-  }
-
-  if (emailChangeToken) {
-    removeSecurityQueryParam("change_email");
-    if (store.get("session.loggedIn")) {
-      try {
-        await completePendingEmailChangeToken(emailChangeToken);
-      } catch (err) {
-        console.error("Email change completion failed:", err);
-      }
-    } else {
-      store.set("authState.pendingEmailChangeToken", emailChangeToken);
-      ToastService.show("Sign in to complete your email change.", "info");
-    }
-  }
-}
-
-export function parseJwt(token) {
+export async function initApp(account) {
   try {
-    const base64Url = token.split(".")[1];
-    const base64 = base64Url.replace(/-/g, "+").replace(/_/g, "/");
-    const jsonPayload = decodeURIComponent(
-      atob(base64)
-        .split("")
-        .map((c) => "%" + ("00" + c.charCodeAt(0).toString(16)).slice(-2))
-        .join("")
-    );
-    return JSON.parse(jsonPayload);
-  } catch {
-    return null;
-  }
-}
-
-export async function initApp() {
-  await CAPTCHA.initialize();
-  await handleSecurityQueryParams();
-  const tokens = TOKENS.get();
-  if (!tokens) {
-    store.set("session.loggedIn", false);
-    hideSplashLoader();
-    return;
-  }
-
-  try {
-    if (!(await tryRefreshTokens())) {
-      clearAuthenticatedState();
-      hideSplashLoader();
-      return;
-    }
-  } catch (err) {
-    console.warn("Refresh failed, attempting with existing tokens:", err);
-  }
-
-  try {
-    await wsClient.connect();
-    const userId = parseJwt(TOKENS.get().accessToken).sub;
-    const profileRes = await wsClient.request("profile.get", { userId });
-    await afterLogin(profileRes.profile);
+    await afterLogin(account.profile);
     hideSplashLoader();
   } catch (err) {
     console.error("Failed to restore session:", err);
@@ -645,131 +539,14 @@ export const handlers = {
     }
   },
 
-  showSignInTab() {
-    store.set("authState.resetMode", false);
-    store.set("authState.activeTab", "signin");
-    store.set("authState.signinClass", "active");
-    store.set("authState.signupClass", "");
-  },
-
-  showSignUpTab() {
-    store.set("authState.resetMode", false);
-    store.set("authState.activeTab", "signup");
-    store.set("authState.signinClass", "");
-    store.set("authState.signupClass", "active");
-  },
-
-  showPasswordResetRequest() {
-    store.set("authState.resetMode", true);
-    store.set("authState.resetToken", "");
-    store.set("authState.resetEmail", store.get("authState.signinEmail") || "");
-    store.set("authState.resetNewPassword", "");
-    store.set("authState.resetConfirmPassword", "");
-  },
-
-  cancelPasswordReset() {
-    store.set("authState.resetMode", false);
-    store.set("authState.resetToken", "");
-    store.set("authState.resetNewPassword", "");
-    store.set("authState.resetConfirmPassword", "");
-    handlers.showSignInTab();
-  },
-
-  async handleSignIn() {
-    const email = (store.get("authState.signinEmail") || "").trim();
-    const pass = store.get("authState.signinPassword") || "";
-    const rememberMe = !!store.get("authState.signinRememberMe");
-
-    if (!email || !pass) {
-      ToastService.show("All fields are required.", "warning");
-      return;
-    }
-
-    try {
-      const data = await apiFetch("/api/auth/login", {
-        method: "POST",
-        body: JSON.stringify({
-          email,
-          password: pass,
-          rememberMe,
-          deviceLabel: currentDeviceLabel(),
-          captchaToken: CAPTCHA.consume("login"),
-        }),
-      });
-
-      TOKENS.set({ accessToken: data.accessToken, refreshToken: data.refreshToken }, rememberMe);
-      store.set("authState.signinEmail", "");
-      store.set("authState.signinPassword", "");
-      store.set("authState.signinRememberMe", false);
-
-      await afterLogin(data.user);
-
-      ToastService.show(
-        `Welcome back to CentrumChat workspace, ${data.user.displayName}!`,
-        "success",
-      );
-    } catch (err) {
-      console.error("Sign in failed:", err);
-    }
-  },
-
-  async handleSignUp() {
-    const username = (store.get("authState.signupUsername") || "").trim();
-    const email = (store.get("authState.signupEmail") || "").trim();
-    const pass = store.get("authState.signupPassword") || "";
-    const rememberMe = !!store.get("authState.signupRememberMe");
-
-    if (!username || !email || !pass) {
-      ToastService.show("All fields are required.", "warning");
-      return;
-    }
-
-    if (pass.length < 8) {
-      ToastService.show("Password must be at least 8 characters.", "warning");
-      return;
-    }
-
-    try {
-      const data = await apiFetch("/api/auth/register", {
-        method: "POST",
-        body: JSON.stringify({
-          username,
-          email,
-          password: pass,
-          displayName: username,
-          rememberMe,
-          deviceLabel: currentDeviceLabel(),
-          captchaToken: CAPTCHA.consume("register"),
-        }),
-      });
-
-      TOKENS.set({ accessToken: data.accessToken, refreshToken: data.refreshToken }, rememberMe);
-      store.set("authState.signupUsername", "");
-      store.set("authState.signupEmail", "");
-      store.set("authState.signupPassword", "");
-      store.set("authState.signupRememberMe", false);
-
-      await afterLogin(data.user);
-
-      ToastService.show(`Welcome to CentrumChat workspace, ${data.user.displayName}!`, "success");
-    } catch (err) {
-      console.error("Sign up failed:", err);
-    }
-  },
-
   async handleLogout() {
-    const tokens = TOKENS.get();
-    if (tokens?.refreshToken) {
-      try {
-        await apiFetch("/api/auth/logout", {
-          method: "POST",
-          body: JSON.stringify({ refreshToken: tokens.refreshToken }),
-        });
-      } catch (err) {
-        console.warn("Logout endpoint failed:", err);
-      }
+    try {
+      await logoutBrowserSession();
+    } catch (err) {
+      console.warn("Logout endpoint failed:", err);
+      clearAuthenticatedState();
     }
-    clearAuthenticatedState("Logged out successfully.", "info");
+    window.location.replace("/auth.html?returnTo=%2F");
   },
 
   showChannelsTab() {
@@ -935,56 +712,6 @@ export const handlers = {
       store.set("preferencesForm.confirmPassword", "");
     } catch (err) {
       console.error("Password update failed:", err);
-    }
-  },
-
-  async requestPasswordReset() {
-    const email = (store.get("authState.resetEmail") || "").trim();
-    if (!email) {
-      ToastService.show("Email is required.", "warning");
-      return;
-    }
-    try {
-      const data = await apiFetch("/api/auth/password-reset/request", {
-        method: "POST",
-        body: JSON.stringify({ email, captchaToken: CAPTCHA.consume("password_reset") }),
-      });
-      ToastService.show(data.message || "Password reset requested.", "info");
-      handlers.cancelPasswordReset();
-    } catch (err) {
-      console.error("Password reset request failed:", err);
-    }
-  },
-
-  async completePasswordReset() {
-    const token = store.get("authState.resetToken");
-    const newPassword = store.get("authState.resetNewPassword") || "";
-    const confirmPassword = store.get("authState.resetConfirmPassword") || "";
-    if (!token || !newPassword || !confirmPassword) {
-      ToastService.show("All password reset fields are required.", "warning");
-      return;
-    }
-    if (newPassword.length < 8) {
-      ToastService.show("New password must be at least 8 characters.", "warning");
-      return;
-    }
-    if (newPassword !== confirmPassword) {
-      ToastService.show("Confirm password does not match.", "warning");
-      return;
-    }
-    try {
-      await apiFetch("/api/auth/password-reset/complete", {
-        method: "POST",
-        body: JSON.stringify({ token, newPassword }),
-      });
-      store.set("authState.resetToken", "");
-      store.set("authState.resetNewPassword", "");
-      store.set("authState.resetConfirmPassword", "");
-      store.set("authState.resetMode", false);
-      ToastService.show("Password reset successfully. Sign in with your new password.", "success");
-      handlers.showSignInTab();
-    } catch (err) {
-      console.error("Password reset completion failed:", err);
     }
   },
 
@@ -1798,8 +1525,8 @@ export const handlers = {
 onAuthLoss((message, toastType) => {
   wsClient.disconnect();
   setActiveDestination("channel", "general");
-  handlers.showSignInTab();
   if (message) {
     ToastService.show(message, toastType);
   }
+  window.location.replace("/auth.html?returnTo=%2F");
 });

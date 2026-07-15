@@ -4,6 +4,7 @@ import { translateError } from "../middleware/errorBoundary.ts";
 import type { Logger } from "../../shared/logging/logger.ts";
 import type { SanctionPolicy } from "../../domain/safety/safetyPolicy.ts";
 import type { RuntimePolicy } from "../../domain/administration/runtimePolicy.ts";
+import type { AccountPolicy } from "../../domain/auth/accountPolicy.ts";
 
 const MUTATION_EVENTS = new Set([
   "presence.update",
@@ -36,6 +37,7 @@ export class WebSocketHandlerRegistry {
   constructor(
     private readonly sanctionPolicy?: SanctionPolicy,
     private readonly runtimePolicy?: RuntimePolicy,
+    private readonly accountPolicy?: AccountPolicy,
   ) {}
 
   register(handler: EventHandler): void {
@@ -64,6 +66,7 @@ export class WebSocketHandlerRegistry {
       if (envelope.event !== "system.pong") {
         this.sanctionPolicy?.requireApplicationAccess(ctx.userId);
         this.runtimePolicy?.requireAccountAccess(ctx.userId);
+        this.accountPolicy?.requireOnboardingComplete(ctx.userId);
         if (MUTATION_EVENTS.has(envelope.event)) this.runtimePolicy?.requireMutation(ctx.userId);
       }
       const data = await handler.handle(ctx, envelope.data);
