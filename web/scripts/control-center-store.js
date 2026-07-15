@@ -170,11 +170,13 @@ class Store {
     });
 
     // 3. userSanctionsList
-    this.store.computed("userSanctionsList", ["userSanctions"], () => {
+    this.store.computed("userSanctionsList", ["userSanctions", "capabilities"], () => {
       const userSanctions = this.store.get("userSanctions") || [];
+      const canRevokeSanctions = !!this.store.get("capabilities")?.moderation
+        .sanctionsRevoke;
       return userSanctions.map(s => {
         const isRevoked = !!s.revokedAt;
-        const isExpired = s.expiresAt && new Date(s.expiresAt) < new Date();
+        const isExpired = !!s.expiresAt && new Date(s.expiresAt) < new Date();
         const statusText = isRevoked ? "Revoked" : (isExpired ? "Expired" : "Active");
         const badgeClass = isRevoked ? "bg-secondary" : (isExpired ? "bg-secondary" : "bg-danger");
         return {
@@ -183,6 +185,7 @@ class Store {
           statusText,
           badgeClass,
           expiresFormatted: s.expiresAt ? formatDate(s.expiresAt) : "Permanent",
+          canRevoke: canRevokeSanctions && !isRevoked && !isExpired,
         };
       });
     });
@@ -287,6 +290,38 @@ class Store {
     this.store.computed("reportsListEmpty", ["reports", "reportsLoading"], () => {
       return !this.store.get("reportsLoading") &&
         (this.store.get("reports") || []).length === 0;
+    });
+    this.store.computed("usersListEmpty", ["users", "usersLoading"], () => {
+      return !this.store.get("usersLoading") &&
+        (this.store.get("users") || []).length === 0;
+    });
+    this.store.computed(
+      "showInvestigationPlaceholder",
+      ["selectedReportLoading", "selectedReportDetails"],
+      () => {
+        return !this.store.get("selectedReportLoading") &&
+          !this.store.get("selectedReportDetails");
+      },
+    );
+    this.store.computed("showInvestigationLoading", ["selectedReportLoading"], () => {
+      return !!this.store.get("selectedReportLoading");
+    });
+    this.store.computed(
+      "showInvestigationDetails",
+      ["selectedReportLoading", "selectedReportDetails"],
+      () => {
+        return !this.store.get("selectedReportLoading") &&
+          !!this.store.get("selectedReportDetails");
+      },
+    );
+    this.store.computed("showTargetContextMessage", ["selectedReportDetails"], () => {
+      return this.store.get("selectedReportDetails")?.targetType === "message";
+    });
+    this.store.computed("showTargetContextUser", ["selectedReportDetails"], () => {
+      return this.store.get("selectedReportDetails")?.targetType === "user";
+    });
+    this.store.computed("showTargetContextAttachment", ["selectedReportDetails"], () => {
+      return this.store.get("selectedReportDetails")?.targetType === "attachment";
     });
     this.store.computed("selectedReportFormattedDate", ["selectedReportDetails"], () => {
       return formatDate(this.store.get("selectedReportDetails")?.createdAt);

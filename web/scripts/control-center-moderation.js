@@ -2,7 +2,34 @@ import { controlCenterStore } from "./control-center-store.js";
 import { renderToast } from "./control-center-common.js";
 
 export function initModerationModule() {
-  // Navigation / template bindings handle everything state-driven.
+  controlCenterStore.subscribe((state) => {
+    const typeSelect = document.getElementById("sanction-type");
+    if (!typeSelect) return;
+
+    const caps = state.capabilities?.moderation;
+    const capabilityByType = {
+      message_mute: "sanctionsMessageMute",
+      interaction_restriction: "sanctionsInteractionRestriction",
+      account_suspension: "sanctionsAccountSuspension",
+    };
+
+    for (const option of typeSelect.options) {
+      const capability = capabilityByType[option.value];
+      option.disabled = !capability || !caps?.[capability];
+    }
+
+    if (typeSelect.selectedOptions[0]?.disabled) {
+      const firstAllowed = [...typeSelect.options].find((option) => !option.disabled);
+      typeSelect.value = firstAllowed?.value || "";
+    }
+
+    const permanent = document.querySelector(
+      '#sanction-duration option[value="permanent"]',
+    );
+    if (permanent) {
+      permanent.disabled = !caps?.sanctionsAccountSuspension;
+    }
+  });
 }
 
 export const moderationHandlers = {

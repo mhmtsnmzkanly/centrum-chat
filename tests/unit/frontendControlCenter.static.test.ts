@@ -12,6 +12,9 @@ const entryJs = await Deno.readTextFile(
 const storeJs = await Deno.readTextFile(
   new URL("../../web/scripts/control-center-store.js", import.meta.url),
 );
+const moderationJs = await Deno.readTextFile(
+  new URL("../../web/scripts/control-center-moderation.js", import.meta.url),
+);
 
 Deno.test("control center root template composes sections through partials", () => {
   const partials = [
@@ -68,6 +71,13 @@ Deno.test("store defines every shell/report computed the templates bind", () => 
     "operatorBadgeClass",
     "reportsListCountLabel",
     "reportsListEmpty",
+    "usersListEmpty",
+    "showInvestigationPlaceholder",
+    "showInvestigationLoading",
+    "showInvestigationDetails",
+    "showTargetContextMessage",
+    "showTargetContextUser",
+    "showTargetContextAttachment",
     "selectedReportFormattedDate",
     "selectedReportStatusClass",
     "showAssignButton",
@@ -79,6 +89,31 @@ Deno.test("store defines every shell/report computed the templates bind", () => 
   for (const path of computedPaths) {
     assert(storeJs.includes(`"${path}"`), `missing computed: ${path}`);
   }
+});
+
+Deno.test("mutable Control Center lists rebuild keyed rows with current item data", () => {
+  const mutableLists = ["reportsList", "userSanctionsList", "usersList", "channels"];
+  for (const path of mutableLists) {
+    const pattern = new RegExp(
+      `<for each="${path}"[^>]*data-live[^>]*data-diff="replace"|` +
+        `<for each="${path}"[^>]*data-diff="replace"[^>]*data-live`,
+    );
+    assert(pattern.test(html), `${path} must replace surviving keyed rows when item data changes`);
+  }
+});
+
+Deno.test("users list remains mounted while loading and has an empty state", () => {
+  assert(html.includes('data-show="usersLoading"'));
+  assert(html.includes('data-show="usersListEmpty"'));
+  assert(!html.includes('<if is-truthy="usersLoading" data-live>'));
+});
+
+Deno.test("sanction controls derive revocation and option availability from capabilities", () => {
+  assert(storeJs.includes("canRevoke: canRevokeSanctions && !isRevoked && !isExpired"));
+  assert(html.includes('<if is-truthy="s.canRevoke">'));
+  assert(moderationJs.includes("const capabilityByType = {"));
+  assert(moderationJs.includes("option.disabled = !capability || !caps?.[capability]"));
+  assert(moderationJs.includes("permanent.disabled = !caps?.sanctionsAccountSuspension"));
 });
 
 Deno.test("editable user fields bind two-way to a per-selection draft", () => {
