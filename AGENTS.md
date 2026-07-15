@@ -63,13 +63,10 @@ Important facts:
   must type-check under all three.
 - `deno fmt`/`deno lint` **exclude `docs/`, `media/`, and `web/`**. Frontend JS is not formatted or
   linted by the toolchain; match its existing style manually.
-- `deno.json` `test.include` is `["tests/"]`, so the Control Center static test is NOT part of
-  `deno task test`. Run it explicitly: `deno test --allow-read web/control-center/tests/`.
-- `tests/e2e/browser-walkthrough.ts` is a manual puppeteer walkthrough (needs a locally running
-  server and a chromium binary); it is not part of any task.
-- Only external dependencies: `jsr:@std/assert` in tests and `npm:puppeteer-core` in the manual e2e
-  script. Production `src/**` has zero third-party dependencies. Do not add any without explicit
-  architectural approval.
+- Frontend verification is manual. Do not create frontend test files under `tests/`; `tests/` is
+  reserved for backend, protocol, repository, and transport behavior.
+- The only external dependency is `jsr:@std/assert` in backend tests. Production `src/**` has zero
+  third-party dependencies. Do not add any without explicit architectural approval.
 
 ## 4. Repository map
 
@@ -470,9 +467,7 @@ Plain HTML/CSS/JS (one large `index.js`), Bootstrap/fonts from the CDN allow-lis
 Tokens: `localStorage` for remember-me, `sessionStorage` otherwise. One HTTP client wrapper and one
 WS client; the WS client answers `system.ping` with `system.pong` fire-and-forget (`web/index.js`
 ~line 507). Normal-user safety only: block/unblock, report message/attachment/user, CAPTCHA widgets
-for register/login/password-reset. It must never reference `/api/moderation/*` or `/api/admin/*` —
-enforced by `tests/unit/frontendSafety.static.test.ts` (plus `frontendAuth.static.test.ts`,
-`frontendHeartbeat.static.test.ts`).
+for register/login/password-reset. It must never reference `/api/moderation/*` or `/api/admin/*`.
 
 ### Legacy moderation console
 
@@ -497,7 +492,8 @@ written down in `web/control-center/AGENT_BOUNDARY.md` — read it before touchi
   `ui/common.js`), not string-interpolated `innerHTML`.
 - Cursor pagination and optimistic-version conflicts follow the contract docs; conflict responses
   re-fetch rather than retry blindly. Sensitive state is cleared on logout.
-- Static verification: `deno test --allow-read web/control-center/tests/`.
+- Verify Control Center presentation and interactions manually; do not add frontend tests under
+  `tests/`.
 
 ## 16. API contracts and compatibility
 
@@ -571,13 +567,14 @@ Rules:
 
 Suites (`tests/`, all run by `deno task test`):
 
-- `tests/unit/` — domain services against in-memory fakes; includes the `*.static.test.ts` files
-  that assert frontend source properties.
+- `tests/unit/` — domain services against in-memory fakes.
 - `tests/integration/` — full server boot (`startHttpServer` + real WS clients via
   `tests/support/wsTestClient.ts`) against a per-test temp SQLite file, ephemeral port.
 - `tests/protocol/` — codec/envelope shape. `tests/repository/` — each `Sqlite*Repository` against a
   temp DB, including migration-upgrade tests.
-- `web/control-center/tests/` — run separately: `deno test --allow-read web/control-center/tests/`.
+
+Frontend code under `web/` has no automated suite in `tests/`. Do not add static, behavioral, or
+browser frontend test files there; verify frontend changes manually.
 
 Standard verification before declaring success on any code change:
 
@@ -613,9 +610,8 @@ When work is split across agents:
   same file.
 - Backend agents own schema, domain truth, authorization, and API semantics (`src/**`, `db/**`,
   `tests/**` for backend behavior). Frontend agents own presentation and adapter consumption
-  (`web/**` and the frontend static tests). Frontend must not invent backend behavior that doesn't
-  exist; backend must not shape domain APIs around imagined screens — the contract docs are the
-  meeting point.
+  (`web/**`). Frontend must not invent backend behavior that doesn't exist; backend must not shape
+  domain APIs around imagined screens — the contract docs are the meeting point.
 - Shared documents (`docs/03|04|11|12`, this file) get one named owner per task set.
 - Do not run root-wide `deno fmt` while another agent is editing overlapping files.
 - Failures observed outside your ownership boundary are reported, not "fixed".
@@ -630,7 +626,6 @@ Agent A (backend) owns:
 - tests/unit|integration|repository/<area>*.test.ts
 Agent B (frontend) owns:
 - web/control-center/ui/<screen>.js, web/control-center/api/contract.js
-- web/control-center/tests/**
 Forbidden overlap:
 - docs/12-control-center-api-contract.md (owned by Agent A), src/main.ts wiring (Agent A)
 Authoritative contract:
@@ -691,7 +686,8 @@ Full (backend or cross-cutting) task:
 3. Define scope and file ownership (especially if parallel agents exist).
 4. If the task changes a contract, update the contract document first (or atomically with code).
 5. Implement the smallest coherent change; new schema = new migration.
-6. Add regression tests beside the existing suite for that area.
+6. Add regression tests beside the existing backend suite for that area. Frontend-only changes are
+   manually verified and must not add files under `tests/`.
 7. Run focused tests for the touched area, then the full §19 verification; 3× full runs for
    concurrency-sensitive areas.
 8. Report results exactly, including anything unverifiable (external services, live deploys).
@@ -700,9 +696,9 @@ Documentation-only task: verify every claim against production code, change only
 document, run `deno fmt --check <file>` (root Markdown is formatted; `docs/` is fmt-excluded).
 
 Frontend-only task: respect §15 boundaries, change only `web/**` you own, keep the
-`ControlCenterStaticRoute` allow-list in sync for new Control Center assets, and run
-`deno task test` (frontend static tests live in `tests/unit/`) plus
-`deno test --allow-read web/control-center/tests/` when touching the Control Center.
+`ControlCenterStaticRoute` allow-list in sync for new Control Center assets, run the backend suite
+for regression coverage, and manually verify the affected frontend flows. Do not add frontend test
+files under `tests/`.
 
 ## 24. Source-of-truth references
 
