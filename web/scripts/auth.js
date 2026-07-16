@@ -7,7 +7,15 @@ import {
   resolveReturnTo,
   TokenStorage,
 } from "./shared-auth.js";
-import { createAuthTranslator } from "./auth-i18n.js";
+import { restoreAccountLocale, saveAccountLocale } from "./account-locale.js";
+import {
+  bindLocaleSelect,
+  localizeError,
+  observeTranslations,
+  subscribeLocale,
+  t,
+  translateDocument,
+} from "./i18n.js";
 
 const VIEWS = new Set([
   "resolving-session", "sign-in", "register-account", "onboarding-preferences",
@@ -22,12 +30,9 @@ const FIELD_IDS = {
   coverIndex: "onboarding-cover", nameColor: "onboarding-color",
 };
 
-const locale = navigator.language?.toLowerCase().startsWith("tr") ? "tr" : "en";
-const i18n = createAuthTranslator(locale);
-document.documentElement.lang = i18n.locale;
-for (const element of document.querySelectorAll("[data-i18n]")) {
-  element.textContent = i18n.text(element.dataset.i18n);
-}
+const i18n = { text: (key, values = {}) => t(`auth.${key}`, values) };
+translateDocument();
+observeTranslations();
 
 const url = new URL(window.location.href);
 const returnTo = resolveReturnTo(url.searchParams.get("returnTo"), "/");
@@ -90,7 +95,9 @@ function clearErrors() {
 }
 
 function showError(error, fallback = i18n.text("errors.generic")) {
-  const message = error?.message || fallback;
+  const message = error?.code
+    ? localizeError(error, error.message || fallback)
+    : error?.message || fallback;
   const summary = document.getElementById("error-summary");
   summary.textContent = message;
   summary.hidden = false;
@@ -217,6 +224,7 @@ async function resolveSession() {
     showError(error, i18n.text("errors.session"));
     return;
   }
+  await restoreAccountLocale().catch(() => null);
   if (securityTokens.emailChange) {
     try {
       await requestJson("/api/auth/email-change/complete", {
@@ -265,11 +273,17 @@ async function completeVerificationToken() {
 }
 
 for (const seed of AVATARS) document.getElementById("onboarding-avatar").add(new Option(seed, seed));
-for (const index of COVERS) {
-  document.getElementById("onboarding-cover").add(
-    new Option(i18n.text("options.cover", { number: index + 1 }), String(index)),
-  );
+function localizeCoverOptions() {
+  const select = document.getElementById("onboarding-cover");
+  const selected = select.value;
+  select.textContent = "";
+  for (const index of COVERS) {
+    select.add(new Option(i18n.text("options.cover", { number: index + 1 }), String(index)));
+  }
+  select.value = selected || "0";
 }
+localizeCoverOptions();
+subscribeLocale(localizeCoverOptions);
 
 document.addEventListener("click", async (event) => {
   const toggle = event.target.closest("[data-password-toggle]");
@@ -470,6 +484,14 @@ async function logout() {
   accountStatus = null;
   transition("sign-in");
 }
+
+bindLocaleSelect(document.getElementById("auth-locale-select"), async (locale) => {
+  try {
+    await saveAccountLocale(locale);
+  } catch (error) {
+    showError(error, t("language.saveFailed"));
+  }
+});
 
 await initializeCaptcha();
 if (securityTokens.passwordReset) {

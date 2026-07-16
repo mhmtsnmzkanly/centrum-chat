@@ -5,8 +5,9 @@
     <meta name="viewport"
       content="width=device-width, initial-scale=1.0, viewport-fit=cover">
     <meta name="description"
-      content="CentrumChat Control Center - Operations console for moderation, administration, and ownership.">
-    <title>CentrumChat Control Center</title>
+      content="CentrumChat operations console for moderation, administration, and ownership."
+      data-i18n-content="control.description">
+    <title data-i18n="control.documentTitle">CentrumChat Control Center</title>
 
     <!-- Google Fonts -->
     <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -188,6 +189,14 @@
         </div>
 
         <div class="d-flex align-items-center gap-2">
+          <label for="control-locale-select" class="visually-hidden"
+            data-i18n="language.label">Language</label>
+          <select id="control-locale-select"
+            class="form-select form-select-sm cc-locale-select" autocomplete="off"
+            aria-label="Language" data-i18n-aria-label="language.label">
+            <option value="en" data-i18n="language.english">English</option>
+            <option value="tr" data-i18n="language.turkish">Türkçe</option>
+          </select>
           <button id="btn-theme-toggle" class="btn btn-icon-round"
             title="Toggle Dark/Light Mode" aria-label="Toggle dark mode" data-on-click="toggleCCTheme">
             <i class="bi bi-moon-stars"></i>

@@ -1982,7 +1982,41 @@ otomatik frontend test dosyası oluşturulmamalıdır.
 
 #### Durum
 
-`Devam ediyor`
+`Tamamlandı`
+
+- 2026-07-16 — Model: GPT-5 Codex — Efor düzeyi: ortam tarafından sağlanmadı — Frontend aşaması
+  tamamlandı. `web/scripts/i18n.js`, İngilizce varsayılan/fallback, locale değiştirme ve abonelik,
+  `Intl` tarih/saat ve çoğul biçimlendirme, HTML `lang` güncellemesi, Lime yeniden render gözlemcisi
+  ve kararlı backend hata kodu eşlemesinin tek kaynağı oldu; kullanıcı verisi taşıyan `data-text`
+  bağları kaynak-metin çevirisinden özellikle hariç tutuldu. `i18n-catalogs.js` İngilizce/Türkçe
+  semantik katalogları ile eski statik şablonların merkezi geçiş eşlemelerini içeriyor; yeni
+  metinler semantik anahtar kullanacak. `account-locale.js`, browser fallback ile authenticated
+  `GET/PATCH /api/auth/preferences` arasındaki hesap-kapsamlı restore/persist akışını ve auth epoch
+  korumasını merkezileştirdi. Auth, chat ve Control Center'a etiketli EN/TR dil seçicileri eklendi;
+  auth/onboarding/recovery, chat aktivitesi ve hesap güvenliği ile Control Center navigasyon, durum,
+  tarih ve sayaç metinleri aynı runtime'a bağlandı. Eski `auth-i18n.js` kaldırıldı; static route
+  backend testi yeni assetleri kapsıyor. Değişen dosyalar: `AGENTS.md`, `TODOS.md`,
+  `tests/integration/staticRoute.test.ts`, `web/auth.html`, `web/index.html`,
+  `web/control-center.html`, `web/styles/auth.css`, `web/styles/control-center.css`, yeni
+  `web/scripts/i18n.js`, `web/scripts/i18n-catalogs.js`, `web/scripts/account-locale.js`, silinen
+  `web/scripts/auth-i18n.js`, `web/scripts/auth.js`, `web/scripts/chat.js`,
+  `web/scripts/chat-api.js`, `web/scripts/chat-activity.js`, `web/scripts/chat-handlers.js`,
+  `web/scripts/chat-messages.js`, `web/scripts/chat-store.js`, `web/scripts/control-center.js`,
+  `web/scripts/control-center-api.js`, `web/scripts/control-center-common.js` ve
+  `web/scripts/control-center-store.js`. Coupled migration `0012_user_locale_preference.sql`;
+  frontend aşamasında yeni migration veya API sözleşmesi yok. Kontroller: static route odaklı
+  backend testi 1/1; `deno check web/scripts/*.js` geçti; katalog/fallback/çoğul duman kontrolü
+  geçti; `deno task check` geçti; `deno task lint` 266 dosya geçti; `deno task test` 368/368 geçti;
+  `git diff --check` geçti. `deno fmt --check`, bu işten önce mevcut `TODOS.md` 1325/1384/1388
+  satırlarındaki format farkları nedeniyle 282 dosyayı geçip yalnız bu dosyada başarısız oldu.
+  Gerçek Chromium ve geçici SQLite ile auth dil seçimi, reload kalıcılığı, geçersiz locale'in
+  İngilizce fallback'i, kayıt → preferences onboarding → chat, hesap locale round-trip ve browser
+  fallback override, owner Control Center ilk render ve canlı EN↔TR geçişi, 390px sınıfı mobil
+  görünüm, klavye ile dil seçimi, erişilebilir label/aria-label ve yatay taşma doğrulandı; sayfa
+  exception/log hatası 0. Auth ve yeni üç JS asseti GET ile 200/doğru content-type aldı; HTML CSP
+  mevcut politika değiştirilmeden çalıştı. Bilinen işlevsel i18n eksiği yok; canlı mail/CAPTCHA
+  sağlayıcıları bu locale çalışmasının kapsamında kullanılmadı. kullanıcı frontend testlerini
+  istemiyor; otomatik frontend testi eklenmedi ve frontend otomasyon suite'i NOT APPLICABLE.
 
 - 2026-07-16 — Model: GPT-5 Codex — Efor düzeyi: ortam tarafından sağlanmadı — Backend aşaması
   tamamlandı. `0012_user_locale_preference.sql` ile `user_preferences.locale` eklendi; seçim

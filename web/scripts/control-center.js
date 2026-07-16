@@ -10,11 +10,21 @@ import { initSettingsModule, settingsHandlers } from "./control-center-settings.
 import { initAuditModule, auditHandlers } from "./control-center-audit.js";
 import { initOwnerModule, ownerHandlers } from "./control-center-owner.js";
 import { initDialogs } from "./control-center-dialogs.js";
+import { renderToast } from "./control-center-common.js";
 import {
   authPageUrl,
   guardProtectedPage,
   resolveControlCenterAccess,
 } from "./shared-auth.js";
+import { restoreAccountLocale, saveAccountLocale } from "./account-locale.js";
+import {
+  bindLocaleSelect,
+  getLocale,
+  observeTranslations,
+  subscribeLocale,
+  t,
+  translateDocument,
+} from "./i18n.js";
 
 setDevMode(false);
 
@@ -68,6 +78,10 @@ const NAV_GROUPS = [
 async function initializeControlCenter() {
   const account = await guardProtectedPage("/control-center");
   if (!account) return;
+  await restoreAccountLocale().catch(() => null);
+  translateDocument();
+  observeTranslations();
+  controlCenterStore.set("locale", getLocale());
   // Missing or unresolvable Control Center permission never renders an
   // in-page denied state: the auth page owns the permission-denied view
   // (auth.js finishDestination re-checks access for /control-center).
@@ -92,6 +106,7 @@ async function initializeControlCenter() {
       store: controlCenterStore,
       handlers,
     });
+    translateDocument(appRoot);
   }
 
   // 2. Initialize UI modules
@@ -105,6 +120,17 @@ async function initializeControlCenter() {
   initAuditModule();
   initOwnerModule();
   initDialogs();
+  subscribeLocale((locale) => {
+    controlCenterStore.set("locale", locale);
+    queueMicrotask(() => translateDocument());
+  });
+  bindLocaleSelect(document.getElementById("control-locale-select"), async (locale) => {
+    try {
+      await saveAccountLocale(locale);
+    } catch {
+      renderToast("danger", t("language.saveFailed"));
+    }
+  });
 
   // 3. Seed operator/capability state from the payload the access check
   //    already resolved — /api/control-center/me is fetched exactly once.

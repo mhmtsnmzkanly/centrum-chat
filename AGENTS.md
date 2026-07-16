@@ -475,10 +475,17 @@ Rules:
 The auth page owns sign-in, registration, recovery/security-link callbacks, onboarding, safe
 same-origin `returnTo`, and Control Center permission-denied behavior. `shared-auth.js` is the only
 browser implementation of token storage, refresh serialization, authenticated fetch, account
-resolution, destination validation, and protected-page guards. Auth strings use the small keyed
-catalog in `auth-i18n.js`: English is the default/fallback and Turkish is selected from the browser
-locale when available. Chat and Control Center consume these modules rather than reimplementing
-token or refresh behavior.
+resolution, destination validation, and protected-page guards. Auth, chat, and Control Center use
+the shared `web/scripts/i18n.js` runtime and `i18n-catalogs.js` English/Turkish catalogs. English is
+the defined missing-key fallback; initial locale comes from the persisted browser selection or the
+browser locale, then an authenticated account's nullable `user_preferences.locale` overrides it.
+`account-locale.js` is the only browser adapter for restoring and persisting that account setting.
+Stable backend error codes are localized by the catalog and remain presentation-only; they never
+grant authority. HTML `lang`, date/time, plural labels, locale selectors, and newly rendered Lime
+content are updated by the shared runtime. Source-string mappings exist only as an incremental
+migration layer for legacy static templates; new UI strings should use semantic catalog keys. Chat
+and Control Center consume these modules rather than reimplementing token, refresh, or locale
+behavior.
 
 ### Main chat UI — `web/index.html`, `web/scripts/chat*.js`, `web/styles/chat.css`
 

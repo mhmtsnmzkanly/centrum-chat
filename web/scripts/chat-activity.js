@@ -1,6 +1,7 @@
 import { store } from "./chat-store.js";
 import { wsClient } from "./chat-socket.js";
 import { registerAuthCleanup } from "./chat-auth.js";
+import { formatDateTime, t } from "./i18n.js";
 
 const ACTIVITY_FILTER_TYPES = {
   all: null,
@@ -12,38 +13,38 @@ const ACTIVITY_FILTER_TYPES = {
 
 const ACTIVITY_TYPE_META = {
   mention: {
-    title: "Mention",
-    description: "You were mentioned in a message.",
+    titleKey: "chat.activity.mention.title",
+    descriptionKey: "chat.activity.mention.body",
     icon: "bi-at",
   },
   reply: {
-    title: "Reply",
-    description: "Someone replied to your message.",
+    titleKey: "chat.activity.reply.title",
+    descriptionKey: "chat.activity.reply.body",
     icon: "bi-reply-fill",
   },
   dm: {
-    title: "Direct message",
-    description: "You received a new direct message.",
+    titleKey: "chat.activity.dm.title",
+    descriptionKey: "chat.activity.dm.body",
     icon: "bi-chat-dots-fill",
   },
   reaction: {
-    title: "Reaction",
-    description: "Someone reacted to your message.",
+    titleKey: "chat.activity.reaction.title",
+    descriptionKey: "chat.activity.reaction.body",
     icon: "bi-emoji-smile-fill",
   },
   group_invite: {
-    title: "Group invitation",
-    description: "You were added to a group conversation.",
+    titleKey: "chat.activity.invite.title",
+    descriptionKey: "chat.activity.invite.body",
     icon: "bi-people-fill",
   },
   system: {
-    title: "System update",
-    description: "There is an update from CentrumChat.",
+    titleKey: "chat.activity.system.title",
+    descriptionKey: "chat.activity.system.body",
     icon: "bi-info-circle-fill",
   },
   security: {
-    title: "Security update",
-    description: "There is an update about your account security.",
+    titleKey: "chat.activity.security.title",
+    descriptionKey: "chat.activity.security.body",
     icon: "bi-shield-lock-fill",
   },
 };
@@ -92,13 +93,10 @@ function filteredNotifications() {
 }
 
 function formatActivityTime(value) {
-  if (!value) return "Unknown time";
+  if (!value) return t("chat.activity.unknownTime");
   const date = new Date(value);
-  if (Number.isNaN(date.getTime())) return "Unknown time";
-  return new Intl.DateTimeFormat(undefined, {
-    dateStyle: "medium",
-    timeStyle: "short",
-  }).format(date);
+  if (Number.isNaN(date.getTime())) return t("chat.activity.unknownTime");
+  return formatDateTime(date);
 }
 
 function replaceNotifications(updater) {
@@ -141,7 +139,7 @@ export async function refreshActivityInbox() {
   } catch (error) {
     if (!isCurrentRequest(sequence, accountId)) return;
     console.error("Failed to load activity inbox:", error);
-    store.set("activityInbox.error", "Activity could not be loaded. Please try again.");
+    store.set("activityInbox.error", t("chat.activity.loadFailed"));
   } finally {
     if (isCurrentRequest(sequence, accountId)) store.set("activityInbox.loading", false);
   }
@@ -273,29 +271,35 @@ export function activityItemsForView() {
   const selected = new Set(store.get("activityInbox.selectedIds") || []);
   return filteredNotifications().map((notification) => {
     const meta = ACTIVITY_TYPE_META[notification.type] || {
-      title: "Activity update",
-      description: "You have a new activity update.",
+      titleKey: "chat.activity.generic.title",
+      descriptionKey: "chat.activity.generic.body",
       icon: "bi-bell-fill",
     };
+    const title = t(meta.titleKey);
+    const description = t(meta.descriptionKey);
     const isSelected = selected.has(notification.id);
     return {
       ...notification,
-      ...meta,
+      title,
+      description,
       timeLabel: formatActivityTime(notification.createdAt),
       rowClass: notification.isRead ? "is-read" : "is-unread",
       selectionClass: isSelected ? "is-selected" : "",
       selectionIcon: isSelected ? "bi-check-square-fill" : "bi-square",
       selectionAria: isSelected ? "true" : "false",
-      selectionLabel: isSelected ? `Deselect ${meta.title}` : `Select ${meta.title}`,
-      openLabel: notification.conversationId ? `Open ${meta.title}` : `Mark ${meta.title} as read`,
-      actionText: notification.conversationId ? "Open" : "Mark read",
+      selectionLabel: t(isSelected ? "chat.activity.deselect" : "chat.activity.select", { title }),
+      openLabel: t(
+        notification.conversationId ? "chat.activity.openLabel" : "chat.activity.markLabel",
+        { title },
+      ),
+      actionText: t(notification.conversationId ? "chat.activity.open" : "chat.activity.markRead"),
     };
   });
 }
 
 store.computed(
   "activityItems",
-  ["activityInbox.notifications", "activityInbox.filter", "activityInbox.selectedIds"],
+  ["activityInbox.notifications", "activityInbox.filter", "activityInbox.selectedIds", "locale"],
   activityItemsForView,
 );
 
@@ -336,15 +340,15 @@ store.computed("activityInbox.hasError", ["activityInbox.error"], () => {
   return !!store.get("activityInbox.error");
 });
 
-store.computed("activityInbox.emptyText", ["activityInbox.filter"], () => {
+store.computed("activityInbox.emptyText", ["activityInbox.filter", "locale"], () => {
   return store.get("activityInbox.filter") === "all"
-    ? "Your activity inbox is empty."
-    : "No activity matches this filter.";
+    ? t("chat.activity.empty")
+    : t("chat.activity.noMatch");
 });
 
-store.computed("activityInbox.selectedText", ["activityInbox.selectedIds"], () => {
+store.computed("activityInbox.selectedText", ["activityInbox.selectedIds", "locale"], () => {
   const count = (store.get("activityInbox.selectedIds") || []).length;
-  return count === 0 ? "No activity selected" : `${count} selected`;
+  return count === 0 ? t("chat.activity.noneSelected") : t("chat.activity.selected", { count });
 });
 
 store.computed("activityInbox.hasSelection", ["activityInbox.selectedIds"], () => {

@@ -1,6 +1,7 @@
 import { store } from "./chat-store.js";
 import { clearAuthenticatedState } from "./chat-auth.js";
 import { authenticatedFetch } from "./shared-auth.js";
+import { localizeError, t, translateSourceText } from "./i18n.js";
 
 export const ToastService = {
   show: (message, type = "info") => {
@@ -16,8 +17,8 @@ export const ToastService = {
       <div id="${toastId}" class="toast toast-custom hide" role="alert" aria-live="assertive" aria-atomic="true">
         <div class="toast-header border-0 bg-transparent">
           <i class="bi ${iconMap[type]} me-2"></i>
-          <strong class="me-auto text-capitalize">${type}</strong>
-          <button type="button" class="btn-close" data-bs-dismiss="toast" aria-label="Close"></button>
+      <strong class="me-auto text-capitalize">${translateSourceText(type)}</strong>
+      <button type="button" class="btn-close" data-bs-dismiss="toast" aria-label="${translateSourceText("Close")}"></button>
         </div>
         <div class="toast-body py-1 pb-3 px-3"></div>
       </div>
@@ -27,7 +28,7 @@ export const ToastService = {
     if (container) {
       container.insertAdjacentHTML("beforeend", toastHtml);
       const toastEl = document.getElementById(toastId);
-      toastEl.querySelector(".toast-body").textContent = String(message);
+      toastEl.querySelector(".toast-body").textContent = translateSourceText(String(message));
       const bsToast = window.bootstrap?.Toast
         ? new window.bootstrap.Toast(toastEl, { delay: 4000 })
         : null;
@@ -59,7 +60,7 @@ export function handleSecurityErrorCode(code) {
     ["MESSAGE_MUTED", "INTERACTION_RESTRICTED", "ACCOUNT_SUSPENDED", "BLOCKED_INTERACTION"]
       .includes(code)
   ) {
-    ToastService.show("This action is unavailable because of an account safety policy.", "warning");
+    ToastService.show(localizeError(code), "warning");
   }
 }
 
@@ -93,13 +94,14 @@ export async function apiFetch(url, options = {}) {
   try {
     response = await authenticatedFetch(url, options);
   } catch (err) {
-    ToastService.show("Network error: " + err.message, "error");
+    ToastService.show(localizeError("NETWORK_ERROR"), "error");
     throw err;
   }
 
   if (response.status === 401) {
-    clearAuthenticatedState("Session expired. Please log in again.", "warning");
-    throw makeClientError("UNAUTHORIZED", "Session expired. Please log in again.");
+    const message = localizeError("UNAUTHORIZED");
+    clearAuthenticatedState(message, "warning");
+    throw makeClientError("UNAUTHORIZED", message);
   }
 
   let responseJson;
@@ -111,7 +113,10 @@ export async function apiFetch(url, options = {}) {
     throw new Error(errMsg);
   }
   if (!responseJson.success) {
-    const errMsg = responseJson.error?.message || "An error occurred.";
+    const errMsg = localizeError(
+      responseJson.error?.code,
+      responseJson.error?.message || t("error.INTERNAL_ERROR"),
+    );
     handleSecurityErrorCode(responseJson.error?.code);
     ToastService.show(errMsg, "error");
     throw makeClientError(responseJson.error?.code, errMsg);

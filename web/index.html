@@ -3,8 +3,9 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
-  <meta name="description" content="CentrumChat - A modern, high-fidelity chat experience with responsive design, glassmorphism, and responsive messaging.">
-  <title>CentrumChat - Connect Modernly</title>
+  <meta name="description" content="CentrumChat - A modern, responsive chat experience."
+    data-i18n-content="chat.description">
+  <title data-i18n="chat.documentTitle">CentrumChat - Connect Modernly</title>
   <!-- Google Fonts -->
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -963,6 +964,14 @@
             <if is-eq="preferencesForm.activeTab" to="appearance" data-live="preferencesForm.activeTab">
               <!-- Appearance Tab Panel -->
               <div class="tab-pane show active" role="tabpanel">
+                <div class="mb-3 text-start">
+                  <label for="chat-locale-select" class="form-label small fw-bold text-muted mb-1"
+                    data-i18n="language.label">Language</label>
+                  <select id="chat-locale-select" class="form-select form-select-sm" autocomplete="off">
+                    <option value="en" data-i18n="language.english">English</option>
+                    <option value="tr" data-i18n="language.turkish">Türkçe</option>
+                  </select>
+                </div>
                 <div class="mb-3 text-start">
                   <label class="form-label small fw-bold text-muted mb-1" style="font-size: 0.72rem; letter-spacing: 0.5px;">THEME</label>
                   <div class="d-flex gap-2">

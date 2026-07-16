@@ -4,6 +4,7 @@ import {
   authPageUrl,
   TokenStorage,
 } from "./shared-auth.js";
+import { localizeError } from "./i18n.js";
 
 export { TokenStorage };
 
@@ -15,8 +16,11 @@ export function handleAuthLoss() {
 }
 
 function serverError(response, envelope) {
-  const message = envelope?.error?.message ||
-    `Request failed (${response.status}).`;
+  const code = envelope?.error?.code;
+  const message = localizeError(
+    code,
+    envelope?.error?.message || `Request failed (${response.status}).`,
+  );
   const details = envelope?.error?.details;
   let error;
   if (response.status === 400) {
@@ -31,7 +35,7 @@ function serverError(response, envelope) {
       response.headers.get("Retry-After"),
     );
   } else error = new Errors.ServerError(message);
-  error.serverCode = envelope?.error?.code || error.code;
+  error.serverCode = code || error.code;
   error.status = response.status;
   return error;
 }
@@ -41,11 +45,11 @@ async function apiFetch(path, options = {}, retry = true) {
   try {
     response = await authenticatedFetch(path, options, retry);
   } catch {
-    throw new Errors.NetworkError();
+    throw new Errors.NetworkError(localizeError("NETWORK_ERROR"));
   }
   if (response.status === 401) {
     handleAuthLoss();
-    throw new Errors.UnauthorizedError();
+    throw new Errors.UnauthorizedError(localizeError("UNAUTHORIZED"));
   }
   const envelope = await response.json().catch(() => null);
   if (!response.ok) {

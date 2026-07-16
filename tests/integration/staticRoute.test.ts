@@ -51,7 +51,15 @@ Deno.test("StaticRoute resolves exact, extensionless, and directory fallback pat
     assertEquals(responseJS.status, 200);
     assertStringIncludes(responseJS.headers.get("content-type") ?? "", "application/javascript");
 
-    for (const path of ["/scripts/auth.js", "/scripts/shared-auth.js", "/scripts/auth-i18n.js"]) {
+    for (
+      const path of [
+        "/scripts/auth.js",
+        "/scripts/shared-auth.js",
+        "/scripts/i18n.js",
+        "/scripts/i18n-catalogs.js",
+        "/scripts/account-locale.js",
+      ]
+    ) {
       const response = await fetch(base + path);
       assertEquals(response.status, 200);
       assertStringIncludes(response.headers.get("content-type") ?? "", "application/javascript");

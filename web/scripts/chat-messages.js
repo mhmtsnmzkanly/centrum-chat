@@ -4,6 +4,7 @@ import { wsClient } from "./chat-socket.js";
 import { ToastService } from "./chat-api.js";
 import { playBeep } from "./chat-dialogs.js";
 import { hasSavedScrollPosition, restoreScrollPosition } from "./chat-conversations.js";
+import { formatDate, getLocale, t } from "./i18n.js";
 
 export const HELPERS = {
   sanitize: (str) => {
@@ -16,7 +17,7 @@ export const HELPERS = {
   formatJoined: (isoStr) => {
     const d = new Date(isoStr);
     if (isNaN(d)) return "";
-    return d.toLocaleDateString("en-US", { month: "long", year: "numeric" });
+    return formatDate(d, { month: "long", year: "numeric" });
   },
   formatBytes: (bytes) => {
     if (!bytes) return "0 Bytes";
@@ -99,7 +100,9 @@ export const MAPPERS = {
       authorId: m.authorId || null,
       content: m.content,
       timestamp: m.createdAt
-        ? new Date(m.createdAt).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })
+        ? new Intl.DateTimeFormat(getLocale(), { hour: "2-digit", minute: "2-digit" }).format(
+          new Date(m.createdAt),
+        )
         : "",
       isoTimestamp: m.createdAt || "",
       reactions,
@@ -126,6 +129,7 @@ export const MAPPERS = {
         dmPrivacy: "everyone",
         groupPrivacy: "everyone",
         theme: "light",
+        locale: null,
       };
     }
     return {
@@ -134,6 +138,7 @@ export const MAPPERS = {
       dmPrivacy: p.dmPrivacy || "everyone",
       groupPrivacy: p.groupPrivacy || "everyone",
       theme: p.theme || "light",
+      locale: p.locale || null,
     };
   },
 };
@@ -247,9 +252,9 @@ store.computed("activeMessages", [
     const d = new Date(isoStr);
     if (isNaN(d)) return null;
     const msgDayMs = new Date(d).setHours(0, 0, 0, 0);
-    if (msgDayMs === today.getTime()) return "Today";
-    if (msgDayMs === yesterday.getTime()) return "Yesterday";
-    return d.toLocaleDateString("en-US", { weekday: "long", month: "short", day: "numeric" });
+    if (msgDayMs === today.getTime()) return t("chat.day.today");
+    if (msgDayMs === yesterday.getTime()) return t("chat.day.yesterday");
+    return formatDate(d, { weekday: "long", month: "short", day: "numeric" });
   };
 
   const activeDest = store.get("activeDest");

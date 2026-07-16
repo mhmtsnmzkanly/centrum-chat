@@ -11,6 +11,15 @@ import { UploadOverlay, destKeyForConversation, setupDragDropZone } from "./chat
 import { refreshUserProfile } from "./chat-profile.js";
 import { applySystemTheme } from "./shared-theme.js";
 import { addActivityNotification, refreshActivityInbox } from "./chat-activity.js";
+import { restoreAccountLocale, saveAccountLocale } from "./account-locale.js";
+import {
+  bindLocaleSelect,
+  getLocale,
+  observeTranslations,
+  subscribeLocale,
+  t,
+  translateDocument,
+} from "./i18n.js";
 import {
   handlers,
   initApp,
@@ -176,7 +185,7 @@ wsClient.addEventListener("typing.updated", (data) => {
 
   if (isTyping) {
     const user = store.get(`users.${userId}`);
-    const displayName = user ? user.displayName : "Someone";
+    const displayName = user ? user.displayName : t("chat.someone");
     store.set("typingState", {
       active: true,
       avatarUrl: user?.avatarUrl || HELPERS.dicebearUrl(userId),
@@ -198,12 +207,12 @@ wsClient.addEventListener("notification.new", (data) => {
   const { notification } = data;
   addActivityNotification(notification);
   const labels = {
-    mention: "You were mentioned in a message.",
-    dm: "New direct message received.",
-    group_invite: "You were added to a group.",
-    reaction: "Someone reacted to your message.",
+    mention: t("chat.activity.mention.body"),
+    dm: t("chat.activity.dm.body"),
+    group_invite: t("chat.activity.invite.body"),
+    reaction: t("chat.activity.reaction.body"),
   };
-  ToastService.show(labels[notification.type] || "New notification.", "info");
+  ToastService.show(labels[notification.type] || t("chat.notification.new"), "info");
   if (notification.type === "group_invite") {
     loadInitialData();
   }
@@ -255,6 +264,10 @@ wsClient.onReconnect = () => {
 
 const account = await guardProtectedPage("/");
 if (account) {
+  await restoreAccountLocale().catch(() => null);
+  translateDocument();
+  observeTranslations();
+  store.set("locale", getLocale());
   document.documentElement.dataset.authState = "ready";
   const appRoot = document.getElementById("app");
   if (appRoot) {
@@ -264,7 +277,16 @@ if (account) {
       store,
       handlers,
     });
+    translateDocument(appRoot);
   }
+  subscribeLocale((locale) => store.set("locale", locale));
+  bindLocaleSelect(document.getElementById("chat-locale-select"), async (locale) => {
+    try {
+      await saveAccountLocale(locale);
+    } catch {
+      ToastService.show(t("language.saveFailed"), "error");
+    }
+  });
   globalThis.__centrum = { store, wsClient };
   await initApp(account);
 }

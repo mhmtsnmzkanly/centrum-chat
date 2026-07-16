@@ -1,4 +1,5 @@
 import { createStore } from "./lime-csr.js";
+import { getLocale, t } from "./i18n.js";
 
 // Configuration (avatar seeds + cover gradients ported from the original UI)
 export const CONFIG = {
@@ -15,6 +16,7 @@ export const CONFIG = {
 };
 
 export const store = createStore({
+  locale: getLocale(),
   session: {
     loggedIn: false,
     user: null,
@@ -166,19 +168,19 @@ function computedAvatarStyle(target, dep) {
   });
 }
 
-store.computed("activeDestLabel", ["activeDest", "groupList", "resolvedDms"], () => {
+store.computed("activeDestLabel", ["activeDest", "groupList", "resolvedDms", "locale"], () => {
   const dest = store.get("activeDest");
   if (!dest) return "";
   if (dest.type === "channel") return `# ${dest.value}`;
   if (dest.type === "dm") {
     const resolvedDms = store.get("resolvedDms") || [];
     const activeDm = resolvedDms.find((d) => d.conversationId === dest.value);
-    return activeDm ? `@ ${activeDm.displayName}` : "Direct Message";
+    return activeDm ? `@ ${activeDm.displayName}` : t("chat.activity.dm.title");
   }
   if (dest.type === "group") {
     const groups = store.get("groupList") || [];
     const g = groups.find((x) => x.id === dest.value);
-    return g ? `~ ${g.name}` : "Group";
+    return g ? `~ ${g.name}` : (store.get("locale") === "tr" ? "Grup" : "Group");
   }
   return "";
 });
@@ -310,10 +312,13 @@ store.computed("replyContextState.class", ["replyTarget"], () => {
   return store.get("replyTarget") ? "show" : "";
 });
 
-store.computed("replyContextState.title", ["replyTarget"], () => {
+store.computed("replyContextState.title", ["replyTarget", "locale"], () => {
   const target = store.get("replyTarget");
   if (!target) return "";
-  return target.isEdit ? "Editing message" : `Replying to ${target.displayName}`;
+  if (target.isEdit) return store.get("locale") === "tr" ? "Mesaj düzenleniyor" : "Editing message";
+  return store.get("locale") === "tr"
+    ? `${target.displayName} kullanıcısına yanıt veriliyor`
+    : `Replying to ${target.displayName}`;
 });
 
 store.computed("replyContextState.text", ["replyTarget"], () => {

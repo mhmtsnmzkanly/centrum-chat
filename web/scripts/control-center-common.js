@@ -1,11 +1,13 @@
+import { formatDateTime, t, translateSourceText } from "./i18n.js";
+
 export function formatDate(isoString) {
-  if (!isoString) return "N/A";
+  if (!isoString) return t("common.notAvailable");
   try {
     const d = new Date(isoString);
-    if (isNaN(d.getTime())) return "N/A";
-    return d.toLocaleString();
+    if (isNaN(d.getTime())) return t("common.notAvailable");
+    return formatDateTime(d);
   } catch {
-    return "N/A";
+    return t("common.notAvailable");
   }
 }
 
@@ -63,12 +65,12 @@ export function renderToast(type, message) {
     "aria-atomic": "true",
   }, [
     el("div", { className: "d-flex" }, [
-      el("div", { className: "toast-body", textContent: message }),
+      el("div", { className: "toast-body", textContent: translateSourceText(message) }),
       el("button", {
         type: "button",
         className: "btn-close btn-close-white me-2 m-auto",
         "data-bs-dismiss": "toast",
-        "aria-label": "Close",
+        "aria-label": translateSourceText("Close"),
       }),
     ]),
   ]);

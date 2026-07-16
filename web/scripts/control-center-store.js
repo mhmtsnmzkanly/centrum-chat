@@ -2,8 +2,10 @@ import { ControlCenterApi } from "./control-center-api.js";
 import { getActiveCapabilities } from "./control-center-contract.js";
 import { createStore } from "./lime-csr.js";
 import { formatDate } from "./control-center-common.js";
+import { getLocale, t, tp } from "./i18n.js";
 
 const DEFAULT_STATE = {
+  locale: getLocale(),
   currentTab: "reports", // reports, moderation-audit, users, channels, roles, settings, security-audit, ownership-transfer
   operator: null,
   capabilities: null,
@@ -160,28 +162,30 @@ class Store {
     });
 
     // 3. userSanctionsList
-    this.store.computed("userSanctionsList", ["userSanctions", "capabilities"], () => {
+    this.store.computed("userSanctionsList", ["userSanctions", "capabilities", "locale"], () => {
       const userSanctions = this.store.get("userSanctions") || [];
       const canRevokeSanctions = !!this.store.get("capabilities")?.moderation
         .sanctionsRevoke;
       return userSanctions.map(s => {
         const isRevoked = !!s.revokedAt;
         const isExpired = !!s.expiresAt && new Date(s.expiresAt) < new Date();
-        const statusText = isRevoked ? "Revoked" : (isExpired ? "Expired" : "Active");
+        const statusText = isRevoked
+          ? t("control.status.revoked")
+          : (isExpired ? t("control.status.expired") : t("control.status.active"));
         const badgeClass = isRevoked ? "bg-secondary" : (isExpired ? "bg-secondary" : "bg-danger");
         return {
           ...s,
           typeDisplay: s.type.replace("_", " ").toUpperCase(),
           statusText,
           badgeClass,
-          expiresFormatted: s.expiresAt ? formatDate(s.expiresAt) : "Permanent",
+          expiresFormatted: s.expiresAt ? formatDate(s.expiresAt) : t("control.status.permanent"),
           canRevoke: canRevokeSanctions && !isRevoked && !isExpired,
         };
       });
     });
 
     // 4. moderationAuditEvents
-    this.store.computed("moderationAuditEvents", ["auditEvents"], () => {
+    this.store.computed("moderationAuditEvents", ["auditEvents", "locale"], () => {
       const events = this.store.get("auditEvents") || [];
       const codes = ["report.assign", "report.status.transition", "sanction.apply", "sanction.revoke"];
       return events.filter(e => codes.includes(e.actionCode)).map(e => ({
@@ -196,7 +200,7 @@ class Store {
     });
 
     // 6. securityAuditEvents
-    this.store.computed("securityAuditEvents", ["auditEvents"], () => {
+    this.store.computed("securityAuditEvents", ["auditEvents", "locale"], () => {
       const events = this.store.get("auditEvents") || [];
       const codes = ["report.assign", "report.status.transition", "sanction.apply", "sanction.revoke"];
       return events.filter(e => !codes.includes(e.actionCode)).map(e => ({
@@ -211,11 +215,15 @@ class Store {
     });
 
     // 7. count computed labels
-    this.store.computed("moderationAuditEventsCountLabel", ["moderationAuditEvents"], () => {
-      return (this.store.get("moderationAuditEvents") || []).length + " events";
+    this.store.computed("moderationAuditEventsCountLabel", ["moderationAuditEvents", "locale"], () => {
+      return t("control.events.count", {
+        count: (this.store.get("moderationAuditEvents") || []).length,
+      });
     });
-    this.store.computed("securityAuditEventsCountLabel", ["securityAuditEvents"], () => {
-      return (this.store.get("securityAuditEvents") || []).length + " events";
+    this.store.computed("securityAuditEventsCountLabel", ["securityAuditEvents", "locale"], () => {
+      return t("control.events.count", {
+        count: (this.store.get("securityAuditEvents") || []).length,
+      });
     });
     this.store.computed("moderationAuditEmpty", ["moderationAuditEvents"], () => {
       return (this.store.get("moderationAuditEvents") || []).length === 0;
@@ -229,18 +237,19 @@ class Store {
       return !!this.store.get("operator") && !this.store.get("accessDenied");
     });
 
-    const TAB_TITLES = {
-      reports: "Reports Queue",
-      "moderation-audit": "Moderation Audit",
-      users: "Users",
-      channels: "Channels",
-      roles: "Roles",
-      settings: "System Settings",
-      "security-audit": "Security Audit",
-      "ownership-transfer": "Ownership Transfer",
+    const TAB_TITLE_KEYS = {
+      reports: "control.tab.reports",
+      "moderation-audit": "control.tab.moderationAudit",
+      users: "control.tab.users",
+      channels: "control.tab.channels",
+      roles: "control.tab.roles",
+      settings: "control.tab.settings",
+      "security-audit": "control.tab.securityAudit",
+      "ownership-transfer": "control.tab.ownership",
     };
-    this.store.computed("workspaceTitleText", ["currentTab"], () => {
-      return TAB_TITLES[this.store.get("currentTab")] || "Control Center";
+    this.store.computed("workspaceTitleText", ["currentTab", "locale"], () => {
+      const key = TAB_TITLE_KEYS[this.store.get("currentTab")];
+      return key ? t(key) : "Control Center";
     });
 
     this.store.computed("operatorAvatarText", ["operator"], () => {
@@ -262,9 +271,9 @@ class Store {
     });
 
     // 9. Reports queue + investigation helpers
-    this.store.computed("reportsListCountLabel", ["reports"], () => {
+    this.store.computed("reportsListCountLabel", ["reports", "locale"], () => {
       const count = (this.store.get("reports") || []).length;
-      return count === 1 ? "1 report" : `${count} reports`;
+      return tp("control.reports.count", count);
     });
     this.store.computed("reportsListEmpty", ["reports", "reportsLoading"], () => {
       return !this.store.get("reportsLoading") &&

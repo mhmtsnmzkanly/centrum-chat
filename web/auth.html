@@ -3,8 +3,9 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
-  <meta name="description" content="Sign in to CentrumChat or finish setting up your account.">
-  <title>CentrumChat Account</title>
+  <meta name="description" content="Sign in to CentrumChat or finish setting up your account."
+    data-i18n-content="auth.description">
+  <title data-i18n="auth.documentTitle">CentrumChat Account</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;500;600;700&display=swap" rel="stylesheet">
@@ -24,6 +25,14 @@
           <h1 id="auth-title" tabindex="-1" data-i18n="title">Welcome to your workspace</h1>
         </div>
       </header>
+
+      <div class="auth-locale-control">
+        <label for="auth-locale-select" data-i18n="language.label">Language</label>
+        <select id="auth-locale-select" autocomplete="off">
+          <option value="en" data-i18n="language.english">English</option>
+          <option value="tr" data-i18n="language.turkish">Türkçe</option>
+        </select>
+      </div>
 
       <nav id="auth-nav" class="auth-nav" aria-label="Authentication choices">
         <button type="button" data-action="show-sign-in" data-i18n="nav.signIn">Sign in</button>

@@ -8,6 +8,7 @@ import { activeConversationId, setRoomMessages, appendRoomMessage, markConversat
 import { UploadOverlay, destKeyForConversation, setupDragDropZone } from "./chat-media.js";
 import { applySessionProfile, seedPreferencesForm, refreshUserProfile } from "./chat-profile.js";
 import { logoutBrowserSession } from "./shared-auth.js";
+import { t } from "./i18n.js";
 import {
   activityById,
   deleteAllActivity,
@@ -949,7 +950,7 @@ export const handlers = {
 
       hideModal("preferencesModal");
 
-      ToastService.show("Preferences saved successfully!", "success");
+      ToastService.show(t("chat.preferences.saved"), "success");
     } catch (err) {
       console.error("Preferences save failed:", err);
     }
