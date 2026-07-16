@@ -372,6 +372,14 @@ body.dark-mode .table {
   color: var(--text-dark) !important;
 }
 
+/* Lime's data-show writes an inline display:none. Bootstrap display utilities
+   such as d-flex use !important and otherwise keep hidden reactive regions
+   visible. Limit the compatibility override to Lime-managed Control Center
+   nodes so active elements retain their original Bootstrap display mode. */
+#control-center-app [data-show][style*="display: none"] {
+  display: none !important;
+}
+
 .cc-locale-select {
   width: auto;
   min-width: 6.5rem;
