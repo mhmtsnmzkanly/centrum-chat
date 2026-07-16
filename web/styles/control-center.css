@@ -380,6 +380,14 @@ body.dark-mode .table {
   display: none !important;
 }
 
+/* Native hidden is the authoritative boundary for page-level tab routing.
+   Bootstrap display helpers are !important, so this rule must match them. */
+#control-center-app .tab-panel[hidden],
+#control-center-app [data-nav-group][hidden],
+#control-center-app [data-nav-item][hidden] {
+  display: none !important;
+}
+
 .cc-locale-select {
   width: auto;
   min-width: 6.5rem;

@@ -40,14 +40,13 @@ const handlers = {
   ...ownerHandlers,
 };
 
-// Static sidebar configuration rendered by tpl-cc-sidebar. Visibility and
-// active state stay reactive through showNavGroup*/showTab_*/navClass_*
-// store computeds; this array only describes structure, icons, and labels.
+// Static sidebar configuration rendered by tpl-cc-sidebar. The navigation
+// controller resolves capability visibility and active panel state after the
+// template is mounted.
 const NAV_GROUPS = [
   {
     id: "moderation",
     title: "Moderation",
-    showPath: "showNavGroupModeration",
     items: [
       { tab: "reports", icon: "bi-chat-left-text", label: "Reports Queue" },
       { tab: "moderation-audit", icon: "bi-journal-text", label: "Moderation Audit" },
@@ -56,7 +55,6 @@ const NAV_GROUPS = [
   {
     id: "administration",
     title: "Administration",
-    showPath: "showNavGroupAdministration",
     items: [
       { tab: "users", icon: "bi-people", label: "Users" },
       { tab: "channels", icon: "bi-hash", label: "Channels" },
@@ -68,7 +66,6 @@ const NAV_GROUPS = [
   {
     id: "owner",
     title: "Owner Only",
-    showPath: "showNavGroupOwner",
     items: [
       { tab: "ownership-transfer", icon: "bi-key", label: "Ownership Transfer" },
     ],

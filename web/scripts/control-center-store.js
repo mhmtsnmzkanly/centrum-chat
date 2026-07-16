@@ -94,44 +94,6 @@ class Store {
       audit: 0,
     };
 
-    // Tab active classes
-    const tabs = ["reports", "moderation-audit", "users", "channels", "roles", "settings", "security-audit", "ownership-transfer"];
-    for (const t of tabs) {
-      this.store.computed(`navClass_${t}`, ["currentTab"], () => this.store.get("currentTab") === t ? "active" : "");
-      this.store.computed(`showPanel_${t}`, ["currentTab"], () => this.store.get("currentTab") === t);
-    }
-
-    // Capability based visibility
-    this.store.computed("showNavGroupModeration", ["capabilities"], () => {
-      const caps = this.store.get("capabilities");
-      return caps ? Object.values(caps.moderation).some(v => v === true) : false;
-    });
-    this.store.computed("showNavGroupAdministration", ["capabilities"], () => {
-      const caps = this.store.get("capabilities");
-      return caps ? Object.values(caps.administration).some(v => v === true) : false;
-    });
-    this.store.computed("showNavGroupOwner", ["capabilities"], () => {
-      const caps = this.store.get("capabilities");
-      return caps ? Object.values(caps.owner).some(v => v === true) : false;
-    });
-
-    const tabPermission = {
-      reports: (caps) => caps.moderation.reportsList,
-      "moderation-audit": (caps) => caps.moderation.auditList,
-      users: (caps) => caps.administration.usersList,
-      channels: (caps) => caps.administration.channelsList,
-      roles: (caps) => caps.administration.rolesView,
-      settings: (caps) => caps.administration.settingsRead,
-      "security-audit": (caps) => caps.administration.securityAuditList,
-      "ownership-transfer": (caps) => caps.owner.ownershipTransfer,
-    };
-    for (const [t, check] of Object.entries(tabPermission)) {
-      this.store.computed(`showTab_${t}`, ["capabilities"], () => {
-        const caps = this.store.get("capabilities");
-        return caps ? !!check(caps) : false;
-      });
-    }
-
     // Dynamic Lists computed properties:
     // 1. reportsList
     this.store.computed("reportsList", ["reports", "selectedReportId"], () => {

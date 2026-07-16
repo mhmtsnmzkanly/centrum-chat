@@ -115,8 +115,9 @@
 
     <!-- ═══════════════ SIDEBAR NAVIGATION ═══════════════
          Nav groups/items come from the static navGroups config passed as a
-         partial prop; visibility and active state stay reactive through the
-         showNavGroup*/showTab_*/navClass_* store computeds. -->
+         partial prop. The navigation controller owns tab visibility and the
+         active panel so Bootstrap display utilities cannot conflict with
+         Lime's inline visibility styles. -->
     <template id="tpl-cc-sidebar">
       <aside class="sidebar-aside d-flex flex-column p-3 gap-3 border-end"
         role="complementary">
@@ -134,14 +135,17 @@
         <nav class="nav flex-column gap-3 flex-grow-1 sidebar-nav-container"
           role="navigation" aria-label="Control Center Navigation">
           <for each="groups" as="group">
-            <div class="nav-group" id="nav-group-${group.id}" data-show="${group.showPath}">
+            <div class="nav-group" id="nav-group-${group.id}"
+              data-nav-group="${group.id}" hidden>
               <h2
                 class="nav-group-title text-muted text-uppercase fw-bold">${group.title}</h2>
               <ul class="list-unstyled d-flex flex-column gap-1 mb-0">
                 <for each="group.items" as="item">
-                  <li data-show="showTab_${item.tab}">
-                    <button class="btn btn-sidebar w-100 text-start {nav}"
-                      data-nav="navClass_${item.tab}" data-tab="${item.tab}" role="tab" data-on-click="clickTab">
+                  <li data-nav-item="${item.tab}" hidden>
+                    <button class="btn btn-sidebar w-100 text-start"
+                      id="tab-${item.tab}" data-tab="${item.tab}" role="tab"
+                      aria-controls="panel-${item.tab}" aria-selected="false"
+                      tabindex="-1" data-on-click="clickTab">
                       <i class="bi ${item.icon} me-2"></i>${item.label}
                     </button>
                   </li>
@@ -218,8 +222,8 @@
     <template id="tpl-cc-panel-reports">
       <section id="panel-reports"
         class="tab-panel flex-grow-1 d-flex flex-column h-100"
-        data-show="showPanel_reports"
-        role="tabpanel">
+        data-panel="reports" aria-labelledby="tab-reports"
+        role="tabpanel" tabindex="0">
         <div class="row g-3 flex-grow-1 h-100 align-items-stretch" id="reports-panel-row">
           <!-- Left column: reports queue feed -->
           <div class="col-12 col-lg-5 col-xl-4 d-flex flex-column h-100"
@@ -460,8 +464,8 @@
     <template id="tpl-cc-panel-moderation-audit">
       <section id="panel-moderation-audit"
         class="tab-panel flex-grow-1 d-flex flex-column"
-        data-show="showPanel_moderation-audit"
-        role="tabpanel">
+        data-panel="moderation-audit" aria-labelledby="tab-moderation-audit"
+        role="tabpanel" tabindex="0" hidden>
         <div
           class="glass-card flex-grow-1 d-flex flex-column overflow-hidden">
           <div
@@ -515,8 +519,8 @@
     <template id="tpl-cc-panel-security-audit">
       <section id="panel-security-audit"
         class="tab-panel flex-grow-1 d-flex flex-column"
-        data-show="showPanel_security-audit"
-        role="tabpanel">
+        data-panel="security-audit" aria-labelledby="tab-security-audit"
+        role="tabpanel" tabindex="0" hidden>
         <div
           class="glass-card flex-grow-1 d-flex flex-column overflow-hidden">
           <div
@@ -606,8 +610,8 @@
     <template id="tpl-cc-panel-users">
       <section id="panel-users"
         class="tab-panel flex-grow-1 d-flex flex-column h-100"
-        data-show="showPanel_users"
-        role="tabpanel">
+        data-panel="users" aria-labelledby="tab-users"
+        role="tabpanel" tabindex="0" hidden>
         <div class="row g-3 flex-grow-1 h-100 align-items-stretch" id="users-panel-row">
           <!-- Left column: users list search -->
           <div class="col-12 col-lg-5 col-xl-4 d-flex flex-column h-100"
@@ -796,8 +800,8 @@
     <template id="tpl-cc-panel-channels">
       <section id="panel-channels"
         class="tab-panel flex-grow-1 d-flex flex-column"
-        data-show="showPanel_channels"
-        role="tabpanel">
+        data-panel="channels" aria-labelledby="tab-channels"
+        role="tabpanel" tabindex="0" hidden>
         <div
           class="glass-card flex-grow-1 d-flex flex-column overflow-hidden">
           <div
@@ -871,8 +875,8 @@
     <template id="tpl-cc-panel-roles">
       <section id="panel-roles"
         class="tab-panel flex-grow-1 d-flex flex-column"
-        data-show="showPanel_roles"
-        role="tabpanel">
+        data-panel="roles" aria-labelledby="tab-roles"
+        role="tabpanel" tabindex="0" hidden>
         <div class="glass-card p-4 text-start">
           <h3
             class="h5 fw-bold mb-3 text-dark-mode-override">Role Gating & Transition Hierarchy</h3>
@@ -928,8 +932,8 @@
     <template id="tpl-cc-panel-settings">
       <section id="panel-settings"
         class="tab-panel flex-grow-1 d-flex flex-column"
-        data-show="showPanel_settings"
-        role="tabpanel">
+        data-panel="settings" aria-labelledby="tab-settings"
+        role="tabpanel" tabindex="0" hidden>
         <form id="settings-form" class="glass-card p-4 text-start" data-on-submit="submitSettingsForm">
           <div
             class="d-flex align-items-center justify-content-between mb-4 border-bottom pb-2">
@@ -1047,8 +1051,8 @@
     <template id="tpl-cc-panel-ownership">
       <section id="panel-ownership-transfer"
         class="tab-panel flex-grow-1"
-        data-show="showPanel_ownership-transfer"
-        role="tabpanel">
+        data-panel="ownership-transfer" aria-labelledby="tab-ownership-transfer"
+        role="tabpanel" tabindex="0" hidden>
         <div class="glass-card p-4 max-w-600 mx-auto text-start">
           <div class="text-center mb-4">
             <i class="bi bi-exclamation-octagon text-danger fs-1"></i>
