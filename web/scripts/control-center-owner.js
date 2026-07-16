@@ -8,32 +8,39 @@ function option(value, label) {
   return element;
 }
 
-export function initOwnerModule() {
-  controlCenterStore.subscribe((state) => {
-    const targetSelect = document.getElementById("owner-target-user");
-    if (!targetSelect) return;
-    const op = state.operator;
-    if (!state.capabilities?.owner.ownershipTransfer) return;
+function syncOwnerTargetSelect() {
+  const targetSelect = document.getElementById("owner-target-user");
+  if (!targetSelect) return;
+  const state = controlCenterStore.getState();
+  const op = state.operator;
+  if (!op || !state.capabilities?.owner.ownershipTransfer) return;
 
-    const currentSelected = targetSelect.value;
-    targetSelect.textContent = "";
-    targetSelect.appendChild(option("", "Select a user..."));
+  const currentSelected = targetSelect.value;
+  targetSelect.textContent = "";
+  targetSelect.appendChild(option("", "Select a user..."));
 
-    // Only allow promoting users that are not already owner or self and are admins
-    state.users.forEach((user) => {
-      const isUserAdmin = user.system_role === "admin" || user.role === "admin";
-      if (user.id !== op.id && isUserAdmin) {
-        targetSelect.appendChild(option(
-          user.id,
-          `${user.displayName || user.username} (ADMIN)`
-        ));
-      }
-    });
-
-    if (currentSelected && state.users.some((u) => u.id === currentSelected)) {
-      targetSelect.value = currentSelected;
+  // Only allow promoting users that are not already owner or self and are admins
+  state.users.forEach((user) => {
+    if (user.id !== op.id && user.role === "admin") {
+      targetSelect.appendChild(option(
+        user.id,
+        `${user.displayName || user.username} (ADMIN)`
+      ));
     }
   });
+
+  if (currentSelected && state.users.some((u) => u.id === currentSelected)) {
+    targetSelect.value = currentSelected;
+  }
+}
+
+export function initOwnerModule() {
+  // Rebuild only when the data it renders actually changes — not on every
+  // unrelated store update.
+  for (const path of ["users", "capabilities", "operator"]) {
+    controlCenterStore.subscribe(path, syncOwnerTargetSelect);
+  }
+  syncOwnerTargetSelect();
 }
 
 export const ownerHandlers = {
@@ -62,7 +69,7 @@ export const ownerHandlers = {
       const target = controlCenterStore.getState().users.find((user) =>
         user.id === targetUserId
       );
-      const role = target.system_role || target.role;
+      const role = target.role;
       await controlCenterStore.transferOwnership(targetUserId, role);
       renderToast(
         "success",

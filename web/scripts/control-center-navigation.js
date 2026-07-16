@@ -57,6 +57,12 @@ export const navigationHandlers = {
     const tab = el.getAttribute("data-tab");
     if (tab) {
       controlCenterStore.update({ currentTab: tab });
+      // Audit data is otherwise loaded once at boot; opening an audit tab
+      // refreshes it so actions taken during this session show up without
+      // requiring a filter change or a full reload.
+      if (tab === "moderation-audit" || tab === "security-audit") {
+        controlCenterStore.loadAuditEvents();
+      }
       window._ccMobileCloseSidebar?.();
     }
   }

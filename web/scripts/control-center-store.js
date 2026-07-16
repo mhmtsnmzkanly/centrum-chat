@@ -4,7 +4,7 @@ import { createStore } from "./lime-csr.js";
 import { formatDate } from "./control-center-common.js";
 
 const DEFAULT_STATE = {
-  currentTab: "reports", // reports, sanctions, moderation-audit, users, channels, roles, settings, security-audit, admin-management, ownership-transfer
+  currentTab: "reports", // reports, moderation-audit, users, channels, roles, settings, security-audit, ownership-transfer
   operator: null,
   capabilities: null,
 
@@ -51,15 +51,6 @@ const DEFAULT_STATE = {
   channels: [],
   channelsLoading: false,
   channelsError: null,
-  selectedChannelId: null,
-  selectedChannelDetails: null,
-  selectedChannelLoading: false,
-  selectedChannelError: null,
-
-  // Roles Management
-  roleOptions: [],
-  rolesLoading: false,
-  rolesError: null,
 
   // System Settings
   settings: null,
@@ -90,7 +81,6 @@ class Store {
   constructor() {
     this.store = createStore(DEFAULT_STATE);
     this.state = this.store.get();
-    this.listeners = new Set();
     this.requestIds = {
       reports: 0,
       detail: 0,
@@ -163,7 +153,7 @@ class Store {
       return users.map(u => ({
         ...u,
         activeClass: u.id === selectedId ? "active" : "",
-        roleUpper: u.system_role ? u.system_role.toUpperCase() : (u.role ? u.role.toUpperCase() : "USER"),
+        roleUpper: (u.role || "user").toUpperCase(),
         displayNameOrUsername: u.displayName || u.username,
         email: u.email || "No email",
       }));
@@ -190,18 +180,7 @@ class Store {
       });
     });
 
-    // 4. auditEventsList
-    this.store.computed("auditEventsList", ["auditEvents"], () => {
-      const events = this.store.get("auditEvents") || [];
-      return events.map(e => ({
-        ...e,
-        actionUpper: e.actionCode ? e.actionCode.toUpperCase() : "",
-        targetTypeUpper: e.targetType ? e.targetType.toUpperCase() : "",
-        formattedDate: formatDate(e.createdAt),
-      }));
-    });
-
-    // 5. moderationAuditEvents
+    // 4. moderationAuditEvents
     this.store.computed("moderationAuditEvents", ["auditEvents"], () => {
       const events = this.store.get("auditEvents") || [];
       const codes = ["report.assign", "report.status.transition", "sanction.apply", "sanction.revoke"];
@@ -364,9 +343,7 @@ class Store {
   }
 
   set(path, value) {
-    const res = this.store.set(path, value);
-    this.notify();
-    return res;
+    return this.store.set(path, value);
   }
 
   computed(path, deps, fn) {
@@ -377,32 +354,17 @@ class Store {
     return this.state;
   }
 
-  subscribe(pathOrCallback, callback) {
-    if (typeof pathOrCallback === "function") {
-      this.listeners.add(pathOrCallback);
-      try {
-        pathOrCallback(this.state);
-      } catch (_) {}
-      return () => this.listeners.delete(pathOrCallback);
-    }
-    return this.store.subscribe(pathOrCallback, callback);
-  }
-
-  notify() {
-    for (const listener of this.listeners) {
-      try {
-        listener(this.state);
-      } catch {
-        // A failed view listener must not interrupt state cleanup or other views.
-      }
-    }
+  /** Path-scoped subscription (lime store semantics). Modules that mirror
+   * state into imperative DOM (selects, modals) subscribe to the exact paths
+   * they render instead of a whole-state listener. */
+  subscribe(path, callback) {
+    return this.store.subscribe(path, callback);
   }
 
   update(patch) {
     for (const [k, v] of Object.entries(patch)) {
       this.store.set(k, v);
     }
-    this.notify();
   }
 
   clearSensitiveState() {
@@ -434,13 +396,6 @@ class Store {
       channels: [],
       channelsLoading: false,
       channelsError: null,
-      selectedChannelId: null,
-      selectedChannelDetails: null,
-      selectedChannelLoading: false,
-      selectedChannelError: null,
-      roleOptions: [],
-      rolesLoading: false,
-      rolesError: null,
       settings: null,
       settingsState: {},
       renderedVersions: {},
@@ -469,24 +424,34 @@ class Store {
     return !!this.state.pendingActions[actionId];
   }
 
+  /** Maps a GET /api/control-center/me payload into operator/capability state.
+   * The boot flow passes the payload it already resolved for the access check,
+   * so the endpoint is only fetched once per page load. */
+  applyOperator(response) {
+    const allowed = response?.areas?.moderation ||
+      response?.areas?.administration ||
+      response?.areas?.owner;
+    if (!allowed) return this.clearSensitiveState();
+    const operator = { ...response.user, ...response };
+    delete operator.user;
+    const capabilities = getActiveCapabilities(operator);
+    this.update({ operator, capabilities, accessDenied: false });
+  }
+
   async loadOperator() {
     try {
-      const response = await ControlCenterApi.getOperator();
-      const operator = { ...response.user, ...response };
-      delete operator.user;
-      const capabilities = getActiveCapabilities(operator);
-      const allowed = response.areas?.moderation ||
-        response.areas?.administration ||
-        response.areas?.owner;
-      if (!allowed) return this.clearSensitiveState();
-      this.update({ operator, capabilities, accessDenied: false });
+      this.applyOperator(await ControlCenterApi.getOperator());
     } catch (_err) {
       this.clearSensitiveState();
     }
   }
 
+  /** Called by the API layer on any 403. A single 403 can be route-scoped
+   * (one capability revoked), so re-resolve the operator FIRST: a confirmed
+   * loss of Control Center access ends in clearSensitiveState(), whose
+   * accessDenied flag triggers the auth-page redirect; an operator that still
+   * has access just gets refreshed capabilities and the page keeps working. */
   async handleForbidden() {
-    this.clearSensitiveState();
     await this.loadOperator();
   }
 
@@ -888,14 +853,11 @@ class Store {
     this.setPending(actionId, true);
 
     try {
-      const res = await ControlCenterApi.updateChannel(
+      await ControlCenterApi.updateChannel(
         channelId,
         expectedVersion,
         fields,
       );
-      if (this.state.selectedChannelId === channelId) {
-        this.update({ selectedChannelDetails: res.channel });
-      }
       await this.loadChannels();
     } finally {
       this.setPending(actionId, false);
@@ -908,13 +870,10 @@ class Store {
     this.setPending(actionId, true);
 
     try {
-      const res = await ControlCenterApi.archiveChannel(
+      await ControlCenterApi.archiveChannel(
         channelId,
         expectedVersion,
       );
-      if (this.state.selectedChannelId === channelId) {
-        this.update({ selectedChannelDetails: res.channel });
-      }
       await this.loadChannels();
     } finally {
       this.setPending(actionId, false);
@@ -927,13 +886,10 @@ class Store {
     this.setPending(actionId, true);
 
     try {
-      const res = await ControlCenterApi.restoreChannel(
+      await ControlCenterApi.restoreChannel(
         channelId,
         expectedVersion,
       );
-      if (this.state.selectedChannelId === channelId) {
-        this.update({ selectedChannelDetails: res.channel });
-      }
       await this.loadChannels();
     } finally {
       this.setPending(actionId, false);

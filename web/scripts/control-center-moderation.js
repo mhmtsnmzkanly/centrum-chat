@@ -1,35 +1,40 @@
 import { controlCenterStore } from "./control-center-store.js";
 import { renderToast } from "./control-center-common.js";
 
+function syncSanctionControls() {
+  const typeSelect = document.getElementById("sanction-type");
+  const caps = controlCenterStore.get("capabilities")?.moderation;
+  // Before capabilities resolve there is nothing to restrict; touching the
+  // select here used to wipe its default selection for good.
+  if (!typeSelect || !caps) return;
+
+  const capabilityByType = {
+    message_mute: "sanctionsMessageMute",
+    interaction_restriction: "sanctionsInteractionRestriction",
+    account_suspension: "sanctionsAccountSuspension",
+  };
+  for (const option of typeSelect.options) {
+    const capability = capabilityByType[option.value];
+    option.disabled = !capability || !caps[capability];
+  }
+  // Keep a valid selection: fall back to the first allowed type whenever the
+  // current one is disabled or nothing is selected.
+  if (!typeSelect.value || typeSelect.selectedOptions[0]?.disabled) {
+    const firstAllowed = [...typeSelect.options].find((option) => !option.disabled);
+    if (firstAllowed) typeSelect.value = firstAllowed.value;
+  }
+
+  const permanent = document.querySelector(
+    '#sanction-duration option[value="permanent"]',
+  );
+  if (permanent) {
+    permanent.disabled = !caps.sanctionsAccountSuspension;
+  }
+}
+
 export function initModerationModule() {
-  controlCenterStore.subscribe((state) => {
-    const typeSelect = document.getElementById("sanction-type");
-    if (!typeSelect) return;
-
-    const caps = state.capabilities?.moderation;
-    const capabilityByType = {
-      message_mute: "sanctionsMessageMute",
-      interaction_restriction: "sanctionsInteractionRestriction",
-      account_suspension: "sanctionsAccountSuspension",
-    };
-
-    for (const option of typeSelect.options) {
-      const capability = capabilityByType[option.value];
-      option.disabled = !capability || !caps?.[capability];
-    }
-
-    if (typeSelect.selectedOptions[0]?.disabled) {
-      const firstAllowed = [...typeSelect.options].find((option) => !option.disabled);
-      typeSelect.value = firstAllowed?.value || "";
-    }
-
-    const permanent = document.querySelector(
-      '#sanction-duration option[value="permanent"]',
-    );
-    if (permanent) {
-      permanent.disabled = !caps?.sanctionsAccountSuspension;
-    }
-  });
+  controlCenterStore.subscribe("capabilities", syncSanctionControls);
+  syncSanctionControls();
 }
 
 export const moderationHandlers = {

@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="en" data-auth-state="pending">
+<html lang="en">
   <head>
     <meta charset="UTF-8">
     <meta name="viewport"
@@ -27,21 +27,6 @@
     <link rel="stylesheet" href="/styles/control-center.css">
   </head>
   <body>
-    <main id="control-center-permission-denied"
-      class="control-center-permission-denied" hidden>
-      <section class="card shadow-sm"
-        aria-labelledby="control-center-denied-title">
-        <div class="card-body">
-          <h1 id="control-center-denied-title" class="h3">Control Center permission required</h1>
-          <p id="control-center-denied-message">You are signed in, but the backend did not grant this account Control Center access.</p>
-          <div class="d-flex flex-wrap gap-2">
-            <a class="btn btn-primary" href="/">Return to chat</a>
-            <button id="control-center-denied-logout"
-              class="btn btn-outline-secondary" type="button">Sign out</button>
-          </div>
-        </div>
-      </section>
-    </main>
     <!-- FULL SCREEN APP LOADING BAR -->
     <div id="app-loading-screen"
       class="position-fixed top-0 start-0 w-100 h-100 d-flex flex-column align-items-center justify-content-center"
@@ -80,10 +65,10 @@
          Composition only: every section lives in its own <template> below and
          is pulled in through <partial> (lime-csr DOCS.md §3.10). Reactive
          bindings always read the store, so partial context isolation never
-         hides state — only the sidebar receives static config via props. -->
+         hides state — only the sidebar receives static config via props.
+         There is no in-page access-denied surface: missing permission always
+         redirects to /auth.html, which owns the permission-denied view. -->
     <template id="tpl-control-center">
-      <partial name="cc-access-denied"></partial>
-
       <!-- Sidebar backdrop (closes sidebar when tapped outside on mobile) -->
       <div id="sidebar-backdrop" aria-hidden="true"></div>
 
@@ -97,16 +82,6 @@
         <main class="flex-grow-1 d-flex flex-column" role="main"
           aria-label="Workspace Content">
           <partial name="cc-topbar"></partial>
-
-          <!-- GLOBAL CONTRACT UNAVAILABLE BANNER -->
-          <div id="contract-unavailable-banner"
-            class="d-none alert alert-warning rounded-0 border-0 border-bottom mb-0 d-flex align-items-center gap-2"
-            role="alert">
-            <i class="bi bi-exclamation-triangle-fill fs-5"></i>
-            <div>
-              <strong>Contract Limitation:</strong> Certain administration features are not currently supported by the active backend API version.
-            </div>
-          </div>
 
           <!-- TAB PANELS WORKSPACE -->
           <div
@@ -134,32 +109,6 @@
       <div class="toast-container position-fixed bottom-0 end-0 p-3"
         id="toast-container" style="z-index: 1100;">
         <!-- Toast injected dynamically -->
-      </div>
-    </template>
-
-    <!-- ═══════════════ ACCESS DENIED / UNAUTHENTICATED STATE ═══════════════ -->
-    <template id="tpl-cc-access-denied">
-      <div id="access-denied-view"
-        data-show="accessDenied"
-        class="flex-grow-1 d-flex align-items-center justify-content-center p-3"
-        role="alert">
-        <div class="glass-card panel-card text-center p-5 max-w-500">
-          <div class="denied-icon mb-4">
-            <i class="bi bi-shield-slash-fill text-danger fs-1"></i>
-          </div>
-          <h2 class="fw-bold mb-3 text-dark-mode-override">Access Denied</h2>
-          <p class="text-muted mb-4">
-            You are signed in, but this account does not have Control Center permission.
-          </p>
-          <div class="d-flex gap-3 justify-content-center">
-            <a href="/" class="btn btn-primary px-4 py-2"
-              id="btn-back-to-chat-denied">
-              <i class="bi bi-arrow-left me-2"></i>Return to Chat
-            </a>
-            <button type="button" class="btn btn-outline-secondary px-4 py-2"
-              data-on-click="logoutCC">Sign Out</button>
-          </div>
-        </div>
       </div>
     </template>
 

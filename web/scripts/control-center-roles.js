@@ -23,25 +23,33 @@ function allowedNextRoles(state, target) {
   return values;
 }
 
+function syncRoleUserSelect() {
+  const userSelect = document.getElementById("role-select-user");
+  if (!userSelect) return;
+  const state = controlCenterStore.getState();
+  const selected = userSelect.value;
+  userSelect.textContent = "";
+  userSelect.appendChild(option("", "Select a user..."));
+  for (const user of state.users) {
+    if (user.id === state.operator?.id || user.role === "owner") continue;
+    if (allowedNextRoles(state, user).length === 0) continue;
+    userSelect.appendChild(option(
+      user.id,
+      `${user.displayName || user.username} (${user.role.toUpperCase()})`,
+    ));
+  }
+  if (state.users.some((user) => user.id === selected)) {
+    userSelect.value = selected;
+  }
+}
+
 export function initRolesModule() {
-  controlCenterStore.subscribe((state) => {
-    const userSelect = document.getElementById("role-select-user");
-    if (!userSelect) return;
-    const selected = userSelect.value;
-    userSelect.textContent = "";
-    userSelect.appendChild(option("", "Select a user..."));
-    for (const user of state.users) {
-      if (user.id === state.operator?.id || user.role === "owner") continue;
-      if (allowedNextRoles(state, user).length === 0) continue;
-      userSelect.appendChild(option(
-        user.id,
-        `${user.displayName || user.username} (${user.role.toUpperCase()})`,
-      ));
-    }
-    if (state.users.some((user) => user.id === selected)) {
-      userSelect.value = selected;
-    }
-  });
+  // Rebuild only when the data it renders actually changes — not on every
+  // unrelated store update.
+  for (const path of ["users", "capabilities", "operator"]) {
+    controlCenterStore.subscribe(path, syncRoleUserSelect);
+  }
+  syncRoleUserSelect();
 }
 
 export const rolesHandlers = {

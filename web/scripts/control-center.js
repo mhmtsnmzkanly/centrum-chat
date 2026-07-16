@@ -11,8 +11,8 @@ import { initAuditModule, auditHandlers } from "./control-center-audit.js";
 import { initOwnerModule, ownerHandlers } from "./control-center-owner.js";
 import { initDialogs } from "./control-center-dialogs.js";
 import {
+  authPageUrl,
   guardProtectedPage,
-  logoutBrowserSession,
   resolveControlCenterAccess,
 } from "./shared-auth.js";
 
@@ -68,30 +68,20 @@ const NAV_GROUPS = [
 async function initializeControlCenter() {
   const account = await guardProtectedPage("/control-center");
   if (!account) return;
-  document.getElementById("control-center-denied-logout")?.addEventListener("click", async () => {
-    await logoutBrowserSession();
-    window.location.replace("/auth.html?returnTo=%2Fcontrol-center");
-  });
+  // Missing or unresolvable Control Center permission never renders an
+  // in-page denied state: the auth page owns the permission-denied view
+  // (auth.js finishDestination re-checks access for /control-center).
   const access = await resolveControlCenterAccess().catch(() => null);
-  if (!access) {
-    document.documentElement.dataset.authState = "error";
-    document.getElementById("app-loading-screen")?.remove();
-    const denied = document.getElementById("control-center-permission-denied");
-    if (denied) denied.hidden = false;
-    const title = document.getElementById("control-center-denied-title");
-    if (title) title.textContent = "Control Center access could not be resolved";
-    const message = document.getElementById("control-center-denied-message");
-    if (message) message.textContent = "Try again after checking your connection.";
+  if (!access?.allowed) {
+    window.location.replace(authPageUrl("/control-center"));
     return;
   }
-  if (!access.allowed) {
-    document.documentElement.dataset.authState = "denied";
-    document.getElementById("app-loading-screen")?.remove();
-    const denied = document.getElementById("control-center-permission-denied");
-    if (denied) denied.hidden = false;
-    return;
-  }
-  document.documentElement.dataset.authState = "ready";
+
+  // Losing permission mid-session (a 403 makes the store clear its state and
+  // flag accessDenied) routes through the same auth-page view.
+  controlCenterStore.subscribe("accessDenied", (denied) => {
+    if (denied) window.location.replace(authPageUrl("/control-center"));
+  });
 
   // 1. Mount the control-center template
   const appRoot = document.getElementById("control-center-app");
@@ -116,8 +106,9 @@ async function initializeControlCenter() {
   initOwnerModule();
   initDialogs();
 
-  // 3. Load operator profile details
-  await controlCenterStore.loadOperator();
+  // 3. Seed operator/capability state from the payload the access check
+  //    already resolved — /api/control-center/me is fetched exactly once.
+  controlCenterStore.applyOperator(access.operator);
 
   // 4. Trigger initial data loads if access is permitted
   const state = controlCenterStore.getState();
