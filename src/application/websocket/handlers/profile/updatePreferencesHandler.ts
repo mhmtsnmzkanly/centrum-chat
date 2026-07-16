@@ -3,9 +3,11 @@ import type { PreferencesService } from "../../../../domain/preferences/preferen
 import type {
   DmPrivacy,
   GroupPrivacy,
+  Locale,
   Preferences,
   Theme,
 } from "../../../../domain/preferences/preferences.entity.ts";
+import { SUPPORTED_LOCALES } from "../../../../domain/preferences/preferences.entity.ts";
 import type { PreferencesUpdate } from "../../../../domain/preferences/preferencesRepository.port.ts";
 import {
   asRecord,
@@ -30,6 +32,7 @@ export class UpdatePreferencesHandler implements EventHandler {
     const dmPrivacy = optionalEnum(body, "dmPrivacy", DM_PRIVACY_VALUES);
     const groupPrivacy = optionalEnum(body, "groupPrivacy", GROUP_PRIVACY_VALUES);
     const theme = optionalEnum(body, "theme", THEME_VALUES);
+    const locale = optionalEnum(body, "locale", SUPPORTED_LOCALES) as Locale | undefined;
 
     const patch: PreferencesUpdate = {
       ...(sound !== undefined ? { sound } : {}),
@@ -37,6 +40,7 @@ export class UpdatePreferencesHandler implements EventHandler {
       ...(dmPrivacy !== undefined ? { dmPrivacy } : {}),
       ...(groupPrivacy !== undefined ? { groupPrivacy } : {}),
       ...(theme !== undefined ? { theme } : {}),
+      ...(locale !== undefined ? { locale } : {}),
     };
 
     return { preferences: this.preferencesService.update(ctx.userId, patch) };

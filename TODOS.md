@@ -1982,7 +1982,32 @@ otomatik frontend test dosyası oluşturulmamalıdır.
 
 #### Durum
 
-`Bekliyor`
+`Devam ediyor`
+
+- 2026-07-16 — Model: GPT-5 Codex — Efor düzeyi: ortam tarafından sağlanmadı — Backend aşaması
+  tamamlandı. `0012_user_locale_preference.sql` ile `user_preferences.locale` eklendi; seçim
+  yapılmamış hesaplar browser fallback'ini korumak için `NULL`, açık seçimler DB CHECK ve route
+  doğrulamasıyla yalnız `en|tr`. Preference entity/port/repository, `preferences.get/update`,
+  kimliği doğrulanmış `GET/PATCH /api/auth/preferences`, `src/main.ts`,
+  `docs/03-websocket-events.md`, `docs/04-http-api.md` ve `AGENTS.md` güncellendi. Değişen backend
+  testleri: `tests/repository/localePreferenceMigration.test.ts`, `tests/repository/db.test.ts`,
+  `tests/repository/sqlitePreferencesRepository.test.ts`,
+  `tests/integration/localePreferences.test.ts`, `tests/integration/profilePresence.test.ts`,
+  `tests/unit/preferencesService.test.ts` ve fake preference desteği. Fresh/0011 upgrade, mevcut
+  değerleri koruma, yeni kullanıcı varsayılanı, constraint, HTTP auth/validation/idempotent
+  round-trip, WS validation/round-trip, `foreign_key_check=[]` ve `integrity_check=ok` doğrulandı.
+  Sonuçlar: odaklı son koşu 8/8; `deno task check` geçti; `deno task lint` 266 dosya geçti;
+  `deno task test` 368/368 geçti. `deno fmt --check`, bu işten önce commitlenmiş `TODOS.md`
+  1325/1384/1388 satırlarındaki format farkları nedeniyle başarısız; değiştirilen TypeScript
+  dosyaları doğrudan `deno fmt` ile biçimlendirildi ve `git diff --check` geçti. Kullanıcı frontend
+  testlerini istemiyor; otomatik frontend testi eklenmedi. Frontend ve manuel browser doğrulaması
+  NOT TESTED ve kullanıcı onayı bekliyor; bu nedenle madde `Devam ediyor`.
+- 2026-07-16 — Model: GPT-5 Codex — Efor düzeyi: ortam tarafından sağlanmadı — Uygulama başladı. İlk
+  aşama yalnızca backend kapsamındadır: desteklenen locale değerlerini kalıcı kullanıcı tercihi
+  olarak saklayan yeni migration, preference domain/repository desteği, kimliği doğrulanmış HTTP ve
+  mevcut WebSocket sözleşmeleri, backend testleri ve sözleşme dokümantasyonu uygulanacak. Auth, chat
+  ve Control Center frontend düzenlemeleri kullanıcıdan ayrıca onay alındıktan sonra yapılacak;
+  otomatik frontend test dosyası oluşturulmayacak.
 
 - 2026-07-13 — Model: GPT-5 Codex — Adım adım kayıt, koşullu e-posta doğrulama ve tercih onboarding
   ekranlarının tüm başlık, açıklama, seçenek, doğrulama ve hata metinleri merkezi i18n kapsamına

@@ -97,6 +97,10 @@ import {
   CompleteOnboardingPreferencesRoute,
   GetOnboardingStatusRoute,
 } from "./application/http/routes/auth/onboardingRoutes.ts";
+import {
+  GetAuthPreferencesRoute,
+  UpdateAuthLocaleRoute,
+} from "./application/http/routes/auth/preferencesRoutes.ts";
 import { StaticRoute } from "./application/http/routes/staticRoute.ts";
 import { SessionCleanupJob } from "./application/lifecycle/sessionCleanupJob.ts";
 import { WebSocketLifecycleJob } from "./application/lifecycle/webSocketLifecycleJob.ts";
@@ -610,6 +614,8 @@ registry.register(
   new ChangePasswordRoute(authService, tokenService, codec, changePasswordRateLimiter),
 );
 registry.register(new AccountRoute(authService, tokenService, codec));
+registry.register(new GetAuthPreferencesRoute(preferencesService, tokenService, codec));
+registry.register(new UpdateAuthLocaleRoute(preferencesService, tokenService, codec));
 registry.register(new GetOnboardingStatusRoute(onboardingService, tokenService, codec));
 registry.register(
   new CompleteOnboardingPreferencesRoute(

@@ -10,6 +10,7 @@ export const DEFAULT_PREFERENCES: Preferences = {
   dmPrivacy: "everyone",
   groupPrivacy: "everyone",
   theme: "dark",
+  locale: null,
 };
 
 /** In-memory fake PreferencesRepository — unit tests exercise domain services against

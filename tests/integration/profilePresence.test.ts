@@ -161,19 +161,21 @@ Deno.test("WS profile/preferences: get, update, and round-trip through real hand
     send(socket, "3", "preferences.get", {});
     const preferencesResponse = await queue.next() as {
       success: boolean;
-      data: { preferences: { theme: string } };
+      data: { preferences: { theme: string; locale: string | null } };
     };
     assertEquals(preferencesResponse.success, true);
     assertEquals(preferencesResponse.data.preferences.theme, "dark");
+    assertEquals(preferencesResponse.data.preferences.locale, null);
 
-    send(socket, "4", "preferences.update", { theme: "light", sound: false });
+    send(socket, "4", "preferences.update", { theme: "light", sound: false, locale: "tr" });
     const preferencesUpdateResponse = await queue.next() as {
       success: boolean;
-      data: { preferences: { theme: string; sound: boolean } };
+      data: { preferences: { theme: string; sound: boolean; locale: string } };
     };
     assertEquals(preferencesUpdateResponse.success, true);
     assertEquals(preferencesUpdateResponse.data.preferences.theme, "light");
     assertEquals(preferencesUpdateResponse.data.preferences.sound, false);
+    assertEquals(preferencesUpdateResponse.data.preferences.locale, "tr");
 
     socket.close();
   } finally {
@@ -181,7 +183,7 @@ Deno.test("WS profile/preferences: get, update, and round-trip through real hand
   }
 });
 
-Deno.test("WS profile.update rejects an invalid patch (validation happens before hitting the repository)", async () => {
+Deno.test("WS profile/preferences updates validate patches before hitting repositories", async () => {
   const { registerUser, connectAsSoleUser, cleanup } = await bootTestServer();
   try {
     const { accessToken } = await registerUser("bob");
@@ -191,6 +193,11 @@ Deno.test("WS profile.update rejects an invalid patch (validation happens before
     const response = await queue.next() as { success: boolean; error: { code: string } };
     assertEquals(response.success, false);
     assertEquals(response.error.code, "VALIDATION_ERROR");
+
+    send(socket, "2", "preferences.update", { locale: "fr" });
+    const localeResponse = await queue.next() as { success: boolean; error: { code: string } };
+    assertEquals(localeResponse.success, false);
+    assertEquals(localeResponse.error.code, "VALIDATION_ERROR");
 
     socket.close();
   } finally {

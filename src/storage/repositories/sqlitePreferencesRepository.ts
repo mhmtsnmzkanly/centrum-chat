@@ -12,6 +12,7 @@ interface PreferencesRow {
   dm_privacy: string;
   group_privacy: string;
   theme: string;
+  locale: string | null;
 }
 
 function toPreferences(row: PreferencesRow): Preferences {
@@ -21,6 +22,7 @@ function toPreferences(row: PreferencesRow): Preferences {
     dmPrivacy: row.dm_privacy as Preferences["dmPrivacy"],
     groupPrivacy: row.group_privacy as Preferences["groupPrivacy"],
     theme: row.theme as Preferences["theme"],
+    locale: row.locale as Preferences["locale"],
   };
 }
 
@@ -46,7 +48,8 @@ export class SqlitePreferencesRepository implements PreferencesRepository {
            desktop_notifications = COALESCE(?, desktop_notifications),
            dm_privacy = COALESCE(?, dm_privacy),
            group_privacy = COALESCE(?, group_privacy),
-           theme = COALESCE(?, theme)
+           theme = COALESCE(?, theme),
+           locale = COALESCE(?, locale)
          WHERE user_id = ?`,
       ).run(
         patch.sound === undefined ? null : Number(patch.sound),
@@ -54,6 +57,7 @@ export class SqlitePreferencesRepository implements PreferencesRepository {
         patch.dmPrivacy ?? null,
         patch.groupPrivacy ?? null,
         patch.theme ?? null,
+        patch.locale ?? null,
         userId,
       );
 

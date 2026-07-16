@@ -172,11 +172,11 @@ type Notification = { id, type: 'mention'|'dm'|'group_invite'|'reaction', conver
 | `profile.get` | `{ userId }` | `{ profile: Profile }` |
 | `profile.update` | `{ displayName?, bio?, avatarSeed?, nameColor?, coverIndex?, isPremium? }` | `{ profile: Profile }` — self only. |
 | `preferences.get` | `{}` | `{ preferences: Preferences }` |
-| `preferences.update` | `{ sound?, desktopNotifications?, dmPrivacy?, groupPrivacy?, theme? }` | `{ preferences: Preferences }` |
+| `preferences.update` | `{ sound?, desktopNotifications?, dmPrivacy?, groupPrivacy?, theme?, locale? }` | `{ preferences: Preferences }` |
 
 ```ts
 type Profile = UserSummary & { bio, joinedDate: string, isPremium, messagesSent, reactionsAdded, repliesMade };
-type Preferences = { sound, desktopNotifications, dmPrivacy, groupPrivacy, theme };
+type Preferences = { sound, desktopNotifications, dmPrivacy, groupPrivacy, theme, locale: "en" | "tr" | null };
 ```
 
 ## Standard error codes

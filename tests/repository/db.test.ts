@@ -92,6 +92,11 @@ Deno.test("fresh databases apply every migration and expose the renamed schema",
     assertEquals(sessionColumns.some((column) => column.name === "ip_address"), true);
     assertEquals(sessionColumns.some((column) => column.name === "user_agent"), true);
 
+    const preferenceColumns = db.prepare("PRAGMA table_info(user_preferences)").all() as Array<
+      { name: string }
+    >;
+    assertEquals(preferenceColumns.some((column) => column.name === "locale"), true);
+
     const fkCheck = db.prepare("PRAGMA foreign_key_check").all();
     assertEquals(fkCheck, []);
     const integrity = db.prepare("PRAGMA integrity_check").get() as { integrity_check: string };
@@ -100,7 +105,7 @@ Deno.test("fresh databases apply every migration and expose the renamed schema",
     const migrationCount = db
       .prepare("SELECT COUNT(*) as count FROM schema_migrations")
       .get() as { count: number };
-    assertEquals(migrationCount.count, 11);
+    assertEquals(migrationCount.count, 12);
     assertEquals(
       db.prepare(
         "SELECT name FROM sqlite_schema WHERE type='trigger' AND name='reports_validate_target_insert'",
@@ -471,7 +476,7 @@ Deno.test("existing databases on the legacy schema migrate in place without losi
       const migrationCount = migrated
         .prepare("SELECT COUNT(*) as count FROM schema_migrations")
         .get() as { count: number };
-      assertEquals(migrationCount.count, 11);
+      assertEquals(migrationCount.count, 12);
     } finally {
       migrated.close();
     }
@@ -481,7 +486,7 @@ Deno.test("existing databases on the legacy schema migrate in place without losi
       const migrationCount = reopened
         .prepare("SELECT COUNT(*) as count FROM schema_migrations")
         .get() as { count: number };
-      assertEquals(migrationCount.count, 11);
+      assertEquals(migrationCount.count, 12);
     } finally {
       reopened.close();
     }

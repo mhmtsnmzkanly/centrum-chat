@@ -195,9 +195,10 @@ Hard prohibitions:
   `0007_account_security_and_recovery` (token tables, session metadata, `email_verified_at`),
   `0008_user_safety_moderation_and_captcha` (blocks/reports/sanctions/audit, final-report triggers),
   `0009_backend_administration` (`system_role`, final-owner triggers, channel lifecycle,
-  `system_settings`), `0010_session_client_metadata`, and `0011_user_onboarding` (existing-user
-  backfill and new-user preferences onboarding state). Migration count will grow — check the
-  directory, don't trust this list as permanent.
+  `system_settings`), `0010_session_client_metadata`, `0011_user_onboarding` (existing-user backfill
+  and new-user preferences onboarding state), and `0012_user_locale_preference` (nullable explicit
+  `en`/`tr` account locale). Migration count will grow — check the directory, don't trust this list
+  as permanent.
 - Major tables by domain: identity (`users`, `user_sessions`, `email_verification_tokens`,
   `password_reset_tokens`, `email_change_tokens`, `user_preferences`), conversations
   (`conversations`, `conversation_memberships`, `conversation_reads`, `direct_conversation_pairs`),

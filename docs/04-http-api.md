@@ -51,6 +51,26 @@ Errors: `UNAUTHORIZED` (bad current password), `VALIDATION_ERROR` (missing field
 Header: `Authorization: Bearer <accessToken>`
 200 → `{ success: true, data: { email, emailVerifiedAt, pendingEmail } }`
 
+### `GET /api/auth/preferences`
+
+Header: `Authorization: Bearer <accessToken>`
+
+200 → `{ success: true, data: { preferences: Preferences } }`. This auth-scoped read is available
+before onboarding completes so the shared authentication application can resolve an account-level
+locale without opening the application WebSocket. `Preferences.locale` is `"en"`, `"tr"`, or
+`null`; `null` means that the account has not explicitly selected an interface language.
+
+### `PATCH /api/auth/preferences`
+
+Header: `Authorization: Bearer <accessToken>`
+
+Body: `{ locale: "en" | "tr" }`
+
+200 → `{ success: true, data: { preferences: Preferences } }`. The update is an idempotent partial
+preference write and this auth-scoped route accepts only `locale`; other preference changes remain
+on the WebSocket `preferences.update` contract. Unsupported or missing values return
+`VALIDATION_ERROR`; missing or invalid authentication returns `UNAUTHORIZED`.
+
 ### `GET /api/auth/onboarding`
 
 Header: `Authorization: Bearer <accessToken>`

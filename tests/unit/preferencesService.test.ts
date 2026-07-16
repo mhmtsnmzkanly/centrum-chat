@@ -16,4 +16,8 @@ Deno.test("PreferencesService.update applies only the given fields", () => {
   assertEquals(updated.theme, "light");
   assertEquals(updated.sound, false);
   assertEquals(updated.dmPrivacy, "everyone");
+  assertEquals(updated.locale, null);
+
+  const localized = service.update("u-1", { locale: "tr" });
+  assertEquals(localized.locale, "tr");
 });

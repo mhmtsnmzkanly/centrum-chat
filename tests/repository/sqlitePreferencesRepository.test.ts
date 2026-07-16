@@ -22,6 +22,7 @@ Deno.test("SqlitePreferencesRepository: getOrCreate lazily creates a default row
       dmPrivacy: "everyone",
       groupPrivacy: "everyone",
       theme: "dark",
+      locale: null,
     });
 
     // calling it again doesn't clobber anything (INSERT OR IGNORE)
@@ -51,6 +52,10 @@ Deno.test("SqlitePreferencesRepository: update applies a partial patch, creating
     const updatedAgain = repo.update("u-1", { dmPrivacy: "no_one" });
     assertEquals(updatedAgain.theme, "light"); // still untouched by this second patch
     assertEquals(updatedAgain.dmPrivacy, "no_one");
+
+    const localized = repo.update("u-1", { locale: "tr" });
+    assertEquals(localized.locale, "tr");
+    assertEquals(repo.getOrCreate("u-1").locale, "tr");
   } finally {
     await cleanup();
   }

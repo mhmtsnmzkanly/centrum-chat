@@ -6,6 +6,7 @@ export interface PreferencesUpdate {
   readonly dmPrivacy?: Preferences["dmPrivacy"];
   readonly groupPrivacy?: Preferences["groupPrivacy"];
   readonly theme?: Preferences["theme"];
+  readonly locale?: NonNullable<Preferences["locale"]>;
 }
 
 /** Port implemented by `storage/repositories/sqlitePreferencesRepository.ts`. No row
