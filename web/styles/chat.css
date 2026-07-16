@@ -2784,3 +2784,426 @@ body.dark-mode .scroll-bottom-fab {
 html[data-auth-state="pending"] #app {
   visibility: hidden;
 }
+
+/* ==========================================================================
+   21. UNIFIED ACTIVITY INBOX
+   ========================================================================== */
+.activity-trigger {
+  position: relative;
+}
+
+.activity-trigger-badge {
+  position: absolute;
+  top: -6px;
+  right: -7px;
+  min-width: 18px;
+  height: 18px;
+  padding: 0 5px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border: 2px solid #ffffff;
+  border-radius: 999px;
+  background: #dc2626;
+  color: #ffffff;
+  font-size: 0.62rem;
+  font-weight: 700;
+  line-height: 1;
+}
+
+body.dark-mode .activity-trigger-badge {
+  border-color: #111827;
+}
+
+.activity-inbox-dialog {
+  max-width: 720px;
+}
+
+.activity-inbox-card {
+  max-height: min(780px, calc(100vh - 2rem));
+  overflow: hidden;
+}
+
+.activity-inbox-header {
+  padding: 20px 22px 14px;
+  border-bottom: 1px solid rgba(226, 232, 240, 0.8);
+}
+
+.activity-inbox-header h2 {
+  color: var(--text-dark);
+  font-weight: 700;
+}
+
+.activity-inbox-header p {
+  color: var(--text-muted);
+  font-size: 0.82rem;
+}
+
+.activity-inbox-body {
+  padding: 14px 18px 18px;
+  overflow-y: auto;
+}
+
+.activity-filter-bar {
+  display: flex;
+  gap: 6px;
+  overflow-x: auto;
+  padding: 2px 2px 10px;
+  scrollbar-width: thin;
+}
+
+.activity-filter-btn {
+  flex: 0 0 auto;
+  border: 1px solid rgba(226, 232, 240, 0.9);
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.75);
+  color: var(--text-muted);
+  padding: 6px 11px;
+  font-size: 0.76rem;
+  font-weight: 600;
+}
+
+.activity-filter-btn:hover,
+.activity-filter-btn:focus-visible {
+  border-color: var(--primary-color);
+  color: var(--primary-color);
+  outline: none;
+  box-shadow: 0 0 0 3px var(--primary-glow);
+}
+
+.activity-filter-btn.active {
+  border-color: var(--primary-color);
+  background: var(--primary-color);
+  color: #ffffff;
+}
+
+.activity-toolbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 10px 2px;
+  border-top: 1px solid rgba(226, 232, 240, 0.65);
+  border-bottom: 1px solid rgba(226, 232, 240, 0.65);
+}
+
+.activity-toolbar-primary,
+.activity-toolbar-danger {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.activity-toolbar-btn {
+  border: 0;
+  border-radius: 8px;
+  background: transparent;
+  color: var(--primary-color);
+  padding: 5px 7px;
+  font-size: 0.75rem;
+  font-weight: 600;
+}
+
+.activity-toolbar-btn:hover,
+.activity-toolbar-btn:focus-visible {
+  background: var(--primary-light);
+  outline: none;
+  box-shadow: 0 0 0 3px var(--primary-glow);
+}
+
+.activity-toolbar-btn.danger {
+  color: #dc2626;
+}
+
+.activity-toolbar-btn.danger:hover,
+.activity-toolbar-btn.danger:focus-visible {
+  background: rgba(220, 38, 38, 0.1);
+  box-shadow: 0 0 0 3px rgba(220, 38, 38, 0.15);
+}
+
+.activity-selection-status {
+  min-height: 24px;
+  padding: 8px 4px 2px;
+  color: var(--text-muted);
+  font-size: 0.72rem;
+}
+
+.activity-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.activity-row {
+  display: grid;
+  grid-template-columns: 32px 40px minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 10px;
+  padding: 12px;
+  border: 1px solid rgba(226, 232, 240, 0.85);
+  border-radius: 14px;
+  background: rgba(255, 255, 255, 0.62);
+  transition: border-color 150ms ease, background 150ms ease, box-shadow 150ms ease;
+}
+
+.activity-row.is-unread {
+  border-left: 4px solid var(--primary-color);
+  background: rgba(224, 242, 254, 0.52);
+}
+
+.activity-row.is-selected {
+  border-color: var(--primary-color);
+  box-shadow: 0 0 0 2px var(--primary-glow);
+}
+
+.activity-select-toggle,
+.activity-open-btn {
+  border: 0;
+  background: transparent;
+  color: var(--text-muted);
+}
+
+.activity-select-toggle {
+  width: 32px;
+  height: 32px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 8px;
+  font-size: 1rem;
+}
+
+.activity-select-toggle.is-selected {
+  color: var(--primary-color);
+}
+
+.activity-select-toggle:hover,
+.activity-select-toggle:focus-visible,
+.activity-open-btn:hover,
+.activity-open-btn:focus-visible {
+  background: var(--primary-light);
+  color: var(--primary-color);
+  outline: none;
+  box-shadow: 0 0 0 3px var(--primary-glow);
+}
+
+.activity-type-icon {
+  width: 40px;
+  height: 40px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 12px;
+  background: var(--primary-light);
+  color: var(--primary-color);
+  font-size: 1rem;
+}
+
+.activity-copy {
+  min-width: 0;
+}
+
+.activity-title-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.activity-title-row h3 {
+  margin: 0;
+  color: var(--text-dark);
+  font-size: 0.9rem;
+  font-weight: 700;
+}
+
+.activity-copy p {
+  margin: 3px 0;
+  color: var(--text-muted);
+  font-size: 0.78rem;
+}
+
+.activity-copy time {
+  color: var(--text-muted);
+  font-size: 0.68rem;
+}
+
+.activity-unread-label {
+  display: inline-flex;
+  align-items: center;
+  border-radius: 999px;
+  background: var(--primary-color);
+  color: #ffffff;
+  padding: 2px 7px;
+  font-size: 0.62rem;
+  font-weight: 700;
+}
+
+.activity-open-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  border-radius: 8px;
+  padding: 7px 8px;
+  font-size: 0.75rem;
+  font-weight: 600;
+}
+
+.activity-loading,
+.activity-empty {
+  min-height: 180px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  color: var(--text-muted);
+  text-align: center;
+  font-size: 0.85rem;
+}
+
+.activity-error {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 8px;
+  padding: 10px 12px;
+  border: 1px solid rgba(220, 38, 38, 0.3);
+  border-radius: 10px;
+  background: rgba(220, 38, 38, 0.08);
+  color: #b91c1c;
+  font-size: 0.78rem;
+}
+
+.activity-error button {
+  flex: 0 0 auto;
+  border: 0;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  font-weight: 700;
+  text-decoration: underline;
+}
+
+.activity-error button:focus-visible {
+  border-radius: 4px;
+  outline: 2px solid currentColor;
+  outline-offset: 2px;
+}
+
+.activity-loading .spinner-border {
+  color: var(--primary-color);
+}
+
+.activity-empty i {
+  color: var(--primary-color);
+  font-size: 2rem;
+}
+
+body.dark-mode .activity-inbox-header,
+body.dark-mode .activity-toolbar {
+  border-color: rgba(75, 85, 99, 0.5) !important;
+}
+
+body.dark-mode .activity-filter-btn,
+body.dark-mode .activity-row {
+  border-color: rgba(75, 85, 99, 0.55);
+  background: rgba(30, 41, 59, 0.55);
+  color: var(--text-muted);
+}
+
+body.dark-mode .activity-filter-btn.active {
+  border-color: var(--primary-color);
+  background: var(--primary-color);
+  color: #0f172a;
+}
+
+body.dark-mode .activity-row.is-unread {
+  background: rgba(14, 165, 233, 0.12);
+}
+
+body.dark-mode .activity-row.is-selected {
+  border-color: var(--primary-color);
+}
+
+@media (max-width: 576px) {
+  .chat-header {
+    grid-template-columns: auto minmax(0, 1fr) auto;
+    gap: 6px;
+    padding-right: 8px;
+    padding-left: 8px;
+  }
+
+  .chat-header > *:nth-child(2) {
+    min-width: 0;
+    gap: 4px !important;
+  }
+
+  .chat-header .destination-container {
+    gap: 4px;
+    max-width: 86px;
+    padding: 5px 8px;
+  }
+
+  .chat-header .destination-label {
+    display: none;
+  }
+
+  .chat-header .destination-value {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .chat-header .action-btn-circle {
+    width: 32px !important;
+    height: 32px !important;
+  }
+
+  .activity-inbox-dialog {
+    min-height: 100%;
+    margin: 0;
+  }
+
+  .activity-inbox-card {
+    min-height: 100vh;
+    max-height: 100vh;
+    border: 0;
+    border-radius: 0;
+  }
+
+  .activity-inbox-header {
+    padding: max(16px, env(safe-area-inset-top)) 16px 12px;
+  }
+
+  .activity-inbox-body {
+    padding: 12px;
+  }
+
+  .activity-toolbar {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+
+  .activity-row {
+    grid-template-columns: 32px 36px minmax(0, 1fr);
+    padding: 10px 8px;
+  }
+
+  .activity-type-icon {
+    width: 36px;
+    height: 36px;
+  }
+
+  .activity-open-btn {
+    grid-column: 2 / -1;
+    justify-content: flex-end;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .activity-row {
+    transition: none;
+  }
+}

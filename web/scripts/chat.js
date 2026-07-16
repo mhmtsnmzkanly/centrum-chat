@@ -10,6 +10,7 @@ import { activeConversationId, setRoomMessages, appendRoomMessage, setActiveDest
 import { UploadOverlay, destKeyForConversation, setupDragDropZone } from "./chat-media.js";
 import { refreshUserProfile } from "./chat-profile.js";
 import { applySystemTheme } from "./shared-theme.js";
+import { addActivityNotification, refreshActivityInbox } from "./chat-activity.js";
 import {
   handlers,
   initApp,
@@ -195,6 +196,7 @@ wsClient.addEventListener("unread.updated", (data) => {
 
 wsClient.addEventListener("notification.new", (data) => {
   const { notification } = data;
+  addActivityNotification(notification);
   const labels = {
     mention: "You were mentioned in a message.",
     dm: "New direct message received.",
@@ -247,6 +249,7 @@ document.addEventListener("shown.bs.modal", (e) => {
 wsClient.onReconnect = () => {
   if (store.get("session.loggedIn")) {
     loadInitialData();
+    refreshActivityInbox();
   }
 };
 

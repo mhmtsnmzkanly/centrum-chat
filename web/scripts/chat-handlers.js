@@ -8,6 +8,17 @@ import { activeConversationId, setRoomMessages, appendRoomMessage, markConversat
 import { UploadOverlay, destKeyForConversation, setupDragDropZone } from "./chat-media.js";
 import { applySessionProfile, seedPreferencesForm, refreshUserProfile } from "./chat-profile.js";
 import { logoutBrowserSession } from "./shared-auth.js";
+import {
+  activityById,
+  deleteAllActivity,
+  deleteSelectedActivity,
+  markActivityRead,
+  markAllActivityRead,
+  refreshActivityInbox,
+  setActivityFilter,
+  toggleActivitySelection,
+  toggleVisibleActivitySelection,
+} from "./chat-activity.js";
 
 // Load a user's profile into visitorProfile state and open the profile modal.
 // Shared by the message header click, group-member list, and reaction popover.
@@ -231,7 +242,7 @@ export async function afterLogin(profileWire) {
     console.warn("Failed to load account security state:", err);
   }
 
-  await loadInitialData();
+  await Promise.all([loadInitialData(), refreshActivityInbox()]);
 
 }
 
@@ -451,8 +462,10 @@ export async function loadInitialData() {
     if (activeDest) {
       await loadConversationHistory(activeDest, activeConversationId());
     }
+    return true;
   } catch (err) {
     console.error("Failed to load initial data:", err);
+    return false;
   }
 }
 
@@ -462,7 +475,7 @@ export async function ensureUsersKnown(userIds) {
 }
 
 export async function loadConversationHistory(dest, conversationId) {
-  if (!conversationId) return;
+  if (!conversationId) return false;
   try {
     const historyResult = await wsClient.request("message.history", { conversationId, limit: 100 });
     const messages = historyResult.messages.map(MAPPERS.message);
@@ -470,8 +483,10 @@ export async function loadConversationHistory(dest, conversationId) {
     await ensureUsersKnown(messages.map((m) => m.authorId));
 
     setRoomMessages(`${dest.type}_${dest.value}`, messages);
+    return true;
   } catch (err) {
     console.error("Failed to load message history:", err);
+    return false;
   }
 }
 
@@ -502,6 +517,116 @@ export function sendTypingStop(conversationId) {
 
 // Event Handlers for UI components
 export const handlers = {
+  async openActivityInbox() {
+    showModal("activityInboxModal");
+    await refreshActivityInbox();
+  },
+
+  async retryActivityInbox() {
+    await refreshActivityInbox();
+  },
+
+  filterActivity(e, el) {
+    e?.preventDefault?.();
+    setActivityFilter(el.getAttribute("data-filter"));
+  },
+
+  toggleActivitySelection(e, el) {
+    e?.preventDefault?.();
+    toggleActivitySelection(el.getAttribute("data-notification-id"));
+  },
+
+  toggleVisibleActivitySelection() {
+    toggleVisibleActivitySelection();
+  },
+
+  async markAllActivityRead() {
+    await markAllActivityRead();
+  },
+
+  async deleteSelectedActivity() {
+    const selectedCount = (store.get("activityInbox.selectedIds") || []).length;
+    if (selectedCount === 0 || store.get("activityInbox.actionPending")) return;
+    if (!window.confirm(`Delete ${selectedCount} selected activity item${selectedCount === 1 ? "" : "s"}?`)) {
+      return;
+    }
+    const deletedCount = await deleteSelectedActivity();
+    if (deletedCount === null) return;
+    ToastService.show(
+      `${deletedCount} activity item${deletedCount === 1 ? "" : "s"} deleted.`,
+      "success",
+    );
+  },
+
+  async deleteAllActivity() {
+    const total = (store.get("activityInbox.notifications") || []).length;
+    if (total === 0 || store.get("activityInbox.actionPending")) return;
+    if (!window.confirm("Delete all activity? This cannot be undone.")) return;
+    const deletedCount = await deleteAllActivity();
+    if (deletedCount === null) return;
+    ToastService.show(
+      `${deletedCount} activity item${deletedCount === 1 ? "" : "s"} deleted.`,
+      "success",
+    );
+  },
+
+  async openActivityItem(e, el) {
+    e?.preventDefault?.();
+    if (store.get("activityInbox.actionPending")) return;
+    const notificationId = el.getAttribute("data-notification-id");
+    const notification = activityById(notificationId);
+    if (!notification) return;
+
+    await markActivityRead(notification.id);
+    if (!notification.conversationId) {
+      ToastService.show("Activity marked as read.", "info");
+      return;
+    }
+
+    const resolveDestination = () => {
+      const channel = (store.get("channelList") || [])
+        .find((item) => item.id === notification.conversationId);
+      if (channel) return { type: "channel", value: channel.slug };
+      const group = (store.get("groupList") || [])
+        .find((item) => item.id === notification.conversationId);
+      if (group) return { type: "group", value: group.id };
+      const dm = (store.get("resolvedDms") || [])
+        .find((item) => item.conversationId === notification.conversationId);
+      return dm ? { type: "dm", value: dm.conversationId } : null;
+    };
+
+    const listsLoaded = await loadInitialData();
+    if (!listsLoaded) {
+      ToastService.show("This activity target could not be checked. Please try again.", "warning");
+      return;
+    }
+    const destination = resolveDestination();
+    if (!destination) {
+      ToastService.show("This activity target is no longer available.", "warning");
+      return;
+    }
+
+    const historyLoaded = await loadConversationHistory(destination, notification.conversationId);
+    if (!historyLoaded) {
+      ToastService.show("This activity target could not be opened.", "warning");
+      return;
+    }
+    setActiveDestination(destination.type, destination.value);
+    markConversationAsRead(notification.conversationId);
+    hideModal("activityInboxModal");
+
+    if (notification.messageId) {
+      requestAnimationFrame(() => {
+        const message = document.getElementById(`group_${notification.messageId}`) ||
+          document.getElementById(`msg_${notification.messageId}`);
+        if (!message) return;
+        message.scrollIntoView({ behavior: "smooth", block: "center" });
+        message.classList.add("message-highlight");
+        setTimeout(() => message.classList.remove("message-highlight"), 2000);
+      });
+    }
+  },
+
   async toggleTheme() {
     const currentTheme = store.get("prefs.theme");
     const nextTheme = currentTheme === "dark" ? "light" : "dark";

@@ -53,6 +53,14 @@ export const store = createStore({
   activeDest: { type: "channel", value: "general" },
   activeDestKey: "channel_general",
   notifications: {},
+  activityInbox: {
+    notifications: [],
+    filter: "all",
+    selectedIds: [],
+    loading: false,
+    actionPending: false,
+    error: "",
+  },
   // Keyed by user id (message authors, DM partners, self).
   users: {},
   groupList: [],

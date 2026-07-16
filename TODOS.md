@@ -1313,8 +1313,27 @@ kendi bildirimlerinin etkilenmesi.
 
 #### Durum
 
-`Devam ediyor`
+`Tamamlandı`
 
+- 2026-07-16 — Model: GPT-5 Codex — Bekleyen istemci katmanı tamamlandı. Chat başlığına unread
+  rozetiyle açılan birleşik aktivite modalı; görünür kayıtları seçme, seçili kayıtları sözleşmedeki
+  100 id sınırına göre güvenli parçalara bölerek silme ve tüm bildirimleri onayla silme akışlarını
+  mevcut kullanıcı kapsamlı `notification.delete` eventi üzerinden kullanıyor. Auth kaybında seçim
+  ve bildirim state'i temizleniyor; hesap değişimi sırasında geciken istekler eski state'i geri
+  yükleyemiyor. Değişen dosyalar: `web/index.html`, `web/styles/chat.css`, yeni
+  `web/scripts/chat-activity.js`, `web/scripts/chat-handlers.js`, `web/scripts/chat-store.js`,
+  `web/scripts/chat.js`, `TODOS.md`. Migration ve WS sözleşme değişikliği yok. Doğrulama:
+  bildirim odaklı mevcut backend testleri 32 passed / 0 failed; `deno fmt --check` 279 dosya,
+  `deno task check`, `deno task lint` 263 dosya, `deno task test` 364 passed / 0 failed;
+  `deno check web/scripts/chat.js` başarılı. Geçici DB ve gerçek Chromium ile 1280×900 ve 390×844
+  görünümlerinde seçim, seçili silme ve tümünü silme çalıştırıldı; browser error 0. Frontend
+  otomatik test dosyası kullanıcı talebi gereği eklenmedi.
+- 2026-07-16 — Model: GPT-5 Codex — İstemci tarafındaki seçim ve toplu silme arayüzünün birleşik
+  aktivite gelen kutusuyla birlikte uygulanmasına başlandı. Plan: mevcut `notification.list`,
+  `notification.markRead` ve kullanıcı kapsamlı `notification.delete` sözleşmelerini tüketen
+  erişilebilir bir gelen kutusu; seçili/tümünü silme, okunma durumu, kararlı tür filtreleri, yeni
+  türler için güvenli fallback ve hesap geçişinde state temizliği. Frontend otomatik testi
+  eklenmeyecek; mevcut backend testleri ve manuel istemci doğrulaması kullanılacak.
 - 2026-07-14 — Model: Gemini 3.5 Flash medium — Efor seviyesi Orta olarak güncellendi. Bu iş;
   repository, domain service, WS handler, registry, dokümantasyon, entegrasyon/unit/repository
   testleri ve bekleyen istemci seçim arayüzünü (UI) kapsadığından efor Orta olarak yeniden
@@ -1359,8 +1378,31 @@ genel görünümle desteklenmelidir.
 
 #### Durum
 
-`Bekliyor`
+`Tamamlandı`
 
+- 2026-07-16 — Model: GPT-5 Codex — Birleşik aktivite gelen kutusu tamamlandı. `notification.list`,
+  `notification.markRead`, `notification.delete` ve canlı `notification.new` mevcut sözleşmeleri
+  tek hesap-kapsamlı istemci modülünde tüketiliyor. `Tümü`, `Okunmamış`, `Mention ve yanıtlar`,
+  `Reaksiyonlar`, `Davetler` filtreleri; DM/mention/reaction/invite sunumları; gelecekteki
+  reply/system/security türleri ile bilinmeyen türler için güvenli genel fallback; yeniden bağlanma
+  yenilemesi, hata/tekrar dene durumu ve unread başlık rozeti eklendi. Hedef açma, konuşma listesi ve
+  geçmiş erişimi sunucudan başarıyla yeniden doğrulanmadan görünümü değiştirmiyor. Semantik
+  başlıklar, native butonlar, canlı durum bölgeleri, görünür focus, reduced-motion, koyu tema ve
+  responsive tam ekran mobil görünüm eklendi. Değişen dosyalar: `web/index.html`,
+  `web/styles/chat.css`, yeni `web/scripts/chat-activity.js`, `web/scripts/chat-handlers.js`,
+  `web/scripts/chat-store.js`, `web/scripts/chat.js`, `TODOS.md`. Migration/API sözleşme değişikliği
+  yok. Kontroller: odaklı backend testleri 32/32; `deno fmt --check`, `deno task check`,
+  `deno task lint`, `deno check web/scripts/chat.js` başarılı; tam suite 364/364. Gerçek Chromium
+  doğrulamasında masaüstü ve mobil görünüm, beş filtre, üç unread kayıt, seçili durum, tümünü okundu
+  işaretleme, seçili/tümü silme ve `#general` hedefini açma başarılı; browser error 0. Frontend
+  otomatik test dosyası eklenmedi. Somut kalan sınırlar ayrı TODO'lardaki reply üretimi, cursor
+  sayfalama/retention ve mesaj çevresi permalink yüklemesidir; bu gelen kutusunun kapsamını
+  engellemez.
+- 2026-07-16 — Model: GPT-5 Codex — Uygulamaya başlandı. Plan: chat başlığından açılan responsive
+  aktivite gelen kutusu, `Tümü`/`Okunmamış`/`Mention ve yanıtlar`/`Reaksiyonlar`/`Davetler`
+  filtreleri, bilinmeyen bildirim türleri için güvenli genel sunum, tekil/tümünü okundu işaretleme,
+  seçimli/tümünü silme, canlı `notification.new` güncellemesi ve kullanıcıya ait state'in auth
+  kaybında temizlenmesi. Mevcut WS sözleşmesi kullanılacak; frontend otomatik testi eklenmeyecek.
 - 2026-07-14 — Model: GPT-5 Codex — Mevcut notification list/mark-read altyapısının bulunduğu, ancak
   türlere ayrılmış birleşik aktivite gelen kutusu bulunmadığı doğrulanarak planlama listesine
   eklendi.

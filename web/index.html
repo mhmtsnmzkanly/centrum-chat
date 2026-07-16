@@ -176,6 +176,12 @@
             <i class="bi bi-search" style="font-size:0.85rem;"></i>
           </button>
 
+          <!-- Unified activity inbox -->
+          <button class="action-btn-circle activity-trigger ms-1" data-on-click="openActivityInbox" title="Open activity inbox" aria-label="Open activity inbox" style="width:36px;height:36px;flex-shrink:0;">
+            <i class="bi bi-bell-fill" style="font-size:0.85rem;"></i>
+            <span class="activity-trigger-badge {activitybadgeclass}" data-activitybadgeclass="activityHeaderBadge.class" data-text="activityHeaderBadge.text" aria-label="Unread activity">0</span>
+          </button>
+
           <!-- Theme Toggle Button -->
           <button class="action-btn-circle ms-1" data-on-click="toggleTheme" title="Toggle dark/light mode" style="width:36px;height:36px;flex-shrink:0;">
             <i class="bi {themeicon}" data-themeicon="themeIcon" style="font-size:0.95rem;"></i>
@@ -516,6 +522,97 @@
       <button class="focus-exit-btn" data-show="focusMode" data-on-click="toggleFocusMode" title="Exit focus mode (Esc)" aria-label="Exit focus mode">
         <i class="bi bi-arrows-angle-contract"></i><span class="focus-exit-label">Exit focus</span>
       </button>
+    </div>
+
+    <!-- ==================================================== -->
+    <!-- UNIFIED ACTIVITY INBOX                              -->
+    <!-- ==================================================== -->
+    <div class="modal fade" id="activityInboxModal" tabindex="-1" aria-labelledby="activityInboxTitle" aria-describedby="activityInboxDescription" aria-hidden="true">
+      <div class="modal-dialog modal-dialog-centered modal-dialog-scrollable activity-inbox-dialog">
+        <div class="modal-content modal-content-custom activity-inbox-card">
+          <div class="modal-header activity-inbox-header">
+            <div>
+              <h2 class="modal-title fs-5" id="activityInboxTitle">Activity</h2>
+              <p class="mb-0" id="activityInboxDescription">Mentions, messages, reactions and invitations in one place.</p>
+            </div>
+            <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close activity inbox"></button>
+          </div>
+
+          <div class="modal-body activity-inbox-body">
+            <div class="activity-filter-bar" aria-label="Filter activity">
+              <button type="button" class="activity-filter-btn {allfilterclass}" data-allfilterclass="activityInbox.allFilterClass" data-on-click="filterActivity" data-filter="all">All</button>
+              <button type="button" class="activity-filter-btn {unreadfilterclass}" data-unreadfilterclass="activityInbox.unreadFilterClass" data-on-click="filterActivity" data-filter="unread">Unread</button>
+              <button type="button" class="activity-filter-btn {mentionsfilterclass}" data-mentionsfilterclass="activityInbox.mentionsFilterClass" data-on-click="filterActivity" data-filter="mentions">Mentions &amp; replies</button>
+              <button type="button" class="activity-filter-btn {reactionsfilterclass}" data-reactionsfilterclass="activityInbox.reactionsFilterClass" data-on-click="filterActivity" data-filter="reactions">Reactions</button>
+              <button type="button" class="activity-filter-btn {invitesfilterclass}" data-invitesfilterclass="activityInbox.invitesFilterClass" data-on-click="filterActivity" data-filter="invites">Invitations</button>
+            </div>
+
+            <div class="activity-toolbar">
+              <div class="activity-toolbar-primary">
+                <button type="button" class="activity-toolbar-btn" data-on-click="toggleVisibleActivitySelection" data-show="activityInbox.hasItems">
+                  <i class="bi bi-check2-square"></i> Select visible
+                </button>
+                <button type="button" class="activity-toolbar-btn" data-on-click="markAllActivityRead" data-show="activityInbox.hasUnread">
+                  <i class="bi bi-envelope-open"></i> Mark all read
+                </button>
+              </div>
+              <div class="activity-toolbar-danger">
+                <button type="button" class="activity-toolbar-btn danger" data-on-click="deleteSelectedActivity" data-show="activityInbox.hasSelection">
+                  <i class="bi bi-trash3"></i> Delete selected
+                </button>
+                <button type="button" class="activity-toolbar-btn danger" data-on-click="deleteAllActivity" data-show="activityInbox.hasAny">
+                  Delete all
+                </button>
+              </div>
+            </div>
+
+            <div class="activity-selection-status" data-text="activityInbox.selectedText" aria-live="polite">No activity selected</div>
+
+            <div class="activity-error" data-show="activityInbox.hasError" role="alert">
+              <span data-text="activityInbox.error"></span>
+              <button type="button" data-on-click="retryActivityInbox">Try again</button>
+            </div>
+
+            <div class="activity-loading" data-show="activityInbox.showLoading" role="status" aria-live="polite">
+              <span class="spinner-border spinner-border-sm" aria-hidden="true"></span>
+              Loading activity…
+            </div>
+
+            <div class="activity-empty" data-show="activityInbox.showEmpty" role="status" aria-live="polite">
+              <i class="bi bi-inbox" aria-hidden="true"></i>
+              <span data-text="activityInbox.emptyText"></span>
+            </div>
+
+            <div class="activity-list" data-show="activityInbox.hasItems">
+              <for each="activityItems" as="item" key="item.id" data-live data-diff="replace">
+                <article class="activity-row ${item.rowClass} ${item.selectionClass}">
+                  <button type="button" class="activity-select-toggle ${item.selectionClass}" data-on-click="toggleActivitySelection" data-notification-id="${item.id}" aria-pressed="${item.selectionAria}" aria-label="${item.selectionLabel}">
+                    <i class="bi ${item.selectionIcon}" aria-hidden="true"></i>
+                  </button>
+                  <div class="activity-type-icon" aria-hidden="true">
+                    <i class="bi ${item.icon}"></i>
+                  </div>
+                  <div class="activity-copy">
+                    <div class="activity-title-row">
+                      <h3>${item.title}</h3>
+                      <if is-truthy="item.isRead">
+                        <else>
+                          <span class="activity-unread-label">Unread</span>
+                        </else>
+                      </if>
+                    </div>
+                    <p>${item.description}</p>
+                    <time datetime="${item.createdAt}">${item.timeLabel}</time>
+                  </div>
+                  <button type="button" class="activity-open-btn" data-on-click="openActivityItem" data-notification-id="${item.id}" aria-label="${item.openLabel}">
+                    <span>${item.actionText}</span><i class="bi bi-chevron-right" aria-hidden="true"></i>
+                  </button>
+                </article>
+              </for>
+            </div>
+          </div>
+        </div>
+      </div>
     </div>
 
     <!-- ==================================================== -->
