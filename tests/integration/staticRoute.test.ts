@@ -58,6 +58,9 @@ Deno.test("StaticRoute resolves exact, extensionless, and directory fallback pat
         "/scripts/i18n.js",
         "/scripts/i18n-catalogs.js",
         "/scripts/account-locale.js",
+        "/scripts/control-center.js",
+        "/scripts/control-center-boot.js",
+        "/scripts/lime-csr.js",
       ]
     ) {
       const response = await fetch(base + path);

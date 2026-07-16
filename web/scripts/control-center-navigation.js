@@ -1,116 +1,39 @@
+import {
+  canAccessControlCenterTab,
+  getAllowedControlCenterTabs,
+  isKnownControlCenterTab,
+} from "./control-center-contract.js";
 import { controlCenterStore } from "./control-center-store.js";
 
-const TAB_RULES = [
-  {
-    id: "reports",
-    allowed: (caps) => caps?.moderation?.reportsList,
-  },
-  {
-    id: "moderation-audit",
-    allowed: (caps) => caps?.moderation?.auditList,
-  },
-  {
-    id: "users",
-    allowed: (caps) => caps?.administration?.usersList,
-  },
-  {
-    id: "channels",
-    allowed: (caps) => caps?.administration?.channelsList,
-  },
-  {
-    id: "roles",
-    allowed: (caps) => caps?.administration?.rolesView,
-  },
-  {
-    id: "settings",
-    allowed: (caps) => caps?.administration?.settingsRead,
-  },
-  {
-    id: "security-audit",
-    allowed: (caps) => caps?.administration?.securityAuditList,
-  },
-  {
-    id: "ownership-transfer",
-    allowed: (caps) => caps?.owner?.ownershipTransfer,
-  },
-];
-
-const TAB_IDS = new Set(TAB_RULES.map((tab) => tab.id));
-let requestedTab = readRequestedTab();
-
-function readRequestedTab() {
+export function readRequestedControlCenterTab() {
   const value = new URL(window.location.href).searchParams.get("tab");
-  return value && TAB_IDS.has(value) ? value : null;
+  return isKnownControlCenterTab(value) ? value : null;
 }
 
-function allowedTabs() {
+export function reconcileControlCenterTab(requestedTab = null) {
   const capabilities = controlCenterStore.get("capabilities");
-  return TAB_RULES.filter((tab) => !!tab.allowed(capabilities));
+  const allowedTabs = getAllowedControlCenterTabs(capabilities);
+  if (allowedTabs.length === 0) return null;
+
+  const currentTab = controlCenterStore.get("currentTab");
+  const nextTab = requestedTab && allowedTabs.includes(requestedTab)
+    ? requestedTab
+    : (allowedTabs.includes(currentTab) ? currentTab : allowedTabs[0]);
+  controlCenterStore.set("currentTab", nextTab);
+  return nextTab;
 }
 
 function replaceTabInUrl(tab) {
+  if (!isKnownControlCenterTab(tab)) return;
   const url = new URL(window.location.href);
   if (url.searchParams.get("tab") === tab) return;
   url.searchParams.set("tab", tab);
   window.history.replaceState({ controlCenterTab: tab }, "", url);
 }
 
-function syncNavigationVisibility() {
-  const allowed = new Set(allowedTabs().map((tab) => tab.id));
-
-  for (const item of document.querySelectorAll("[data-nav-item]")) {
-    item.hidden = !allowed.has(item.getAttribute("data-nav-item"));
-  }
-
-  for (const group of document.querySelectorAll("[data-nav-group]")) {
-    const hasVisibleItem = Array.from(
-      group.querySelectorAll("[data-nav-item]"),
-    ).some((item) => !item.hidden);
-    group.hidden = !hasVisibleItem;
-  }
-}
-
-function renderActiveTab() {
-  const permitted = allowedTabs();
-  if (permitted.length === 0) {
-    for (const panel of document.querySelectorAll("[data-panel]")) {
-      panel.hidden = true;
-    }
-    return;
-  }
-
-  const permittedIds = new Set(permitted.map((tab) => tab.id));
-  const current = controlCenterStore.get("currentTab");
-  const next = permittedIds.has(requestedTab)
-    ? requestedTab
-    : (permittedIds.has(current) ? current : permitted[0].id);
-  requestedTab = null;
-
-  if (current !== next) {
-    controlCenterStore.set("currentTab", next);
-    return;
-  }
-
-  for (const panel of document.querySelectorAll("[data-panel]")) {
-    const active = panel.getAttribute("data-panel") === next;
-    panel.hidden = !active;
-    panel.setAttribute("aria-hidden", String(!active));
-  }
-
-  for (const button of document.querySelectorAll("[data-tab]")) {
-    const active = button.getAttribute("data-tab") === next;
-    button.classList.toggle("active", active);
-    button.setAttribute("aria-selected", String(active));
-    button.setAttribute("tabindex", active ? "0" : "-1");
-  }
-
-  replaceTabInUrl(next);
-}
-
 function activateTab(tab) {
-  if (!TAB_IDS.has(tab)) return;
-  const permitted = allowedTabs().some((item) => item.id === tab);
-  if (!permitted) return;
+  const capabilities = controlCenterStore.get("capabilities");
+  if (!canAccessControlCenterTab(capabilities, tab)) return;
 
   controlCenterStore.set("currentTab", tab);
   if (tab === "moderation-audit" || tab === "security-audit") {
@@ -122,7 +45,9 @@ function activateTab(tab) {
 function moveTabFocus(event) {
   if (!["ArrowDown", "ArrowUp", "Home", "End"].includes(event.key)) return;
   const buttons = Array.from(
-    document.querySelectorAll("[data-nav-item]:not([hidden]) [data-tab]"),
+    document.querySelectorAll(
+      '.sidebar-nav-container [data-show^="showNav_"]:not([hidden]) [data-tab]',
+    ),
   );
   if (buttons.length === 0) return;
 
@@ -191,15 +116,13 @@ export function initNavigation() {
     showList(usersPanelRow, btnUsersBack);
   });
 
-  window.addEventListener("popstate", () => {
-    requestedTab = readRequestedTab();
-    renderActiveTab();
-  });
   controlCenterStore.subscribe("capabilities", () => {
-    syncNavigationVisibility();
-    renderActiveTab();
+    const nextTab = reconcileControlCenterTab();
+    if (!nextTab && !controlCenterStore.get("accessDenied")) {
+      controlCenterStore.clearSensitiveState();
+    }
   });
-  controlCenterStore.subscribe("currentTab", renderActiveTab);
+  controlCenterStore.subscribe("currentTab", (tab) => replaceTabInUrl(tab));
 
   window._ccMobileShowReportDetail = () =>
     showDetail(reportsPanelRow, btnReportsBack);
@@ -207,8 +130,7 @@ export function initNavigation() {
     showDetail(usersPanelRow, btnUsersBack);
   window._ccMobileCloseSidebar = closeSidebar;
 
-  syncNavigationVisibility();
-  renderActiveTab();
+  replaceTabInUrl(controlCenterStore.get("currentTab"));
 }
 
 export const navigationHandlers = {

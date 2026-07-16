@@ -1,7 +1,21 @@
-import { mount, setDevMode } from "./lime-csr.js";
+import { mount, setDevMode, subscribeDiagnostics } from "./lime-csr.js";
+import {
+  bindBootActions,
+  classifyControlCenterStartupError,
+  CONTROL_CENTER_STARTUP_ERRORS,
+  finishBoot,
+  setBootStage,
+  showBootError,
+  startupError,
+} from "./control-center-boot.js";
 import { controlCenterStore } from "./control-center-store.js";
 import { initShell, shellHandlers } from "./control-center-shell.js";
-import { initNavigation, navigationHandlers } from "./control-center-navigation.js";
+import {
+  initNavigation,
+  navigationHandlers,
+  readRequestedControlCenterTab,
+  reconcileControlCenterTab,
+} from "./control-center-navigation.js";
 import { initModerationModule, moderationHandlers } from "./control-center-moderation.js";
 import { initUsersModule, usersHandlers } from "./control-center-users.js";
 import { initChannelsModule, channelsHandlers } from "./control-center-channels.js";
@@ -13,7 +27,7 @@ import { initDialogs } from "./control-center-dialogs.js";
 import { renderToast } from "./control-center-common.js";
 import {
   authPageUrl,
-  guardProtectedPage,
+  resolveAuthenticatedAccount,
   resolveControlCenterAccess,
 } from "./shared-auth.js";
 import { restoreAccountLocale, saveAccountLocale } from "./account-locale.js";
@@ -40,73 +54,129 @@ const handlers = {
   ...ownerHandlers,
 };
 
-// Static sidebar configuration rendered by tpl-cc-sidebar. The navigation
-// controller resolves capability visibility and active panel state after the
-// template is mounted.
+function navItem(tab, icon, label) {
+  return {
+    tab,
+    icon,
+    label,
+    showPath: `showNav_${tab}`,
+    navClassPath: `navClass_${tab}`,
+    ariaSelectedPath: `navAriaSelected_${tab}`,
+    tabIndexPath: `navTabIndex_${tab}`,
+  };
+}
+
 const NAV_GROUPS = [
   {
     id: "moderation",
     title: "Moderation",
+    showPath: "showNavGroup_moderation",
     items: [
-      { tab: "reports", icon: "bi-chat-left-text", label: "Reports Queue" },
-      { tab: "moderation-audit", icon: "bi-journal-text", label: "Moderation Audit" },
+      navItem("reports", "bi-chat-left-text", "Reports Queue"),
+      navItem("moderation-audit", "bi-journal-text", "Moderation Audit"),
     ],
   },
   {
     id: "administration",
     title: "Administration",
+    showPath: "showNavGroup_administration",
     items: [
-      { tab: "users", icon: "bi-people", label: "Users" },
-      { tab: "channels", icon: "bi-hash", label: "Channels" },
-      { tab: "roles", icon: "bi-person-badge", label: "Roles" },
-      { tab: "settings", icon: "bi-sliders", label: "System Settings" },
-      { tab: "security-audit", icon: "bi-file-earmark-lock", label: "Security Audit" },
+      navItem("users", "bi-people", "Users"),
+      navItem("channels", "bi-hash", "Channels"),
+      navItem("roles", "bi-person-badge", "Roles"),
+      navItem("settings", "bi-sliders", "System Settings"),
+      navItem("security-audit", "bi-file-earmark-lock", "Security Audit"),
     ],
   },
   {
     id: "owner",
     title: "Owner Only",
+    showPath: "showNavGroup_owner",
     items: [
-      { tab: "ownership-transfer", icon: "bi-key", label: "Ownership Transfer" },
+      navItem("ownership-transfer", "bi-key", "Ownership Transfer"),
     ],
   },
 ];
 
-async function initializeControlCenter() {
-  const account = await guardProtectedPage("/control-center");
-  if (!account) return;
-  await restoreAccountLocale().catch(() => null);
-  translateDocument();
-  observeTranslations();
-  controlCenterStore.set("locale", getLocale());
-  // Missing or unresolvable Control Center permission never renders an
-  // in-page denied state: the auth page owns the permission-denied view
-  // (auth.js finishDestination re-checks access for /control-center).
-  const access = await resolveControlCenterAccess().catch(() => null);
-  if (!access?.allowed) {
-    window.location.replace(authPageUrl("/control-center"));
-    return;
-  }
+const BLOCKING_LIME_DIAGNOSTICS = new Set([
+  "MOUNT_TEMPLATE_NOT_FOUND",
+  "TEMPLATE_NOT_FOUND",
+  "PARTIAL_NOT_FOUND",
+  "PARTIAL_DEPTH_LIMIT",
+  "PIPELINE_DEPTH_LIMIT",
+  "HANDLER_NOT_FOUND",
+]);
+const MAX_STARTUP_DIAGNOSTICS = 20;
 
-  // Losing permission mid-session (a 403 makes the store clear its state and
-  // flag accessDenied) routes through the same auth-page view.
-  controlCenterStore.subscribe("accessDenied", (denied) => {
-    if (denied) window.location.replace(authPageUrl("/control-center"));
+function beginStartupDiagnostics() {
+  const diagnostics = [];
+  const unsubscribe = subscribeDiagnostics((diagnostic) => {
+    if (diagnostics.length < MAX_STARTUP_DIAGNOSTICS) diagnostics.push(diagnostic);
   });
+  return { diagnostics, unsubscribe };
+}
 
-  // 1. Mount the control-center template
-  const appRoot = document.getElementById("control-center-app");
-  if (appRoot) {
-    mount("control-center", {
-      target: appRoot,
-      context: { navGroups: NAV_GROUPS },
-      store: controlCenterStore,
-      handlers,
-    });
-    translateDocument(appRoot);
+function assertNoBlockingLimeDiagnostics(diagnostics) {
+  const diagnostic = [...diagnostics].reverse().find((item) =>
+    BLOCKING_LIME_DIAGNOSTICS.has(item.code)
+  );
+  if (diagnostic) {
+    throw startupError(
+      CONTROL_CENTER_STARTUP_ERRORS.LIME,
+      diagnostic,
+      diagnostic.code,
+    );
   }
+}
 
-  // 2. Initialize UI modules
+function redirectToAuth() {
+  window.location.replace(authPageUrl("/control-center"));
+}
+
+async function resolveProtectedSession() {
+  try {
+    const account = await resolveAuthenticatedAccount();
+    if (!account.onboardingComplete) {
+      redirectToAuth();
+      return null;
+    }
+    return account;
+  } catch (error) {
+    if (error?.status === 401 || error?.code === "UNAUTHORIZED") {
+      redirectToAuth();
+      return null;
+    }
+    throw startupError(CONTROL_CENTER_STARTUP_ERRORS.SESSION, error);
+  }
+}
+
+async function resolveOperatorAccess() {
+  try {
+    return await resolveControlCenterAccess();
+  } catch (error) {
+    if (error?.status === 401 || error?.code === "UNAUTHORIZED") {
+      redirectToAuth();
+      return null;
+    }
+    throw startupError(CONTROL_CENTER_STARTUP_ERRORS.PERMISSIONS, error);
+  }
+}
+
+function mountControlCenter() {
+  const appRoot = document.getElementById("control-center-app");
+  if (!appRoot) {
+    throw startupError(CONTROL_CENTER_STARTUP_ERRORS.LIME, null, "MOUNT_TARGET_NOT_FOUND");
+  }
+  mount("control-center", {
+    target: appRoot,
+    context: { navGroups: NAV_GROUPS },
+    store: controlCenterStore,
+    handlers,
+  });
+  translateDocument(appRoot);
+}
+
+function initializeControlCenterModules() {
   initShell();
   initNavigation();
   initModerationModule();
@@ -117,6 +187,7 @@ async function initializeControlCenter() {
   initAuditModule();
   initOwnerModule();
   initDialogs();
+  observeTranslations();
   subscribeLocale((locale) => {
     controlCenterStore.set("locale", locale);
     queueMicrotask(() => translateDocument());
@@ -128,39 +199,98 @@ async function initializeControlCenter() {
       renderToast("danger", t("language.saveFailed"));
     }
   });
+}
 
-  // 3. Seed operator/capability state from the payload the access check
-  //    already resolved — /api/control-center/me is fetched exactly once.
-  controlCenterStore.applyOperator(access.operator);
-
-  // 4. Trigger initial data loads if access is permitted
-  const state = controlCenterStore.getState();
-  if (!state.accessDenied) {
-    await controlCenterStore.loadReports();
-
-    const caps = state.capabilities;
-    if (caps) {
-      if (caps.administration.usersList) {
-        await controlCenterStore.loadUsers();
-      }
-      if (caps.administration.channelsList) {
-        await controlCenterStore.loadChannels();
-      }
-      if (caps.administration.settingsRead) {
-        await controlCenterStore.loadSettings();
-      }
-      if (caps.moderation.auditList) {
-        await controlCenterStore.loadAuditEvents();
-      }
-    }
+async function loadInitialControlCenterData() {
+  const capabilities = controlCenterStore.get("capabilities");
+  const loads = [];
+  if (capabilities?.moderation?.reportsList) {
+    loads.push({ errorPath: "reportsError", promise: controlCenterStore.loadReports() });
+  }
+  if (capabilities?.administration?.usersList) {
+    loads.push({ errorPath: "usersError", promise: controlCenterStore.loadUsers() });
+  }
+  if (capabilities?.administration?.channelsList) {
+    loads.push({ errorPath: "channelsError", promise: controlCenterStore.loadChannels() });
+  }
+  if (capabilities?.administration?.settingsRead) {
+    loads.push({ errorPath: "settingsError", promise: controlCenterStore.loadSettings() });
+  }
+  if (capabilities?.moderation?.auditList) {
+    loads.push({ errorPath: "auditError", promise: controlCenterStore.loadAuditEvents() });
   }
 
-  // 5. Hide loading overlay
-  const loader = document.getElementById("app-loading-screen");
-  if (loader) {
-    loader.style.opacity = "0";
-    loader.style.visibility = "hidden";
-    setTimeout(() => loader.remove(), 400);
+  await Promise.all(loads.map((load) => load.promise));
+  const failed = loads.find((load) => controlCenterStore.get(load.errorPath));
+  if (failed) {
+    throw startupError(
+      CONTROL_CENTER_STARTUP_ERRORS.INITIAL_DATA,
+      controlCenterStore.get(failed.errorPath),
+    );
+  }
+}
+
+async function initializeControlCenter() {
+  let unsubscribeDiagnostics = () => {};
+  bindBootActions();
+
+  try {
+    setBootStage("SESSION");
+    const account = await resolveProtectedSession();
+    if (!account) return;
+
+    setBootStage("LOCALE");
+    try {
+      await restoreAccountLocale();
+    } catch (error) {
+      throw startupError(CONTROL_CENTER_STARTUP_ERRORS.LOCALE, error);
+    }
+    translateDocument();
+    controlCenterStore.set("locale", getLocale());
+
+    setBootStage("PERMISSIONS");
+    const access = await resolveOperatorAccess();
+    if (!access) return;
+    if (!access.allowed) {
+      redirectToAuth();
+      return;
+    }
+
+    controlCenterStore.subscribe("accessDenied", (denied) => {
+      if (denied) redirectToAuth();
+    });
+    controlCenterStore.applyOperator(access.operator);
+    const initialTab = reconcileControlCenterTab(readRequestedControlCenterTab());
+    if (!initialTab) {
+      redirectToAuth();
+      return;
+    }
+
+    setBootStage("RENDER");
+    const startupDiagnostics = beginStartupDiagnostics();
+    unsubscribeDiagnostics = startupDiagnostics.unsubscribe;
+    try {
+      mountControlCenter();
+      assertNoBlockingLimeDiagnostics(startupDiagnostics.diagnostics);
+      initializeControlCenterModules();
+      assertNoBlockingLimeDiagnostics(startupDiagnostics.diagnostics);
+    } catch (error) {
+      if (error?.code === CONTROL_CENTER_STARTUP_ERRORS.LIME) throw error;
+      throw startupError(CONTROL_CENTER_STARTUP_ERRORS.LIME, error);
+    }
+
+    setBootStage("INITIAL_DATA");
+    await loadInitialControlCenterData();
+    assertNoBlockingLimeDiagnostics(startupDiagnostics.diagnostics);
+
+    setBootStage("READY");
+    finishBoot();
+  } catch (error) {
+    const startupFailure = classifyControlCenterStartupError(error);
+    console.error("Control Center initialization failed", error);
+    showBootError(startupFailure);
+  } finally {
+    unsubscribeDiagnostics();
   }
 }
 

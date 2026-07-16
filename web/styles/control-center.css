@@ -68,6 +68,37 @@ body {
   transition: background-color var(--transition-speed);
 }
 
+.cc-boot-screen {
+  z-index: 1050;
+  padding: 1rem;
+  background: var(--body-bg);
+}
+
+.cc-boot-card {
+  width: min(100%, 420px);
+  padding: 1.5rem;
+  border: 1px solid var(--glass-border);
+  border-radius: var(--card-radius);
+  background: var(--glass-bg);
+  box-shadow: var(--glass-shadow);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+}
+
+.cc-boot-error {
+  padding: 0.75rem;
+  border: 1px solid rgba(239, 68, 68, 0.35);
+  border-radius: var(--input-radius);
+  background: rgba(239, 68, 68, 0.08);
+}
+
+.cc-boot-actions:not([hidden]) {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 0.5rem;
+}
+
 /* Accessibility Focus States */
 a:focus-visible,
 button:focus-visible,
@@ -370,22 +401,6 @@ body.dark-mode .form-select:focus {
 }
 body.dark-mode .table {
   color: var(--text-dark) !important;
-}
-
-/* Lime's data-show writes an inline display:none. Bootstrap display utilities
-   such as d-flex use !important and otherwise keep hidden reactive regions
-   visible. Limit the compatibility override to Lime-managed Control Center
-   nodes so active elements retain their original Bootstrap display mode. */
-#control-center-app [data-show][style*="display: none"] {
-  display: none !important;
-}
-
-/* Native hidden is the authoritative boundary for page-level tab routing.
-   Bootstrap display helpers are !important, so this rule must match them. */
-#control-center-app .tab-panel[hidden],
-#control-center-app [data-nav-group][hidden],
-#control-center-app [data-nav-item][hidden] {
-  display: none !important;
 }
 
 .cc-locale-select {

@@ -1,12 +1,17 @@
 import { ControlCenterApi } from "./control-center-api.js";
-import { getActiveCapabilities } from "./control-center-contract.js";
+import {
+  canAccessControlCenterGroup,
+  canAccessControlCenterTab,
+  CONTROL_CENTER_TABS,
+  getActiveCapabilities,
+} from "./control-center-contract.js";
 import { createStore } from "./lime-csr.js";
 import { formatDate } from "./control-center-common.js";
 import { getLocale, t, tp } from "./i18n.js";
 
 const DEFAULT_STATE = {
   locale: getLocale(),
-  currentTab: "reports", // reports, moderation-audit, users, channels, roles, settings, security-audit, ownership-transfer
+  currentTab: null,
   operator: null,
   capabilities: null,
 
@@ -93,6 +98,44 @@ class Store {
       settings: 0,
       audit: 0,
     };
+
+    for (const tab of CONTROL_CENTER_TABS) {
+      this.store.computed(`showNav_${tab.id}`, ["capabilities"], () => {
+        return canAccessControlCenterTab(this.store.get("capabilities"), tab.id);
+      });
+      this.store.computed(
+        `showPanel_${tab.id}`,
+        ["currentTab", "capabilities"],
+        () => {
+          return this.store.get("currentTab") === tab.id &&
+            canAccessControlCenterTab(this.store.get("capabilities"), tab.id);
+        },
+      );
+      this.store.computed(`navClass_${tab.id}`, ["currentTab", "capabilities"], () => {
+        return this.store.get("currentTab") === tab.id &&
+            canAccessControlCenterTab(this.store.get("capabilities"), tab.id)
+          ? "active"
+          : "";
+      });
+      this.store.computed(`navAriaSelected_${tab.id}`, ["currentTab", "capabilities"], () => {
+        return this.store.get("currentTab") === tab.id &&
+            canAccessControlCenterTab(this.store.get("capabilities"), tab.id)
+          ? "true"
+          : "false";
+      });
+      this.store.computed(`navTabIndex_${tab.id}`, ["currentTab", "capabilities"], () => {
+        return this.store.get("currentTab") === tab.id &&
+            canAccessControlCenterTab(this.store.get("capabilities"), tab.id)
+          ? "0"
+          : "-1";
+      });
+    }
+
+    for (const group of ["moderation", "administration", "owner"]) {
+      this.store.computed(`showNavGroup_${group}`, ["capabilities"], () => {
+        return canAccessControlCenterGroup(this.store.get("capabilities"), group);
+      });
+    }
 
     // Dynamic Lists computed properties:
     // 1. reportsList

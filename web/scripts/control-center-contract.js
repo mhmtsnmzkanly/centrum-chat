@@ -42,6 +42,65 @@ const CAPABILITY_PERMISSIONS = Object.freeze({
 
 export const ControlCenterCapabilities = CAPABILITY_PERMISSIONS;
 
+export const CONTROL_CENTER_TABS = Object.freeze([
+  Object.freeze({ id: "reports", group: "moderation", capability: "moderation.reportsList" }),
+  Object.freeze({
+    id: "moderation-audit",
+    group: "moderation",
+    capability: "moderation.auditList",
+  }),
+  Object.freeze({ id: "users", group: "administration", capability: "administration.usersList" }),
+  Object.freeze({
+    id: "channels",
+    group: "administration",
+    capability: "administration.channelsList",
+  }),
+  Object.freeze({ id: "roles", group: "administration", capability: "administration.rolesView" }),
+  Object.freeze({
+    id: "settings",
+    group: "administration",
+    capability: "administration.settingsRead",
+  }),
+  Object.freeze({
+    id: "security-audit",
+    group: "administration",
+    capability: "administration.securityAuditList",
+  }),
+  Object.freeze({
+    id: "ownership-transfer",
+    group: "owner",
+    capability: "owner.ownershipTransfer",
+  }),
+]);
+
+const CONTROL_CENTER_TAB_IDS = new Set(CONTROL_CENTER_TABS.map((tab) => tab.id));
+
+function capabilityValue(capabilities, path) {
+  const [group, name] = path.split(".");
+  return !!capabilities?.[group]?.[name];
+}
+
+export function isKnownControlCenterTab(tab) {
+  return typeof tab === "string" && CONTROL_CENTER_TAB_IDS.has(tab);
+}
+
+export function canAccessControlCenterTab(capabilities, tab) {
+  const definition = CONTROL_CENTER_TABS.find((item) => item.id === tab);
+  return !!definition && capabilityValue(capabilities, definition.capability);
+}
+
+export function getAllowedControlCenterTabs(capabilities) {
+  return CONTROL_CENTER_TABS
+    .filter((tab) => capabilityValue(capabilities, tab.capability))
+    .map((tab) => tab.id);
+}
+
+export function canAccessControlCenterGroup(capabilities, group) {
+  return CONTROL_CENTER_TABS.some((tab) =>
+    tab.group === group && capabilityValue(capabilities, tab.capability)
+  );
+}
+
 export function getActiveCapabilities(operator) {
   const permissions = new Set(operator?.permissions || []);
   const mapGroup = (group) =>
