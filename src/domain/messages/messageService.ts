@@ -12,12 +12,19 @@ import type { TransactionManager } from "../../shared/transactions/transactionMa
 import { NotFoundError } from "../../shared/errors/notFoundError.ts";
 import { ForbiddenError } from "../../shared/errors/forbiddenError.ts";
 import { ValidationError } from "../../shared/errors/validationError.ts";
+import { ConflictError } from "../../shared/errors/conflictError.ts";
 import { RateLimitedError } from "../../shared/errors/rateLimitedError.ts";
 import { generateId } from "../../shared/id.ts";
 
 export interface MessageHistoryResult {
   readonly messages: MessageSummary[];
   readonly hasMore: boolean;
+}
+
+export interface IdempotentSendResult {
+  readonly message: MessageSummary;
+  /** False only for an exact replay of an upgraded client's earlier operation. */
+  readonly created: boolean;
 }
 
 /** docs/03-websocket-events.md "Module: Messages". Conversation access rules follow
@@ -76,9 +83,40 @@ export class MessageService {
     content: string,
     replyToId: string | null,
     attachmentId: string | null = null,
+    clientOperationId: string | null = null,
   ): MessageSummary {
+    return this.sendIdempotent(
+      userId,
+      conversationId,
+      content,
+      replyToId,
+      attachmentId,
+      clientOperationId,
+    ).message;
+  }
+
+  /**
+   * Creates a message once for an upgraded client's operation id. Legacy callers pass
+   * null and retain the prior at-least-once send behavior. A replay never rebinds media
+   * or creates another message; callers use `created` to suppress downstream effects.
+   */
+  sendIdempotent(
+    userId: string,
+    conversationId: string,
+    content: string,
+    replyToId: string | null,
+    attachmentId: string | null = null,
+    clientOperationId: string | null = null,
+  ): IdempotentSendResult {
     const room = this.requireRoom(conversationId);
     this.permissions.requireAccess(room, userId);
+
+    if (clientOperationId) {
+      const existing = this.messages.findByClientOperationId(userId, clientOperationId);
+      if (existing) {
+        return this.replayedResult(existing, conversationId, content, replyToId, attachmentId);
+      }
+    }
 
     if (!this.rateLimiter.check(`message.send:${userId}`)) {
       throw new RateLimitedError("You are sending messages too quickly.");
@@ -93,35 +131,83 @@ export class MessageService {
       }
     }
 
-    const message = this.transactions.run(() => {
-      this.safetyGuard?.requireMessage(userId, room);
-      if (attachmentId) {
-        const attachment = this.attachments.findById(attachmentId);
-        if (!attachment || attachment.kind !== "attachment" || attachment.messageId !== null) {
-          throw new ValidationError(
-            '"attachmentId" must refer to a previously uploaded file not yet attached to a message.',
-            { field: "attachmentId" },
-          );
+    let created: Message;
+    let replayedInsideTransaction = false;
+    try {
+      created = this.transactions.run(() => {
+        if (clientOperationId) {
+          const existing = this.messages.findByClientOperationId(userId, clientOperationId);
+          if (existing) {
+            replayedInsideTransaction = true;
+            return existing;
+          }
         }
-        if (attachment.uploaderId !== userId) {
-          throw new ForbiddenError("You can only attach files you uploaded yourself.");
+        this.safetyGuard?.requireMessage(userId, room);
+        if (attachmentId) {
+          const attachment = this.attachments.findById(attachmentId);
+          if (!attachment || attachment.kind !== "attachment" || attachment.messageId !== null) {
+            throw new ValidationError(
+              '"attachmentId" must refer to a previously uploaded file not yet attached to a message.',
+              { field: "attachmentId" },
+            );
+          }
+          if (attachment.uploaderId !== userId) {
+            throw new ForbiddenError("You can only attach files you uploaded yourself.");
+          }
         }
-      }
 
-      const created = this.messages.create({
-        id: generateId(),
-        conversationId,
-        authorId: userId,
-        content,
-        replyToId,
-        isSystem: false,
+        const inserted = this.messages.create({
+          id: generateId(),
+          conversationId,
+          authorId: userId,
+          content,
+          replyToId,
+          clientOperationId,
+          isSystem: false,
+        });
+        if (attachmentId) {
+          this.attachments.attachToMessage(attachmentId, inserted.id);
+        }
+        return inserted;
       });
-      if (attachmentId) {
-        this.attachments.attachToMessage(attachmentId, created.id);
-      }
-      return created;
-    });
-    return this.toSummary(message);
+    } catch (error) {
+      if (!clientOperationId) throw error;
+      const existing = this.messages.findByClientOperationId(userId, clientOperationId);
+      if (!existing) throw error;
+      return this.replayedResult(existing, conversationId, content, replyToId, attachmentId);
+    }
+
+    if (replayedInsideTransaction) {
+      return this.replayedResult(created, conversationId, content, replyToId, attachmentId);
+    }
+    return { message: this.toSummary(created), created: true };
+  }
+
+  private replayedResult(
+    existing: Message,
+    conversationId: string,
+    content: string,
+    replyToId: string | null,
+    attachmentId: string | null,
+  ): IdempotentSendResult {
+    const existingAttachmentIds = this.attachments.listForMessage(existing.id).map((item) =>
+      item.id
+    );
+    const attachmentMatches = attachmentId === null
+      ? existingAttachmentIds.length === 0
+      : existingAttachmentIds.length === 1 && existingAttachmentIds[0] === attachmentId;
+    if (
+      existing.conversationId !== conversationId || existing.content !== content ||
+      existing.replyToId !== replyToId || !attachmentMatches
+    ) {
+      throw new ConflictError(
+        "clientOperationId was already used with a different message payload.",
+        {
+          field: "clientOperationId",
+        },
+      );
+    }
+    return { message: this.toSummary(existing), created: false };
   }
 
   edit(userId: string, messageId: string, content: string): MessageSummary {

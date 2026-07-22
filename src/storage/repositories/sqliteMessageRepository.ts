@@ -13,6 +13,7 @@ interface MessageRow {
   author_id: string | null;
   content: string;
   reply_to_id: string | null;
+  client_operation_id: string | null;
   is_system: number;
   edited_at: string | null;
   deleted_at: string | null;
@@ -26,6 +27,7 @@ function toMessage(row: MessageRow): Message {
     authorId: row.author_id,
     content: row.content,
     replyToId: row.reply_to_id,
+    clientOperationId: row.client_operation_id,
     isSystem: row.is_system === 1,
     editedAt: row.edited_at,
     deletedAt: row.deleted_at,
@@ -44,14 +46,16 @@ export class SqliteMessageRepository implements MessageRepository {
 
   create(message: NewMessage): Message {
     this.db.prepare(
-      `INSERT INTO messages (id, conversation_id, author_id, content, reply_to_id, is_system)
-       VALUES (?, ?, ?, ?, ?, ?)`,
+      `INSERT INTO messages (
+         id, conversation_id, author_id, content, reply_to_id, client_operation_id, is_system
+       ) VALUES (?, ?, ?, ?, ?, ?, ?)`,
     ).run(
       message.id,
       message.conversationId,
       message.authorId,
       message.content,
       message.replyToId,
+      message.clientOperationId ?? null,
       message.isSystem ? 1 : 0,
     );
 
@@ -64,6 +68,14 @@ export class SqliteMessageRepository implements MessageRepository {
     const row = this.db.prepare("SELECT * FROM messages WHERE id = ?").get(id) as
       | MessageRow
       | undefined;
+    return row ? toMessage(row) : null;
+  }
+
+  findByClientOperationId(authorId: string, clientOperationId: string): Message | null {
+    const row = this.db.prepare(
+      `SELECT * FROM messages
+       WHERE author_id = ? AND client_operation_id = ?`,
+    ).get(authorId, clientOperationId) as MessageRow | undefined;
     return row ? toMessage(row) : null;
   }
 

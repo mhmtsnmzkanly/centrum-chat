@@ -1,4 +1,4 @@
-import { assert, assertEquals } from "jsr:@std/assert@1";
+import { assert, assertEquals, assertThrows } from "jsr:@std/assert@1";
 import { createTestDb } from "../support/testDatabase.ts";
 import type { Db } from "../../src/storage/db.ts";
 import { SqliteUserRepository } from "../../src/storage/repositories/sqliteUserRepository.ts";
@@ -39,6 +39,45 @@ Deno.test("SqliteMessageRepository: create + findById roundtrip", async () => {
     assertEquals(created.deletedAt, null);
     assertEquals(messages.findById("m-1")?.id, "m-1");
     assertEquals(messages.findById("does-not-exist"), null);
+  } finally {
+    await cleanup();
+  }
+});
+
+Deno.test("SqliteMessageRepository: client operation ids are author-unique and queryable", async () => {
+  const { db, cleanup } = await createTestDb();
+  try {
+    const { room } = seedRoomAndAuthor(db);
+    const secondRoom = new SqliteConversationRepository(db).create({
+      id: "c-2",
+      type: "channel",
+      slug: "other",
+      isPublic: true,
+    });
+    const messages = new SqliteMessageRepository(db);
+    const created = messages.create({
+      id: "m-1",
+      conversationId: room.id,
+      authorId: "u-1",
+      content: "hello",
+      replyToId: null,
+      clientOperationId: "operation-1",
+      isSystem: false,
+    });
+
+    assertEquals(created.clientOperationId, "operation-1");
+    assertEquals(messages.findByClientOperationId("u-1", "operation-1")?.id, "m-1");
+    assertThrows(() =>
+      messages.create({
+        id: "m-2",
+        conversationId: secondRoom.id,
+        authorId: "u-1",
+        content: "duplicate",
+        replyToId: null,
+        clientOperationId: "operation-1",
+        isSystem: false,
+      })
+    );
   } finally {
     await cleanup();
   }

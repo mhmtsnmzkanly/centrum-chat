@@ -17,6 +17,7 @@ import {
 } from "../../../../shared/validation/validator.ts";
 import type { SettingsService } from "../../../../domain/administration/settingsService.ts";
 import type { RuntimePolicy } from "../../../../domain/administration/runtimePolicy.ts";
+import type { TransactionManager } from "../../../../shared/transactions/transactionManager.ts";
 
 /** docs/03-websocket-events.md "Module: Messages" — `message.send`. Pushes `message.new`
  * to the room's audience and `unread.updated` to every other recipient (not the sender). */
@@ -35,11 +36,12 @@ export class SendMessageHandler implements EventHandler {
     accountPolicy?: Pick<AccountPolicy, "requireVerifiedEmail">,
     private readonly settings?: SettingsService,
     private readonly runtimePolicy?: RuntimePolicy,
+    private readonly transactions?: TransactionManager,
   ) {
     this.accountPolicy = accountPolicy ?? { requireVerifiedEmail() {} };
   }
 
-  handle(ctx: HandlerContext, data: unknown): { message: MessageSummary } {
+  handle(ctx: HandlerContext, data: unknown): { message: MessageSummary; replayed: boolean } {
     const body = asRecord(data, "message.send data");
     const conversationId = requireString(body, "conversationId");
     const content = requireString(body, "content", {
@@ -48,27 +50,37 @@ export class SendMessageHandler implements EventHandler {
     });
     const replyToId = optionalString(body, "replyToId") ?? null;
     const attachmentId = optionalString(body, "attachmentId") ?? null;
+    const clientOperationId = optionalString(body, "clientOperationId", {
+      minLength: 1,
+      maxLength: 128,
+      pattern: /^[a-zA-Z0-9_-]+$/,
+    }) ?? null;
     this.accountPolicy.requireVerifiedEmail(ctx.userId);
     this.runtimePolicy?.requireChannelMutation(conversationId);
 
-    const message = this.messageService.send(
-      ctx.userId,
-      conversationId,
-      content,
-      replyToId,
-      attachmentId,
-    );
-
     const room = this.roomRepository.findById(conversationId);
-    if (room) {
+    const audienceUserIds = room
+      ? roomAudienceUserIds(room, this.connectionManager, this.roomMemberRepository)
+      : [];
+    const outcome = (this.transactions ?? { run: <T>(fn: () => T): T => fn() }).run(() => {
+      const sent = this.messageService.sendIdempotent(
+        ctx.userId,
+        conversationId,
+        content,
+        replyToId,
+        attachmentId,
+        clientOperationId,
+      );
+      const triggers = room && sent.created
+        ? this.notificationService.notifyForNewMessage(room, sent.message, audienceUserIds)
+        : [];
+      return { ...sent, triggers };
+    });
+
+    if (room && outcome.created) {
       pushToRoomAudience(
         room,
-        this.codec.encode(outboundPush("message.new", { message })),
-        this.connectionManager,
-        this.roomMemberRepository,
-      );
-      const audienceUserIds = roomAudienceUserIds(
-        room,
+        this.codec.encode(outboundPush("message.new", { message: outcome.message })),
         this.connectionManager,
         this.roomMemberRepository,
       );
@@ -81,8 +93,7 @@ export class SendMessageHandler implements EventHandler {
         );
       }
 
-      const triggers = this.notificationService.notifyForNewMessage(room, message, audienceUserIds);
-      for (const trigger of triggers) {
+      for (const trigger of outcome.triggers) {
         this.connectionManager.sendToUser(
           trigger.userId,
           this.codec.encode(
@@ -92,6 +103,6 @@ export class SendMessageHandler implements EventHandler {
       }
     }
 
-    return { message };
+    return { message: outcome.message, replayed: !outcome.created };
   }
 }
