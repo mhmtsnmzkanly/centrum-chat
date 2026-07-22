@@ -11,6 +11,7 @@ import {
 } from "../support/fakeConversationRepositories.ts";
 import { ForbiddenError } from "../../src/shared/errors/forbiddenError.ts";
 import { NotFoundError } from "../../src/shared/errors/notFoundError.ts";
+import { ValidationError } from "../../src/shared/errors/validationError.ts";
 
 function makeServices() {
   const memberRepo = new FakeConversationMemberRepository();
@@ -67,6 +68,47 @@ Deno.test("ConversationReadService.markRead clears the counter up to the given m
 
   service.markRead("u-2", channel.id, m1.id);
   assertEquals(service.countUnread(channel.id, "u-2"), 1); // only m-2 remains unread
+});
+
+Deno.test("ConversationReadService.markRead rejects a message from another conversation", () => {
+  const { service, roomRepo, messages } = makeServices();
+  const first = roomRepo.create({ id: "c-1", type: "channel", isPublic: true });
+  const second = roomRepo.create({ id: "c-2", type: "channel", isPublic: true });
+  const message = messages.create({
+    id: "m-2",
+    conversationId: second.id,
+    authorId: "u-1",
+    content: "other conversation",
+    replyToId: null,
+    isSystem: false,
+  });
+
+  assertThrows(() => service.markRead("u-2", first.id, message.id), ValidationError);
+  assertEquals(service.countUnread(first.id, "u-2"), 0);
+});
+
+Deno.test("ConversationReadService.markRead rejects an unknown message", () => {
+  const { service, roomRepo } = makeServices();
+  const channel = roomRepo.create({ id: "c-1", type: "channel", isPublic: true });
+
+  assertThrows(() => service.markRead("u-2", channel.id, "missing"), ValidationError);
+});
+
+Deno.test("ConversationReadService.markRead accepts a soft-deleted message in its conversation", () => {
+  const { service, roomRepo, messages } = makeServices();
+  const channel = roomRepo.create({ id: "c-1", type: "channel", isPublic: true });
+  const message = messages.create({
+    id: "m-1",
+    conversationId: channel.id,
+    authorId: "u-1",
+    content: "removed",
+    replyToId: null,
+    isSystem: false,
+  });
+  messages.softDelete(message.id);
+
+  service.markRead("u-2", channel.id, message.id);
+  assertEquals(service.countUnread(channel.id, "u-2"), 0);
 });
 
 Deno.test("ConversationReadService.markRead denies access to a group the caller isn't a member of", () => {

@@ -79,8 +79,11 @@ export class FakeConversationReadRepository implements ConversationReadRepositor
     return `${conversationId}:${userId}`;
   }
 
-  markRead(conversationId: string, userId: string, messageId: string): void {
+  markRead(conversationId: string, userId: string, messageId: string): boolean {
+    const message = this.messages.findById(messageId);
+    if (!message || message.conversationId !== conversationId) return false;
     this.lastReadByKey.set(this.key(conversationId, userId), messageId);
+    return true;
   }
 
   getLastReadMessageId(conversationId: string, userId: string): string | null {
