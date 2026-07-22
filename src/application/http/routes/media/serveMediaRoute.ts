@@ -16,8 +16,7 @@ import type { AccountPolicy } from "../../../../domain/auth/accountPolicy.ts";
  * tag never sends an `Authorization` header); message attachments are gated by the same
  * access rule as `message.history` for the room the owning message lives in. An
  * attachment not yet linked to a message (mid-compose, before `message.send`) has no
- * owning room to check against, so it only requires *some* valid caller — matching the
- * bar for every other authenticated action in this app. */
+ * owning room to check against, so it is limited to the original uploader. */
 export class ServeMediaRoute implements RouteHandler {
   readonly method = "GET" as const;
   readonly path = "/media/:id";

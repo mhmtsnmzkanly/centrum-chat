@@ -5,14 +5,17 @@ WebSocket. Channels, groups, DMs, reactions, typing indicators, attachments, not
 search, behind a strictly layered architecture (Transport → Protocol → Application → Domain →
 Storage → SQLite).
 
+It serves integrated vanilla browser clients from `web/`: authentication/onboarding, the protected
+chat UI, and the role-gated Control Center.
+
 See `docs/` for the full design: `01-architecture.md` (layering, protocol abstraction,
 presence/permissions model), `02-database-schema.md`, `03-websocket-events.md` (the full WS event
 catalog), `04-http-api.md` (the narrow HTTP surface), `05-folder-structure.md`,
 `06-implementation-plan.md` (the phased build order this project followed),
 `09-public-internet-security.md` (the current public-internet security controls), and
-`12-control-center-api-contract.md` (the authoritative administration backend contract).
-Operational backup/restore and proxy guidance is in `docs/13-production-operations.md`; the
-versioned manual browser release checklist is `docs/release-browser-smoke.md`.
+`12-control-center-api-contract.md` (the authoritative administration backend contract). Operational
+backup/restore and proxy guidance is in `docs/13-production-operations.md`; the versioned manual
+browser release checklist is `docs/release-browser-smoke.md`.
 
 ## Requirements
 
