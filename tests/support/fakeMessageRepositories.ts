@@ -16,6 +16,7 @@ export class FakeMessageRepository implements MessageRepository {
     this.sequence += 1;
     const created: Message = {
       ...message,
+      clientOperationId: message.clientOperationId ?? null,
       editedAt: null,
       deletedAt: null,
       createdAt: new Date(Date.now() + this.sequence).toISOString(),
@@ -26,6 +27,12 @@ export class FakeMessageRepository implements MessageRepository {
 
   findById(id: string): Message | null {
     return this.messagesById.get(id) ?? null;
+  }
+
+  findByClientOperationId(authorId: string, clientOperationId: string): Message | null {
+    return [...this.messagesById.values()].find((message) =>
+      message.authorId === authorId && message.clientOperationId === clientOperationId
+    ) ?? null;
   }
 
   updateContent(id: string, content: string): Message {
@@ -79,8 +86,11 @@ export class FakeConversationReadRepository implements ConversationReadRepositor
     return `${conversationId}:${userId}`;
   }
 
-  markRead(conversationId: string, userId: string, messageId: string): void {
+  markRead(conversationId: string, userId: string, messageId: string): boolean {
+    const message = this.messages.findById(messageId);
+    if (!message || message.conversationId !== conversationId) return false;
     this.lastReadByKey.set(this.key(conversationId, userId), messageId);
+    return true;
   }
 
   getLastReadMessageId(conversationId: string, userId: string): string | null {

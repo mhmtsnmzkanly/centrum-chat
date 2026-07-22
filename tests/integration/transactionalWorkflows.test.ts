@@ -138,6 +138,10 @@ class FailingMessageRepository implements MessageRepository {
     return this.inner.findById(id);
   }
 
+  findByClientOperationId(authorId: string, clientOperationId: string) {
+    return this.inner.findByClientOperationId(authorId, clientOperationId);
+  }
+
   updateContent(id: string, content: string) {
     return this.inner.updateContent(id, content);
   }

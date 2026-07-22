@@ -85,6 +85,13 @@ export const ChatService = {
   },
 };
 
+// Kept only until a failed send is retried. The WebSocket envelope id remains an RPC
+// correlation id; this separate value makes one user operation retry-safe server-side.
+let pendingMessageOperation = null;
+registerAuthCleanup(() => {
+  pendingMessageOperation = null;
+});
+
 export function ensureEmojiPickerMounted() {
   const popover = document.getElementById("emojiPopoverContainer");
   if (!popover) return;
@@ -1153,6 +1160,7 @@ export const handlers = {
     if (!conversationId) return;
 
     sendTypingStop(conversationId);
+    let messageOperationAttempt = null;
 
     try {
       if (replyTarget && replyTarget.isEdit) {
@@ -1161,12 +1169,23 @@ export const handlers = {
           content: text,
         });
       } else {
-        await wsClient.request("message.send", {
+        const draft = {
           conversationId,
           content: text,
-          replyToId: replyTarget ? replyTarget.id : undefined,
-          attachmentId: attachmentId || undefined,
-        });
+          replyToId: replyTarget ? replyTarget.id : null,
+          attachmentId: attachmentId || null,
+        };
+        const sameFailedOperation = pendingMessageOperation &&
+          pendingMessageOperation.conversationId === draft.conversationId &&
+          pendingMessageOperation.content === draft.content &&
+          pendingMessageOperation.replyToId === draft.replyToId &&
+          pendingMessageOperation.attachmentId === draft.attachmentId;
+        const clientOperationId = sameFailedOperation
+          ? pendingMessageOperation.clientOperationId
+          : crypto.randomUUID();
+        messageOperationAttempt = { ...draft, clientOperationId };
+        await wsClient.request("message.send", messageOperationAttempt);
+        pendingMessageOperation = null;
       }
 
       const user = store.get("session.user");
@@ -1181,6 +1200,9 @@ export const handlers = {
       store.set("chatForm.attachedFileDetails", null);
       store.set("replyTarget", null);
     } catch (err) {
+      if (!replyTarget || !replyTarget.isEdit) {
+        pendingMessageOperation = messageOperationAttempt;
+      }
       console.error("Failed to send/edit message:", err);
     }
   },

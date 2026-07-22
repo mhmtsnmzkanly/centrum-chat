@@ -4,6 +4,7 @@ export interface Message {
   readonly authorId: string | null;
   readonly content: string;
   readonly replyToId: string | null;
+  readonly clientOperationId: string | null;
   readonly isSystem: boolean;
   readonly editedAt: string | null;
   readonly deletedAt: string | null;

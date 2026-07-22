@@ -5,12 +5,17 @@ WebSocket. Channels, groups, DMs, reactions, typing indicators, attachments, not
 search, behind a strictly layered architecture (Transport → Protocol → Application → Domain →
 Storage → SQLite).
 
+It serves integrated vanilla browser clients from `web/`: authentication/onboarding, the protected
+chat UI, and the role-gated Control Center.
+
 See `docs/` for the full design: `01-architecture.md` (layering, protocol abstraction,
 presence/permissions model), `02-database-schema.md`, `03-websocket-events.md` (the full WS event
 catalog), `04-http-api.md` (the narrow HTTP surface), `05-folder-structure.md`,
 `06-implementation-plan.md` (the phased build order this project followed),
 `09-public-internet-security.md` (the current public-internet security controls), and
-`12-control-center-api-contract.md` (the authoritative administration backend contract).
+`12-control-center-api-contract.md` (the authoritative administration backend contract). Operational
+backup/restore and proxy guidance is in `docs/13-production-operations.md`; the versioned manual
+browser release checklist is `docs/release-browser-smoke.md`.
 
 ## Requirements
 
@@ -183,8 +188,8 @@ Called out explicitly in `docs/06-implementation-plan.md` so they read as decisi
 
 - Horizontal scaling / multi-process pub-sub for the in-memory Connection Manager.
 - An actual binary `EnfCodec` (only the `ProtocolCodec` seam for one exists).
-- Wiring the reference frontend at a sibling `chat/` project — this is a server-only build with no
-  bridge script.
+- Horizontal frontend scaling work; this checkout already serves integrated vanilla browser clients
+  from `web/` (`auth.html`, `index.html`, and `control-center.html`).
 - A real payment/verification flow behind `isPremium` (stays a plain boolean).
 - Durable/cron-based orphaned-attachment cleanup (a `setInterval` in `main.ts` is enough for a
   reference implementation; it doesn't survive a restart mid-window).

@@ -1,4 +1,7 @@
-# CentrumChat Server — Current Database Schema
+# CentrumChat Server — Historical Database Schema Snapshot
+
+> Historical snapshot — not current implementation. It predates migrations after 0006;
+> current schema truth is `db/migrations/`, `src/storage/db.ts`, and repository code.
 
 This document describes the current post-migration SQLite schema after
 `0006_attachment_ownership_and_security_foundation.sql`.
