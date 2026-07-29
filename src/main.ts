@@ -517,6 +517,7 @@ wsRegistry.register(
     accountPolicy,
     settingsService,
     runtimePolicy,
+    transactionManager,
   ),
 );
 wsRegistry.register(

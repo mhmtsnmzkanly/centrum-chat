@@ -3,6 +3,7 @@ import type { ConversationRepository } from "./conversationRepository.port.ts";
 import type { Conversation } from "./conversation.entity.ts";
 import type { PermissionService } from "../permissions/permissionService.ts";
 import { NotFoundError } from "../../shared/errors/notFoundError.ts";
+import { ValidationError } from "../../shared/errors/validationError.ts";
 
 /** docs/03-websocket-events.md "Module: Messages" — `room.markRead`. Works uniformly
  * across all room types since `conversation_reads` is decoupled from `conversation_memberships`
@@ -17,7 +18,11 @@ export class ConversationReadService {
   markRead(userId: string, conversationId: string, messageId: string): void {
     const room = this.requireRoom(conversationId);
     this.permissions.requireAccess(room, userId);
-    this.roomReads.markRead(conversationId, userId, messageId);
+    if (!this.roomReads.markRead(conversationId, userId, messageId)) {
+      throw new ValidationError('"messageId" must refer to a message in the same conversation.', {
+        field: "messageId",
+      });
+    }
   }
 
   countUnread(conversationId: string, userId: string): number {

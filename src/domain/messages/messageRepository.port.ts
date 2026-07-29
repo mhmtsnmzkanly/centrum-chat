@@ -6,6 +6,7 @@ export interface NewMessage {
   readonly authorId: string | null;
   readonly content: string;
   readonly replyToId: string | null;
+  readonly clientOperationId?: string | null;
   readonly isSystem: boolean;
 }
 
@@ -18,6 +19,8 @@ export interface MessageHistoryPage {
 export interface MessageRepository {
   create(message: NewMessage): Message;
   findById(id: string): Message | null;
+  /** Looks up an upgraded client's retry-safe operation. Legacy messages use null. */
+  findByClientOperationId(authorId: string, clientOperationId: string): Message | null;
   updateContent(id: string, content: string): Message;
   softDelete(id: string): Message;
   /** Descending-then-reversed page ending just before `before` (a message id cursor, or

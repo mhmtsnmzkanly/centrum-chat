@@ -5,14 +5,19 @@ import type { ConversationReadRepository } from "../../domain/conversations/conv
 export class SqliteConversationReadRepository implements ConversationReadRepository {
   constructor(private readonly db: Db) {}
 
-  markRead(conversationId: string, userId: string, messageId: string): void {
-    this.db.prepare(
+  markRead(conversationId: string, userId: string, messageId: string): boolean {
+    // The SELECT is intentionally part of the write: a caller cannot point this
+    // conversation's cursor at a message from another conversation (or an unknown id).
+    const result = this.db.prepare(
       `INSERT INTO conversation_reads (conversation_id, user_id, last_read_message_id, updated_at)
-       VALUES (?, ?, ?, strftime('%Y-%m-%dT%H:%M:%fZ','now'))
+       SELECT ?, ?, messages.id, strftime('%Y-%m-%dT%H:%M:%fZ','now')
+       FROM messages
+       WHERE messages.id = ? AND messages.conversation_id = ?
        ON CONFLICT(conversation_id, user_id) DO UPDATE SET
          last_read_message_id = excluded.last_read_message_id,
          updated_at = excluded.updated_at`,
-    ).run(conversationId, userId, messageId);
+    ).run(conversationId, userId, messageId, conversationId);
+    return Number(result.changes) === 1;
   }
 
   getLastReadMessageId(conversationId: string, userId: string): string | null {

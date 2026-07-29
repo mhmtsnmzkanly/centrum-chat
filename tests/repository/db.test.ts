@@ -53,6 +53,7 @@ Deno.test("fresh databases apply every migration and expose the renamed schema",
       "idx_email_change_tokens_user",
       "idx_email_verification_tokens_expires",
       "idx_email_verification_tokens_user",
+      "idx_messages_author_client_operation",
       "idx_messages_conversation_created",
       "idx_messages_reply_to",
       "idx_notifications_user_unread",
@@ -105,7 +106,7 @@ Deno.test("fresh databases apply every migration and expose the renamed schema",
     const migrationCount = db
       .prepare("SELECT COUNT(*) as count FROM schema_migrations")
       .get() as { count: number };
-    assertEquals(migrationCount.count, 12);
+    assertEquals(migrationCount.count, 13);
     assertEquals(
       db.prepare(
         "SELECT name FROM sqlite_schema WHERE type='trigger' AND name='reports_validate_target_insert'",
@@ -476,7 +477,7 @@ Deno.test("existing databases on the legacy schema migrate in place without losi
       const migrationCount = migrated
         .prepare("SELECT COUNT(*) as count FROM schema_migrations")
         .get() as { count: number };
-      assertEquals(migrationCount.count, 12);
+      assertEquals(migrationCount.count, 13);
     } finally {
       migrated.close();
     }
@@ -486,7 +487,7 @@ Deno.test("existing databases on the legacy schema migrate in place without losi
       const migrationCount = reopened
         .prepare("SELECT COUNT(*) as count FROM schema_migrations")
         .get() as { count: number };
-      assertEquals(migrationCount.count, 12);
+      assertEquals(migrationCount.count, 13);
     } finally {
       reopened.close();
     }

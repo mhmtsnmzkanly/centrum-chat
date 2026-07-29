@@ -55,6 +55,9 @@ Deno.test("HTTP responses include the baseline security headers and HTML CSP", a
     assert(csp !== null);
     assert(csp.includes("default-src 'self'"));
     assert(csp.includes("script-src 'self'"));
+    assert(
+      csp.includes("img-src 'self' data: blob: https://api.dicebear.com https://cdn.jsdelivr.net"),
+    );
     await page.body?.cancel();
 
     const authPage = await fetch(`${baseUrl}/auth.html`);

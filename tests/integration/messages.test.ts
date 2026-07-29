@@ -97,10 +97,8 @@ async function bootTestServer(rateLimit = { maxTokens: 1000, refillIntervalMs: 1
     userRepository,
     preferencesRepository,
   );
-  const notificationService = new NotificationService(
-    new SqliteNotificationRepository(db),
-    userRepository,
-  );
+  const notificationRepository = new SqliteNotificationRepository(db);
+  const notificationService = new NotificationService(notificationRepository, userRepository);
   const messageMutationRateLimiter = new RateLimiter({ maxTokens: 1000, refillIntervalMs: 10_000 });
   const groupCreateRateLimiter = new RateLimiter({ maxTokens: 1000, refillIntervalMs: 10_000 });
 
@@ -113,6 +111,10 @@ async function bootTestServer(rateLimit = { maxTokens: 1000, refillIntervalMs: 1
       notificationService,
       connectionManager,
       codec,
+      undefined,
+      undefined,
+      undefined,
+      transactions,
     ),
   );
   wsRegistry.register(
@@ -177,7 +179,11 @@ async function bootTestServer(rateLimit = { maxTokens: 1000, refillIntervalMs: 1
       password: "correct-horse-battery",
       displayName: `${label} display`,
     });
-    return { userId: result.profile.id, accessToken: result.accessToken };
+    return {
+      userId: result.profile.id,
+      username: result.profile.username,
+      accessToken: result.accessToken,
+    };
   }
 
   function createChannel(slug: string) {
@@ -205,6 +211,8 @@ async function bootTestServer(rateLimit = { maxTokens: 1000, refillIntervalMs: 1
     registerUser,
     connectAsSoleUser,
     createChannel,
+    messageRepository,
+    notificationRepository,
     cleanup: async () => {
       await server.shutdown();
       await new Promise((resolve) => setTimeout(resolve, 50));
@@ -258,6 +266,71 @@ Deno.test("WS message.send: two clients in the same channel, one sends, the othe
     assertEquals(bobPush.event, "message.new");
     assertEquals((bobPush.data.message as { content: string }).content, "hello bob");
     assertEquals((bobPush.data.message as { id: string }).id, sentMessage.id);
+
+    aliceConn.socket.close();
+    bobConn.socket.close();
+  } finally {
+    await cleanup();
+  }
+});
+
+Deno.test("WS message.send replays an operation once without duplicate fanout or notifications", async () => {
+  const {
+    registerUser,
+    connectAsSoleUser,
+    createChannel,
+    messageRepository,
+    notificationRepository,
+    cleanup,
+  } = await bootTestServer();
+  try {
+    const channel = createChannel("idempotent-send");
+    const alice = await registerUser("alice");
+    const bob = await registerUser("bob");
+    const aliceConn = await connectAsSoleUser(alice.accessToken);
+    const bobConn = await connectAsSoleUser(bob.accessToken);
+    await aliceConn.queue.next(); // bob presence
+
+    const operation = "operation-replay-1";
+    send(aliceConn.socket, "first", "message.send", {
+      conversationId: channel.id,
+      content: `hello @${bob.username}`,
+      clientOperationId: operation,
+    });
+    const [firstAck, bobMessage] = await Promise.all([
+      sendAndGetAck(aliceConn.queue, "message.new"),
+      bobConn.queue.next(),
+    ]) as [WsResponse, WsPush];
+    await bobConn.queue.next(); // unread.updated
+    await bobConn.queue.next(); // notification.new
+    const firstMessage = firstAck.data!.message as { id: string };
+    assertEquals(bobMessage.event, "message.new");
+    assertEquals(notificationRepository.listForUser(bob.userId, false).length, 1);
+
+    send(aliceConn.socket, "replay", "message.send", {
+      conversationId: channel.id,
+      content: `hello @${bob.username}`,
+      clientOperationId: operation,
+    });
+    const replayAck = await aliceConn.queue.next() as WsResponse;
+    assertEquals(replayAck.success, true);
+    assertEquals(replayAck.data!.replayed, true);
+    assertEquals((replayAck.data!.message as { id: string }).id, firstMessage.id);
+    assertEquals(
+      await bobConn.queue.next(200).then(() => "push").catch(() => "timeout"),
+      "timeout",
+    );
+    assertEquals(messageRepository.history(channel.id, null, 10).messages.length, 1);
+    assertEquals(notificationRepository.listForUser(bob.userId, false).length, 1);
+
+    send(aliceConn.socket, "mismatch", "message.send", {
+      conversationId: channel.id,
+      content: "changed payload",
+      clientOperationId: operation,
+    });
+    const mismatch = await aliceConn.queue.next() as WsResponse;
+    assertEquals(mismatch.success, false);
+    assertEquals(mismatch.error?.code, "CONFLICT");
 
     aliceConn.socket.close();
     bobConn.socket.close();

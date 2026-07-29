@@ -23,7 +23,7 @@ function htmlContentSecurityPolicy(): string {
     "frame-ancestors 'none'",
     "object-src 'none'",
     "connect-src 'self' ws: wss: https://challenges.cloudflare.com https://cdn.jsdelivr.net https://*.cloudflareinsights.com",
-    "img-src 'self' data: blob: https://api.dicebear.com",
+    "img-src 'self' data: blob: https://api.dicebear.com https://cdn.jsdelivr.net",
     "script-src 'self' https://cdn.jsdelivr.net https://challenges.cloudflare.com https://static.cloudflareinsights.com",
     "frame-src https://challenges.cloudflare.com",
     "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com https://cdn.jsdelivr.net",

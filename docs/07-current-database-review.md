@@ -1,6 +1,8 @@
-# CentrumChat — Current Database Review
+# CentrumChat — Historical Database Review
 
-Note: this document describes the pre-migration schema and repository state that existed before the conversation/session terminology migration. The updated canonical schema, additive migration plan, and post-migration schema reference live in `docs/02-database-schema.md`, `docs/06-implementation-plan.md`, and `docs/08-current-database-schema.md`.
+> Historical design review — not current implementation. It describes the pre-migration
+> `rooms`/`refresh_tokens` schema and former database path. Current truth is `db/migrations/`,
+> `src/storage/db.ts`, and production repositories.
 
 ## 1. Executive summary
 

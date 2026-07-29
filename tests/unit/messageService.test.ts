@@ -14,6 +14,7 @@ import { ForbiddenError } from "../../src/shared/errors/forbiddenError.ts";
 import { NotFoundError } from "../../src/shared/errors/notFoundError.ts";
 import { ValidationError } from "../../src/shared/errors/validationError.ts";
 import { RateLimitedError } from "../../src/shared/errors/rateLimitedError.ts";
+import { ConflictError } from "../../src/shared/errors/conflictError.ts";
 import { EditMessageHandler } from "../../src/application/websocket/handlers/messages/editMessageHandler.ts";
 import { ConnectionManager } from "../../src/transport/websocket/connectionManager.ts";
 import { JsonCodec } from "../../src/protocol/jsonCodec.ts";
@@ -52,6 +53,43 @@ Deno.test("MessageService.send: any authenticated user can post in a channel", (
   assertEquals(message.authorId, "any-user");
   assertEquals(message.reactions, []);
   assertEquals(message.attachments, []);
+});
+
+Deno.test("MessageService.sendIdempotent replays exactly one message and preserves legacy sends", async () => {
+  const { service, roomRepo } = makeServices();
+  const channel = roomRepo.create({ id: "c-1", type: "channel", isPublic: true });
+  const first = service.sendIdempotent("u-1", channel.id, "hello", null, null, "operation-1");
+  const replay = service.sendIdempotent("u-1", channel.id, "hello", null, null, "operation-1");
+  const concurrent = await Promise.all([
+    Promise.resolve(service.sendIdempotent("u-1", channel.id, "hello", null, null, "operation-1")),
+    Promise.resolve(service.sendIdempotent("u-1", channel.id, "hello", null, null, "operation-1")),
+  ]);
+
+  assertEquals(first.created, true);
+  assertEquals(replay.created, false);
+  assertEquals(replay.message.id, first.message.id);
+  assertEquals(concurrent.map((result) => result.message.id), [first.message.id, first.message.id]);
+  assertEquals(concurrent.map((result) => result.created), [false, false]);
+
+  const legacyFirst = service.send("u-1", channel.id, "legacy", null);
+  const legacySecond = service.send("u-1", channel.id, "legacy", null);
+  assert(legacyFirst.id !== legacySecond.id);
+});
+
+Deno.test("MessageService.sendIdempotent rejects a reused operation with changed payload", () => {
+  const { service, roomRepo } = makeServices();
+  const channelA = roomRepo.create({ id: "c-1", type: "channel", isPublic: true });
+  const channelB = roomRepo.create({ id: "c-2", type: "channel", isPublic: true });
+  service.sendIdempotent("u-1", channelA.id, "first", null, null, "operation-1");
+
+  assertThrows(
+    () => service.sendIdempotent("u-1", channelA.id, "changed", null, null, "operation-1"),
+    ConflictError,
+  );
+  assertThrows(
+    () => service.sendIdempotent("u-1", channelB.id, "first", null, null, "operation-1"),
+    ConflictError,
+  );
 });
 
 Deno.test("MessageService.send: group/dm requires a room_members row", () => {
@@ -234,6 +272,27 @@ Deno.test("MessageService.send attaches a previously uploaded, unattached attach
     { id: "a-1", fileName: "photo.png", mimeType: "image/png", sizeBytes: 1234, url: "/media/a-1" },
   ]);
   assertEquals(attachments.findById("a-1")?.messageId, message.id);
+});
+
+Deno.test("MessageService.sendIdempotent binds an attachment only once", () => {
+  const { service, roomRepo, attachments } = makeServices();
+  const channel = roomRepo.create({ id: "c-1", type: "channel", isPublic: true });
+  attachments.create({
+    id: "a-1",
+    uploaderId: "u-1",
+    kind: "attachment",
+    fileName: "photo.png",
+    mimeType: "image/png",
+    sizeBytes: 1234,
+    storagePath: "attachments/a-1",
+  });
+
+  const first = service.sendIdempotent("u-1", channel.id, "photo", null, "a-1", "operation-1");
+  const replay = service.sendIdempotent("u-1", channel.id, "photo", null, "a-1", "operation-1");
+  assertEquals(first.created, true);
+  assertEquals(replay.created, false);
+  assertEquals(replay.message.id, first.message.id);
+  assertEquals(attachments.findById("a-1")?.messageId, first.message.id);
 });
 
 Deno.test("MessageService.send rejects an attachmentId that doesn't exist, is an avatar, or is already attached", () => {
