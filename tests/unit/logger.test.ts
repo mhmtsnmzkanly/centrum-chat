@@ -118,6 +118,7 @@ Deno.test("createLogger: centrally redacts sensitive fields without mutating cal
       array: [{ newPassword: "next" }],
       captchaToken: "turnstile-response",
       captchaSecretKey: "turnstile-secret",
+      resendApiKey: "resend-api-key",
     };
 
     logger.info("sensitive", context);
@@ -130,6 +131,7 @@ Deno.test("createLogger: centrally redacts sensitive fields without mutating cal
     assertEquals(parsed.array[0].newPassword, "[REDACTED]");
     assertEquals(parsed.captchaToken, "[REDACTED]");
     assertEquals(parsed.captchaSecretKey, "[REDACTED]");
+    assertEquals(parsed.resendApiKey, "[REDACTED]");
 
     assertEquals(context.password, "hunter2");
     assertEquals(context.Authorization, "Bearer abc");

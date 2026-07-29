@@ -12,6 +12,20 @@ Set `CAPTCHA_SITE_KEY`, `CAPTCHA_SECRET_KEY`, `CAPTCHA_EXPECTED_HOSTNAMES`, and
 Before every deploy, take a backup, run `deno task check`, `deno task lint`, `deno task test`, then
 restart with `systemctl restart centrum-chat.service` and check `GET /health/ready`.
 
+## Resend mail delivery
+
+Use `MAIL_ADAPTER=resend` with `MAIL_FROM_ADDRESS=noreply@mail.novastrum.dev`,
+`MAIL_FROM_NAME=CentrumChat`, and a server-only `RESEND_API_KEY`. The sending domain is
+`mail.novastrum.dev`; it must be **Verified** in Resend before production traffic is enabled. Its
+Resend-provided DNS records are managed in Cloudflare: apply only the exact TXT, MX, or CNAME values
+returned by Resend, keep them DNS-only, and do not alter unrelated web or inbound-mail records.
+
+Account-security templates live in `src/application/mail/templates/`. Generate safe local previews
+with `deno task mail:preview`; the ignored output is `tmp/mail-previews/`. A provider API acceptance
+only means Resend accepted the message: it is not proof of inbox delivery. Confirm a controlled
+recipient inbox and manually exercise verification and password-reset emails before changing
+`APP_ENV` to `production`.
+
 ## Backup and restore
 
 `bin/backup-chat.sh BACKUP_DIRECTORY` uses SQLite's `.backup` online-backup API, not `cp`; this

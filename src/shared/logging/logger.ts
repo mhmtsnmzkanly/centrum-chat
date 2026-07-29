@@ -28,6 +28,7 @@ const SENSITIVE_KEYS = new Set([
   "tokenhash",
   "jwtsecret",
   "secret",
+  "resendapikey",
   "captchatoken",
   "turnstiletoken",
   "captchasecretkey",

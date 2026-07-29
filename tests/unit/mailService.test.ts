@@ -66,3 +66,32 @@ Deno.test("ResendMailService normalizes transport errors without exposing API ke
   assertEquals(message.includes(apiKey), false);
   assertEquals(message.includes(rawToken), false);
 });
+
+Deno.test("ResendMailService sends branded HTML and plain text payloads", async () => {
+  let request: Request | undefined;
+  const service = new ResendMailService({
+    apiKey: "resend-test-key",
+    fromAddress: "noreply@mail.example.test",
+    fromName: "CentrumChat",
+    fetchImpl: (input, init) => {
+      request = input instanceof Request && init === undefined ? input : new Request(input, init);
+      return Promise.resolve(new Response(JSON.stringify({ id: "message-id" }), { status: 200 }));
+    },
+  });
+
+  await service.sendVerificationEmail({
+    toEmail: "alice@example.test",
+    displayName: "Alice",
+    verificationUrl: "https://chat.example.test/?verify_email=example-token",
+  });
+
+  assertEquals(request?.url, "https://api.resend.com/emails");
+  assertEquals(request?.headers.get("authorization"), "Bearer resend-test-key");
+  const payload = await request?.json() as Record<string, unknown>;
+  assertEquals(payload.from, "CentrumChat <noreply@mail.example.test>");
+  assertEquals(payload.subject, "Verify your CentrumChat email");
+  assertEquals(typeof payload.html, "string");
+  assertEquals(typeof payload.text, "string");
+  assertEquals(String(payload.html).includes("Verify email"), true);
+  assertEquals(String(payload.text).includes("https://chat.example.test/"), true);
+});
