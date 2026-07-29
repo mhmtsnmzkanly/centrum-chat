@@ -662,7 +662,10 @@ export class AuthService {
   }
 
   private buildPublicUrl(param: string, rawToken: string): string {
-    const url = new URL(this.options.publicBaseUrl);
+    // Account-security links must land on the auth client. The application root is
+    // protected by the chat-session guard, which deliberately redirects anonymous
+    // visitors to /auth.html without forwarding security-token query parameters.
+    const url = new URL("/auth.html", this.options.publicBaseUrl);
     url.searchParams.set(param, rawToken);
     return url.toString();
   }

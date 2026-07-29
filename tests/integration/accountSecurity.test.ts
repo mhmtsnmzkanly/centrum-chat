@@ -687,7 +687,7 @@ Deno.test("Email verification uses PUBLIC_BASE_URL and exactly one concurrent co
       "verification",
       "alice.security@example.com",
     );
-    assertEquals(verificationUrl?.startsWith("https://chat.example.com/"), true);
+    assertEquals(verificationUrl?.startsWith("https://chat.example.com/auth.html?"), true);
     const token = getMailToken(verificationUrl ?? "", "verify_email");
 
     const [first, second] = await Promise.all([
@@ -739,7 +739,7 @@ Deno.test("Password reset is enumeration-resistant, uses PUBLIC_BASE_URL, and re
     assertEquals(existingText, missingText);
 
     const resetUrl = latestMailUrl(harness.mailService, "password_reset", alice.email);
-    assertEquals(resetUrl?.startsWith("https://chat.example.com/"), true);
+    assertEquals(resetUrl?.startsWith("https://chat.example.com/auth.html?"), true);
     const token = getMailToken(resetUrl ?? "", "reset_password");
 
     const [first, second] = await Promise.all([
@@ -907,7 +907,7 @@ Deno.test("Email change completion is authenticated, user-bound, and old-email n
       "email_change_verification",
       "alice.new@example.com",
     );
-    assertEquals(changeUrl?.startsWith("https://chat.example.com/"), true);
+    assertEquals(changeUrl?.startsWith("https://chat.example.com/auth.html?"), true);
     const token = getMailToken(changeUrl ?? "", "change_email");
 
     const bobCompletion = await harness.dispatchHttp("/api/auth/email-change/complete", {
