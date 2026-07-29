@@ -198,6 +198,9 @@
       <section data-auth-view="password-reset-complete" aria-labelledby="reset-complete-heading" hidden>
         <h2 id="reset-complete-heading" tabindex="-1" data-i18n="resetComplete.title">Choose a new password</h2>
         <form id="reset-complete-form" novalidate>
+          <!-- Password managers associate new-password fields with this hidden username hint.
+               Reset links intentionally do not expose the account email to the browser. -->
+          <input name="username" autocomplete="username" hidden>
           <div class="field password-field">
             <label for="reset-new-password" data-i18n="fields.newPassword">New password</label>
             <div class="password-control">
