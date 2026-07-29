@@ -406,7 +406,15 @@ document.getElementById("sign-in-form").addEventListener("submit", async (event)
     TokenStorage.set({ accessToken: data.accessToken, refreshToken: data.refreshToken }, document.getElementById("sign-in-remember").checked);
     document.getElementById("sign-in-password").value = "";
     await resolveSession();
-  } catch (error) { if (requestId === transitionId) showError(error); }
+  } catch (error) {
+    if (requestId === transitionId) {
+      if (error?.code === "UNAUTHORIZED") {
+        showError(null, i18n.text("errors.invalidCredentials"));
+      } else {
+        showError(error);
+      }
+    }
+  }
   finally { setPending(form, false); }
 });
 
