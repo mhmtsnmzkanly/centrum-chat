@@ -13,7 +13,7 @@ descending `(created_at,id)` order, default limit 25, and maximum 100.
 - Report statuses: `open`, `in_review`, `resolved`, `dismissed`.
 - Sanctions: `message_mute`, `interaction_restriction`, `account_suspension`.
 - Policy errors: `BLOCKED_INTERACTION`, `MESSAGE_MUTED`, `INTERACTION_RESTRICTED`,
-  `ACCOUNT_SUSPENDED`, `CAPTCHA_REQUIRED`.
+  `ACCOUNT_SUSPENDED`, `CAPTCHA_REQUIRED`, `CAPTCHA_INVALID`, `CAPTCHA_UNAVAILABLE`.
 
 ## Normal-user routes
 

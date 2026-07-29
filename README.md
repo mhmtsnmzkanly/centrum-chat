@@ -80,7 +80,8 @@ variables into your shell yourself, or run the server directly with
 | `CAPTCHA_ADAPTER`                          | no       | `development`                           | `development` \| `turnstile`; production rejects `development`                                         |
 | `CAPTCHA_SITE_KEY`                         | no       | empty                                   | Public Turnstile site key exposed through `/api/config/public`                                         |
 | `CAPTCHA_SECRET_KEY`                       | no       | empty                                   | Server-only Turnstile secret; required for the production adapter                                      |
-| `CAPTCHA_EXPECTED_HOSTNAME`                | no       | `localhost`                             | Exact hostname required in successful Turnstile verification results                                   |
+| `CAPTCHA_EXPECTED_HOSTNAMES`               | no       | `localhost`                             | Comma-separated hostname allowlist required in successful Turnstile verification results              |
+| `CAPTCHA_VERIFY_TIMEOUT_MS`                | no       | `5000`                                  | Siteverify timeout; must be between 100 and 30000 milliseconds                                         |
 | `BOOTSTRAP_OWNER_EMAIL`                    | no       | empty                                   | On restart, promotes one matching existing account only when no owner exists                           |
 | `LOG_LEVEL`                                | no       | `info`                                  | `debug` \| `info` \| `warn` \| `error`                                                                 |
 | `MAX_ATTACHMENT_SIZE_BYTES`                | no       | `26214400` (25MB)                       | `POST /api/media/upload` limit                                                                         |

@@ -71,7 +71,9 @@ exists. SQLite/database operators can still alter rows; this is not cryptographi
 
 Registration, login, and password-reset request consume `captchaToken`. `CaptchaVerifier` has
 development, test, and Cloudflare Turnstile adapters. Turnstile Siteverify receives the configured
-secret, expected hostname/action, and actual peer IP; forwarded headers are ignored. Registration and
-login fail closed with `CAPTCHA_REQUIRED`. Password-reset request preserves its generic 200 response
-but suppresses token issuance when verification fails. Existing rate limits remain active. Production
-rejects the development adapter and requires Turnstile keys/hostname.
+secret, expected hostname/action, and actual peer IP; forwarded headers are ignored. All three flows
+fail closed: a missing token returns `CAPTCHA_REQUIRED`, an invalid/expired/replayed token returns
+`CAPTCHA_INVALID`, and provider failure returns `CAPTCHA_UNAVAILABLE`. Password-reset responses
+remain enumeration-resistant after successful verification; failed verification creates no reset
+token or mail side effect. Existing rate limits remain active. Production rejects development and
+none adapters and requires Turnstile keys, hostname allowlist, and a bounded verification timeout.

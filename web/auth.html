@@ -67,7 +67,7 @@
             <small id="sign-in-password-error" class="field-error" aria-live="polite"></small>
           </div>
           <label class="check-row"><input id="sign-in-remember" type="checkbox"> <span data-i18n="fields.remember">Remember me on this browser</span></label>
-          <div id="captcha-login" class="captcha-slot"></div>
+          <div id="captcha-login" class="captcha-slot" aria-label="CAPTCHA verification"></div>
           <button class="primary-action" type="submit" data-i18n="actions.signIn">Sign in</button>
           <button class="text-action" type="button" data-action="show-reset-request" data-i18n="actions.forgotPassword">Forgot your password?</button>
         </form>
@@ -104,7 +104,7 @@
             <small id="register-password-error" class="field-error" aria-live="polite"></small>
           </div>
           <label class="check-row"><input id="register-remember" type="checkbox"> <span data-i18n="fields.remember">Remember me on this browser</span></label>
-          <div id="captcha-register" class="captcha-slot"></div>
+          <div id="captcha-register" class="captcha-slot" aria-label="CAPTCHA verification"></div>
           <button class="primary-action" type="submit" data-i18n="actions.createAccount">Create account</button>
         </form>
       </section>
@@ -189,7 +189,7 @@
             <input id="reset-email" type="email" autocomplete="email" required aria-describedby="reset-email-error">
             <small id="reset-email-error" class="field-error" aria-live="polite"></small>
           </div>
-          <div id="captcha-password-reset" class="captcha-slot"></div>
+          <div id="captcha-password-reset" class="captcha-slot" aria-label="CAPTCHA verification"></div>
           <button class="primary-action" type="submit" data-i18n="actions.sendReset">Send reset email</button>
           <button class="text-action" type="button" data-action="show-sign-in" data-i18n="actions.backSignIn">Back to sign in</button>
         </form>
@@ -235,7 +235,6 @@
     </section>
   </main>
 
-  <script src="https://challenges.cloudflare.com/turnstile/v0/api.js?render=explicit" defer></script>
   <script type="module" src="/scripts/auth.js"></script>
 </body>
 </html>

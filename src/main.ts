@@ -208,7 +208,8 @@ const captchaVerifier = config.captchaAdapter === "none"
   : (config.captchaAdapter === "turnstile"
     ? new TurnstileCaptchaVerifier({
       secretKey: config.captchaSecretKey ?? "",
-      expectedHostname: config.captchaExpectedHostname,
+      expectedHostnames: config.captchaExpectedHostnames,
+      timeoutMs: config.captchaVerifyTimeoutMs,
     })
     : new DevelopmentCaptchaVerifier());
 const mailLogger = logger.child("mail");

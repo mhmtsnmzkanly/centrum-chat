@@ -28,6 +28,10 @@ const SENSITIVE_KEYS = new Set([
   "tokenhash",
   "jwtsecret",
   "secret",
+  "captchatoken",
+  "turnstiletoken",
+  "captchasecretkey",
+  "turnstilesecretkey",
 ]);
 
 export interface LogContext {

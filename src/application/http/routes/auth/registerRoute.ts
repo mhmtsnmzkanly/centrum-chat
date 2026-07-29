@@ -11,7 +11,11 @@ import {
 } from "../../../../shared/validation/validator.ts";
 import { requireHttpRateLimit } from "../../rateLimitGuard.ts";
 import type { CaptchaVerifier } from "../../../../domain/safety/captchaVerifier.port.ts";
-import { CaptchaRequiredError } from "../../../../domain/safety/safetyErrors.ts";
+import {
+  CaptchaInvalidError,
+  CaptchaRequiredError,
+  CaptchaUnavailableError,
+} from "../../../../domain/safety/safetyErrors.ts";
 import type { SafetyService } from "../../../../domain/safety/safetyService.ts";
 import type { RuntimePolicy } from "../../../../domain/administration/runtimePolicy.ts";
 
@@ -49,15 +53,21 @@ export class RegisterRoute implements RouteHandler {
     const rememberMe = optionalBoolean(body, "rememberMe") ?? false;
     const deviceLabel = optionalString(body, "deviceLabel", { maxLength: 100 }) ?? null;
     const captchaToken = optionalString(body, "captchaToken", { maxLength: 4096 }) ?? null;
-    if (
-      this.captchaVerifier &&
-      !await this.captchaVerifier.verify(captchaToken, {
+    if (this.captchaVerifier) {
+      const captcha = await this.captchaVerifier.verify(captchaToken, {
         action: "register",
         clientIp: ctx.clientIp,
-      })
-    ) {
-      this.safetyService?.auditCaptchaFailure("register", ctx.clientIp);
-      throw new CaptchaRequiredError("CAPTCHA verification is required.");
+      });
+      if (captcha.status !== "verified") {
+        this.safetyService?.auditCaptchaFailure("register", ctx.clientIp);
+        if (captcha.status === "unavailable") {
+          throw new CaptchaUnavailableError("Verification service is temporarily unavailable. Try again.");
+        }
+        if (captcha.reason === "missing") {
+          throw new CaptchaRequiredError("CAPTCHA verification is required.");
+        }
+        throw new CaptchaInvalidError("CAPTCHA verification could not be completed.");
+      }
     }
 
     const result = await this.authService.register({

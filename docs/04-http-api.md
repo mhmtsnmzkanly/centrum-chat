@@ -12,19 +12,22 @@ Everything else is WebSocket (see `03-websocket-events.md`). All responses use t
 ## Authentication
 
 ### `POST /api/auth/register`
-Body: `{ username, email, password, displayName, rememberMe?, deviceLabel? }`
+Body: `{ username, email, password, displayName, rememberMe?, deviceLabel?, captchaToken? }`
 201 → `{ success: true, data: { user: Profile, accessToken, refreshToken } }`
 Also creates a verification token and triggers verification mail delivery after commit.
 New accounts start with the required profile/preferences onboarding step incomplete; registration
 does not grant normal application or WebSocket access by itself.
-Errors: `VALIDATION_ERROR` (bad format), `CONFLICT` (username or email taken).
+When CAPTCHA is enabled, a verified `captchaToken` with action `register` is required. Errors:
+`VALIDATION_ERROR` (bad format), `CONFLICT` (username or email taken), `CAPTCHA_REQUIRED`,
+`CAPTCHA_INVALID`, or `CAPTCHA_UNAVAILABLE`.
 
 ### `POST /api/auth/login`
-Body: `{ email, password, rememberMe?, deviceLabel? }`
+Body: `{ email, password, rememberMe?, deviceLabel?, captchaToken? }`
 200 → `{ success: true, data: { user: Profile, accessToken, refreshToken } }`
 Errors: `UNAUTHORIZED` (bad credentials — generic message, no "which field was wrong" per
 brief's "never trust client input" / avoid user enumeration).
-Rate-limited by IP (`RateLimiter`, category `auth.login`).
+Rate-limited by IP (`RateLimiter`, category `auth.login`). The current configured CAPTCHA policy
+requires an action `login` token whenever a CAPTCHA verifier is enabled.
 
 ### `POST /api/auth/refresh`
 Body: `{ refreshToken }`
@@ -142,9 +145,11 @@ Body: `{ token }`
 Consumes the verification token atomically; exactly one concurrent completion may succeed.
 
 ### `POST /api/auth/password-reset/request`
-Body: `{ email }`
+Body: `{ email, captchaToken? }`
 200 → `{ success: true, data: { message } }`
 Enumeration-resistant public response: the body is the same whether the account exists or not.
+When CAPTCHA is enabled, action `password-reset-request` is required before any reset token or mail
+side effect. CAPTCHA failures expose no account-existence information.
 
 ### `POST /api/auth/password-reset/complete`
 Body: `{ token, newPassword }`

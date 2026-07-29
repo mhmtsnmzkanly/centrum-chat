@@ -158,7 +158,7 @@ Deno.test("loadConfig rejects invalid session, public URL, and mail adapter prod
   );
 });
 
-Deno.test("loadConfig rejects CAPTCHA bypass and incomplete Turnstile settings in production", () => {
+Deno.test("loadConfig validates production Turnstile settings", () => {
   const productionBase = {
     APP_ENV: "production",
     JWT_SECRET: "this-is-a-strong-production-jwt-secret-value-123456",
@@ -180,7 +180,7 @@ Deno.test("loadConfig rejects CAPTCHA bypass and incomplete Turnstile settings i
       CAPTCHA_ADAPTER: "turnstile",
       CAPTCHA_SITE_KEY: "",
       CAPTCHA_SECRET_KEY: undefined,
-      CAPTCHA_EXPECTED_HOSTNAME: "chat.example.com",
+      CAPTCHA_EXPECTED_HOSTNAMES: "chat.example.com",
     },
     () => assertThrows(() => loadConfig(), Error),
   );
@@ -189,9 +189,31 @@ Deno.test("loadConfig rejects CAPTCHA bypass and incomplete Turnstile settings i
       ...productionBase,
       CAPTCHA_ADAPTER: "none",
     },
+    () => assertThrows(() => loadConfig(), Error),
+  );
+  withEnv(
+    {
+      JWT_SECRET: "test-secret",
+      CAPTCHA_ADAPTER: "turnstile",
+      CAPTCHA_SITE_KEY: "public-site-key",
+      CAPTCHA_SECRET_KEY: "server-secret",
+      CAPTCHA_EXPECTED_HOSTNAMES: "localhost, staging.example.test",
+      CAPTCHA_VERIFY_TIMEOUT_MS: "99",
+    },
+    () => assertThrows(() => loadConfig(), Error),
+  );
+  withEnv(
+    {
+      JWT_SECRET: "test-secret",
+      CAPTCHA_ADAPTER: "turnstile",
+      CAPTCHA_SITE_KEY: "public-site-key",
+      CAPTCHA_SECRET_KEY: "server-secret",
+      CAPTCHA_EXPECTED_HOSTNAMES: "localhost, staging.example.test",
+      CAPTCHA_VERIFY_TIMEOUT_MS: "5000",
+    },
     () => {
       const config = loadConfig();
-      assertEquals(config.captchaAdapter, "none");
+      assertEquals(config.captchaExpectedHostnames, ["localhost", "staging.example.test"]);
     },
   );
 });

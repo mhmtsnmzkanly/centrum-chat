@@ -9,6 +9,11 @@ import { normalizeEmailIdentity } from "../../../../domain/auth/emailAddress.ts"
 import { optionalString } from "../../../../shared/validation/validator.ts";
 import type { CaptchaVerifier } from "../../../../domain/safety/captchaVerifier.port.ts";
 import type { SafetyService } from "../../../../domain/safety/safetyService.ts";
+import {
+  CaptchaInvalidError,
+  CaptchaRequiredError,
+  CaptchaUnavailableError,
+} from "../../../../domain/safety/safetyErrors.ts";
 
 const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 const GENERIC_MESSAGE =
@@ -47,15 +52,21 @@ export class PasswordResetRequestRoute implements RouteHandler {
         "Too many password reset attempts. Try again later.",
       );
     }
-    if (
-      this.captchaVerifier &&
-      !await this.captchaVerifier.verify(captchaToken, {
-        action: "password_reset",
+    if (this.captchaVerifier) {
+      const captcha = await this.captchaVerifier.verify(captchaToken, {
+        action: "password-reset-request",
         clientIp: ctx.clientIp,
-      })
-    ) {
-      this.safetyService?.auditCaptchaFailure("password_reset", ctx.clientIp);
-      return successResponse(this.codec, { message: GENERIC_MESSAGE }, 200);
+      });
+      if (captcha.status !== "verified") {
+        this.safetyService?.auditCaptchaFailure("password_reset", ctx.clientIp);
+        if (captcha.status === "unavailable") {
+          throw new CaptchaUnavailableError("Verification service is temporarily unavailable. Try again.");
+        }
+        if (captcha.reason === "missing") {
+          throw new CaptchaRequiredError("CAPTCHA verification is required.");
+        }
+        throw new CaptchaInvalidError("CAPTCHA verification could not be completed.");
+      }
     }
     await this.authService.requestPasswordReset(email);
     return successResponse(this.codec, { message: GENERIC_MESSAGE }, 200);

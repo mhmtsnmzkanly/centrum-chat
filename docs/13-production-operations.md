@@ -6,6 +6,8 @@ Run one Deno 2 process through `deploy/centrum-chat.service`; persist both `DATA
 `MEDIA_ROOT` outside transient deployment directories. Configure production `APP_ENV`, strong
 `JWT_SECRET`, HTTPS `PUBLIC_BASE_URL`, explicit `ALLOWED_ORIGINS`, `MAIL_ADAPTER=resend`, and
 `CAPTCHA_ADAPTER=turnstile`. Keep secrets only in the systemd `EnvironmentFile`, never in backups.
+Set `CAPTCHA_SITE_KEY`, `CAPTCHA_SECRET_KEY`, `CAPTCHA_EXPECTED_HOSTNAMES`, and
+`CAPTCHA_VERIFY_TIMEOUT_MS`; staging and production must use separate Turnstile widgets/keys.
 
 Before every deploy, take a backup, run `deno task check`, `deno task lint`, `deno task test`, then
 restart with `systemctl restart centrum-chat.service` and check `GET /health/ready`.
@@ -40,9 +42,13 @@ Keep CORS origins explicit. Preserve application security headers and cache only
 media; ordinary attachments are authenticated and `no-store`. Probe `/health/live` for liveness and
 `/health/ready` for SQLite readiness.
 
-For staging, verify Resend and Turnstile success, rejection, timeout and provider-unavailable paths
-with staging keys. Confirm logs redact provider keys, CAPTCHA responses and security links. This
-repository does not perform live provider calls by default.
+For staging, verify Turnstile widget creation, allowlisted hostname, registration and password-reset
+success, invalid/expired/replayed token, wrong action/hostname, timeout/provider-unavailable, rate
+limit interaction, public-config site-key-only output, and log redaction. Use staging keys only;
+Cloudflare response tokens, secret keys, request bodies, and query strings must not appear in proxy,
+analytics, APM, error-tracking, or application logs. This repository does not perform live provider
+calls by default, and Turnstile outages leave health/readiness up while protected auth endpoints
+return `CAPTCHA_UNAVAILABLE`.
 
 ## Incident response and secret rotation
 

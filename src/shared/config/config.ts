@@ -23,7 +23,8 @@ export interface Config {
   readonly captchaAdapter: "development" | "turnstile" | "none";
   readonly captchaSiteKey: string;
   readonly captchaSecretKey: string | null;
-  readonly captchaExpectedHostname: string;
+  readonly captchaExpectedHostnames: readonly string[];
+  readonly captchaVerifyTimeoutMs: number;
   readonly bootstrapOwnerEmail: string | null;
   readonly logLevel: "debug" | "info" | "warn" | "error";
   readonly maxAttachmentSizeBytes: number;
@@ -112,6 +113,14 @@ function parseCaptchaAdapter(raw: string): Config["captchaAdapter"] {
   throw new Error("CAPTCHA_ADAPTER must be one of development|turnstile|none, got: " + raw);
 }
 
+function parseCaptchaExpectedHostnames(raw: string): readonly string[] {
+  const values = raw.split(",").map((value) => value.trim()).filter(Boolean);
+  if (values.length === 0 || values.some((value) => /\s/.test(value))) {
+    throw new Error("CAPTCHA_EXPECTED_HOSTNAMES must contain one or more comma-separated hostnames.");
+  }
+  return values;
+}
+
 function parseAppEnv(raw: string): Config["appEnv"] {
   if (raw === "development" || raw === "test" || raw === "production") return raw;
   throw new Error(`APP_ENV must be one of development|test|production, got: ${raw}`);
@@ -190,12 +199,13 @@ function validateProductionConfig(config: Config): void {
   }
   if (
     config.captchaAdapter === "turnstile" &&
-    (!config.captchaSecretKey || !config.captchaSiteKey || !config.captchaExpectedHostname)
+    (!config.captchaSecretKey || !config.captchaSiteKey || config.captchaExpectedHostnames.length === 0)
   ) {
     throw new Error(
-      "CAPTCHA_SITE_KEY, CAPTCHA_SECRET_KEY, and CAPTCHA_EXPECTED_HOSTNAME are required for Turnstile.",
+      "CAPTCHA_SITE_KEY, CAPTCHA_SECRET_KEY, and CAPTCHA_EXPECTED_HOSTNAMES are required for Turnstile.",
     );
   }
+  assertIntRange("CAPTCHA_VERIFY_TIMEOUT_MS", config.captchaVerifyTimeoutMs, 100, 30_000);
 
   const publicBaseUrl = new URL(config.publicBaseUrl);
   if (config.appEnv === "production" && publicBaseUrl.protocol !== "https:") {
@@ -223,6 +233,9 @@ function validateProductionConfig(config: Config): void {
   if (config.captchaAdapter === "development") {
     throw new Error("CAPTCHA_ADAPTER=development is not allowed in production.");
   }
+  if (config.captchaAdapter === "none") {
+    throw new Error("CAPTCHA_ADAPTER=none is not allowed in production.");
+  }
 }
 
 /** Loads and validates configuration once at boot. Fails fast on missing/invalid values. */
@@ -249,7 +262,10 @@ export function loadConfig(): Config {
     captchaAdapter: parseCaptchaAdapter(optionalEnv("CAPTCHA_ADAPTER", "development")),
     captchaSiteKey: optionalEnv("CAPTCHA_SITE_KEY", ""),
     captchaSecretKey: Deno.env.get("CAPTCHA_SECRET_KEY") ?? null,
-    captchaExpectedHostname: optionalEnv("CAPTCHA_EXPECTED_HOSTNAME", "localhost"),
+    captchaExpectedHostnames: parseCaptchaExpectedHostnames(
+      optionalEnv("CAPTCHA_EXPECTED_HOSTNAMES", optionalEnv("CAPTCHA_EXPECTED_HOSTNAME", "localhost")),
+    ),
+    captchaVerifyTimeoutMs: optionalPositiveIntEnv("CAPTCHA_VERIFY_TIMEOUT_MS", 5_000),
     bootstrapOwnerEmail: Deno.env.get("BOOTSTRAP_OWNER_EMAIL") ?? null,
     logLevel: parseLogLevel(optionalEnv("LOG_LEVEL", "info")),
     maxAttachmentSizeBytes: optionalIntEnv("MAX_ATTACHMENT_SIZE_BYTES", 26214400),

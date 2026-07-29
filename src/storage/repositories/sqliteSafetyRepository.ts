@@ -79,6 +79,9 @@ const SENSITIVE_AUDIT_KEYS = new Set([
   "jwtsecret",
   "secret",
   "captchatoken",
+  "captchasecretkey",
+  "turnstiletoken",
+  "turnstilesecretkey",
   "content",
   "messagebody",
 ]);

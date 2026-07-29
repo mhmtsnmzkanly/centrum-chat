@@ -15,3 +15,9 @@ export class AccountSuspendedError extends DomainError {
 export class CaptchaRequiredError extends DomainError {
   readonly code = "CAPTCHA_REQUIRED";
 }
+export class CaptchaInvalidError extends DomainError {
+  readonly code = "CAPTCHA_INVALID";
+}
+export class CaptchaUnavailableError extends DomainError {
+  readonly code = "CAPTCHA_UNAVAILABLE";
+}

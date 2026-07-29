@@ -20,14 +20,19 @@ import type {
   CaptchaContext,
   CaptchaVerifier,
 } from "../../src/domain/safety/captchaVerifier.port.ts";
-import { CaptchaRequiredError } from "../../src/domain/safety/safetyErrors.ts";
+import {
+  CaptchaInvalidError,
+  CaptchaRequiredError,
+  CaptchaUnavailableError,
+} from "../../src/domain/safety/safetyErrors.ts";
 
 class RecordingCaptcha implements CaptchaVerifier {
   readonly contexts: CaptchaContext[] = [];
   constructor(private readonly accepted: boolean) {}
-  verify(_token: string | null, context: CaptchaContext): Promise<boolean> {
+  verify(token: string | null, context: CaptchaContext): Promise<{ status: "verified" } | { status: "invalid"; reason: "missing" | "rejected" }> {
     this.contexts.push(context);
-    return Promise.resolve(this.accepted);
+    if (token === "invalid") return Promise.resolve({ status: "invalid", reason: "rejected" });
+    return Promise.resolve(this.accepted ? { status: "verified" } : { status: "invalid", reason: "missing" });
   }
 }
 
@@ -120,7 +125,7 @@ Deno.test("registration and login fail closed when CAPTCHA is missing, using act
   }
 });
 
-Deno.test("password-reset CAPTCHA failure preserves generic response and suppresses token issuance", async () => {
+Deno.test("password-reset CAPTCHA rejection suppresses token issuance without leaking account state", async () => {
   const h = await setup();
   try {
     await h.auth.register({
@@ -137,21 +142,75 @@ Deno.test("password-reset CAPTCHA failure preserves generic response and suppres
       undefined,
       captcha,
     );
-    const response = await route.handle({
+    await assertRejects(() => route.handle({
       request: new Request("http://chat.test/api/auth/password-reset/request", {
         method: "POST",
         headers: { "content-type": "application/json", "x-forwarded-for": "attacker" },
-        body: JSON.stringify({ email: "alice@example.com" }),
+        body: JSON.stringify({ email: "alice@example.com", captchaToken: "invalid" }),
       }),
       params: {},
       clientIp: "192.0.2.5",
-    });
-    assertEquals(response.status, 200);
+    }), CaptchaInvalidError);
     assertEquals(captcha.contexts[0]?.clientIp, "192.0.2.5");
     const count = h.db.prepare("SELECT COUNT(*) count FROM password_reset_tokens").get() as {
       count: number;
     };
     assertEquals(count.count, 0);
+  } finally {
+    await h.cleanup();
+  }
+});
+
+Deno.test("CAPTCHA provider unavailability suppresses registration side effects", async () => {
+  const h = await setup();
+  try {
+    const route = new RegisterRoute(h.auth, new JsonCodec(), undefined, {
+      verify: () => Promise.resolve({ status: "unavailable" as const }),
+    });
+    await assertRejects(() => route.handle({
+      request: new Request("http://chat.test/api/auth/register", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({
+          username: "unavailable_user", email: "unavailable@example.com",
+          password: "correct-horse-battery", displayName: "Unavailable", captchaToken: "token",
+        }),
+      }),
+      params: {}, clientIp: "192.0.2.5",
+    }), CaptchaUnavailableError);
+    assertEquals(h.users.findByEmail("unavailable@example.com"), null);
+  } finally {
+    await h.cleanup();
+  }
+});
+
+Deno.test("verified CAPTCHA allows registration and password-reset request side effects", async () => {
+  const h = await setup();
+  try {
+    const captcha = new RecordingCaptcha(true);
+    const register = new RegisterRoute(h.auth, new JsonCodec(), undefined, captcha);
+    const registration = await register.handle({
+      request: new Request("http://chat.test/api/auth/register", {
+        method: "POST", headers: { "content-type": "application/json" },
+        body: JSON.stringify({
+          username: "verified_user", email: "verified@example.com", password: "correct-horse-battery",
+          displayName: "Verified", captchaToken: "valid",
+        }),
+      }),
+      params: {}, clientIp: "192.0.2.5",
+    });
+    assertEquals(registration.status, 201);
+    const reset = new PasswordResetRequestRoute(h.auth, new JsonCodec(), undefined, undefined, captcha);
+    const response = await reset.handle({
+      request: new Request("http://chat.test/api/auth/password-reset/request", {
+        method: "POST", headers: { "content-type": "application/json" },
+        body: JSON.stringify({ email: "verified@example.com", captchaToken: "valid" }),
+      }),
+      params: {}, clientIp: "192.0.2.5",
+    });
+    assertEquals(response.status, 200);
+    const count = h.db.prepare("SELECT COUNT(*) count FROM password_reset_tokens").get() as { count: number };
+    assertEquals(count.count, 1);
   } finally {
     await h.cleanup();
   }

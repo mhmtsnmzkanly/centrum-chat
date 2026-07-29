@@ -49,7 +49,17 @@ let currentView = "resolving-session";
 let transitionId = 0;
 let pending = false;
 let accountStatus = null;
-const captcha = { config: null, tokens: {}, widgets: {} };
+const CAPTCHA_FOR_VIEW = {
+  "sign-in": "login",
+  "register-account": "register",
+  "password-reset-request": "password-reset-request",
+};
+const CAPTCHA_ELEMENT = {
+  register: "captcha-register",
+  login: "captcha-login",
+  "password-reset-request": "captcha-password-reset",
+};
+const captcha = { config: null, tokens: {}, widgets: {}, script: null };
 
 function transition(view, options = {}) {
   if (!VIEWS.has(view)) throw new Error(`Unknown auth view: ${view}`);
@@ -77,6 +87,7 @@ function transition(view, options = {}) {
     button.toggleAttribute("aria-current", active);
   }
   if (options.status) setStatus(options.status);
+  syncCaptchaWidget();
   const heading = document.querySelector(`[data-auth-view="${view}"] h2`);
   if (options.focus !== false) heading?.focus();
   if (view !== "password-reset-complete") clearResetPasswords();
@@ -154,24 +165,60 @@ async function initializeCaptcha() {
   try {
     const config = await requestJson("/api/config/public");
     captcha.config = config.captcha;
-    if (captcha.config?.provider !== "turnstile" || !captcha.config.siteKey) return;
-    const render = () => {
-      if (!window.turnstile) return setTimeout(render, 200);
-      for (const [action, id] of Object.entries({ register: "captcha-register", login: "captcha-login", password_reset: "captcha-password-reset" })) {
-        const element = document.getElementById(id);
-        if (!element || captcha.widgets[action] !== undefined) continue;
-        captcha.widgets[action] = window.turnstile.render(element, {
-          sitekey: captcha.config.siteKey, action,
-          callback: (token) => captcha.tokens[action] = token,
-          "expired-callback": () => captcha.tokens[action] = null,
-          "error-callback": () => captcha.tokens[action] = null,
-        });
-      }
-    };
-    render();
+    syncCaptchaWidget();
   } catch (error) {
     console.warn("Public auth configuration unavailable:", error);
   }
+}
+
+function loadTurnstile() {
+  if (window.turnstile) return Promise.resolve();
+  if (captcha.script) return captcha.script;
+  captcha.script = new Promise((resolve, reject) => {
+    const script = document.createElement("script");
+    script.src = "https://challenges.cloudflare.com/turnstile/v0/api.js?render=explicit";
+    script.async = true;
+    script.defer = true;
+    script.onload = () => resolve();
+    script.onerror = () => reject(new Error("CAPTCHA provider script could not be loaded."));
+    document.head.append(script);
+  });
+  return captcha.script;
+}
+
+function clearCaptcha(action) {
+  captcha.tokens[action] = null;
+  const widget = captcha.widgets[action];
+  if (widget !== undefined && window.turnstile) window.turnstile.remove(widget);
+  delete captcha.widgets[action];
+  const element = document.getElementById(CAPTCHA_ELEMENT[action]);
+  if (element) element.textContent = "";
+}
+
+function syncCaptchaWidget() {
+  const action = CAPTCHA_FOR_VIEW[currentView];
+  for (const existingAction of Object.keys(captcha.widgets)) {
+    if (existingAction !== action) clearCaptcha(existingAction);
+  }
+  if (captcha.config?.provider !== "turnstile" || !captcha.config.siteKey || !action) return;
+  loadTurnstile().then(() => {
+    if (CAPTCHA_FOR_VIEW[currentView] !== action || captcha.widgets[action] !== undefined) return;
+    const element = document.getElementById(CAPTCHA_ELEMENT[action]);
+    if (!element) return;
+    captcha.widgets[action] = window.turnstile.render(element, {
+      sitekey: captcha.config.siteKey,
+      action,
+      callback: (token) => captcha.tokens[action] = token,
+      "expired-callback": () => {
+        captcha.tokens[action] = null;
+        setStatus(i18n.text("status.captchaExpired"));
+      },
+      "error-callback": () => {
+        captcha.tokens[action] = null;
+        setStatus(i18n.text("status.captchaUnavailable"));
+      },
+    });
+  }).catch(() => setStatus(i18n.text("status.captchaUnavailable")));
 }
 
 function consumeCaptcha(action) {
@@ -441,7 +488,7 @@ document.getElementById("reset-request-form").addEventListener("submit", async (
   setPending(form, true);
   try {
     await requestJson("/api/auth/password-reset/request", {
-      method: "POST", body: JSON.stringify({ email: document.getElementById("reset-email").value.trim(), captchaToken: consumeCaptcha("password_reset") }),
+      method: "POST", body: JSON.stringify({ email: document.getElementById("reset-email").value.trim(), captchaToken: consumeCaptcha("password-reset-request") }),
     });
     transition("sign-in", { status: i18n.text("status.resetSent") });
   } catch (error) { showError(error); }
