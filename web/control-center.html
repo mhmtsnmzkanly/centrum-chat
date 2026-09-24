@@ -667,13 +667,13 @@
                   <span>No users found matching search filters.</span>
                 </div>
                 <for each="usersList" as="u" key="u.id" data-live data-diff="replace">
-                  <div class="user-item ${u.activeClass}" role="button" data-on-click="selectUser" data-id="${u.id}">
+                  <div class="user-item {activeClass}" data-activeclass="activeClass" role="button" data-on-click="selectUser" data-user-id="{userId}" data-userid="id">
                     <div class="d-flex justify-content-between align-items-center mb-1">
-                      <span class="fw-bold fs-7 text-dark-mode-override">${u.displayNameOrUsername}</span>
-                      <span class="badge bg-secondary-subtle text-secondary border">${u.roleUpper}</span>
+                      <span class="fw-bold fs-7 text-dark-mode-override" data-text="displayNameOrUsername"></span>
+                      <span class="badge bg-secondary-subtle text-secondary border" data-text="roleUpper"></span>
                     </div>
                     <div class="text-muted fs-8">
-                      @${u.username} | ${u.email}
+                      @<span data-text="username"></span> | <span data-text="email"></span>
                     </div>
                   </div>
                 </for>

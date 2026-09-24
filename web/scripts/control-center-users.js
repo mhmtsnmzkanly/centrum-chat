@@ -10,7 +10,7 @@ let searchTimeout = null;
 
 export const usersHandlers = {
   async selectUser(e, el) {
-    const id = el.getAttribute("data-id");
+    const id = el.getAttribute("data-user-id");
     await controlCenterStore.loadUserDetails(id);
     window._ccMobileShowUserDetail?.();
   },
