@@ -1,4 +1,5 @@
 const expectedSha256 = "c2865fd637708e4d4e5cb9a148bbf1c7d5e17b9ff86a4649c7a8e192ecffaeea";
+const expectedMessagesSha256 = "448e4abd446fb50e6b6e2dcbf3b5d1ed83e6f0b31514afa7c797fb0024e8c85e";
 
 async function sha256Hex(value: Uint8Array): Promise<string> {
   const copy = new ArrayBuffer(value.byteLength);
@@ -29,3 +30,12 @@ for (const path of sourceFiles) {
 }
 
 console.log(`Verified lime-csr-js v0.6.4 browser distribution (${actualSha256})`);
+
+const messagesPath = "web/scripts/errors-messages.js";
+const messagesSha256 = await sha256Hex(await Deno.readFile(messagesPath));
+if (messagesSha256 !== expectedMessagesSha256) {
+  throw new Error(
+    `${messagesPath} is not the verified lime-csr-js v0.6.4 diagnostic companion ` +
+      `(expected ${expectedMessagesSha256}, got ${messagesSha256})`,
+  );
+}
