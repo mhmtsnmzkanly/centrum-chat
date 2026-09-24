@@ -1,4 +1,5 @@
 import { mount, setDevMode, subscribeDiagnostics } from "./lime-csr.js";
+import { adaptLegacyHandlers } from "./lime-compat.js";
 import {
   bindBootActions,
   classifyControlCenterStartupError,
@@ -167,11 +168,12 @@ function mountControlCenter() {
   if (!appRoot) {
     throw startupError(CONTROL_CENTER_STARTUP_ERRORS.LIME, null, "MOUNT_TARGET_NOT_FOUND");
   }
-  mount("control-center", {
+  mount({
+    template: "control-center",
     target: appRoot,
     context: { navGroups: NAV_GROUPS },
     store: controlCenterStore,
-    handlers,
+    handlers: adaptLegacyHandlers(handlers),
   });
   translateDocument(appRoot);
 }

@@ -1,4 +1,5 @@
 import { mount, setDevMode } from "./lime-csr.js";
+import { adaptLegacyHandlers } from "./lime-compat.js";
 import { store } from "./chat-store.js";
 import { wsClient } from "./chat-socket.js";
 import { STORAGE } from "./chat-auth.js";
@@ -271,11 +272,12 @@ if (account) {
   document.documentElement.dataset.authState = "ready";
   const appRoot = document.getElementById("app");
   if (appRoot) {
-    mount("app", {
+    mount({
+      template: "app",
       context: {},
       target: appRoot,
       store,
-      handlers,
+      handlers: adaptLegacyHandlers(handlers),
     });
     translateDocument(appRoot);
   }
