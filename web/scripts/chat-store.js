@@ -1,5 +1,5 @@
-import { createStore } from "./lime-csr.js";
-import { safeStyleUrl } from "./lime-csr.js";
+import { createStore } from "./lime-csr-0.6.4.js";
+import { safeStyleUrl } from "./lime-csr-0.6.4.js";
 import { getLocale, t } from "./i18n.js";
 
 // Configuration (avatar seeds + cover gradients ported from the original UI)

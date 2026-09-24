@@ -1,5 +1,5 @@
 import { store, CONFIG, coverStyleFor } from "./chat-store.js";
-import { safeUrl } from "./lime-csr.js";
+import { safeUrl } from "./lime-csr-0.6.4.js";
 import { wsClient } from "./chat-socket.js";
 import { TOKENS, clearAuthenticatedState, onAuthLoss, STORAGE, registerAuthCleanup } from "./chat-auth.js";
 import { apiFetch, ToastService, makeClientError, refreshAccountSecurityState, submitSafetyReport } from "./chat-api.js";

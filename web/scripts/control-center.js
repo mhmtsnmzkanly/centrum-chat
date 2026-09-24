@@ -1,4 +1,4 @@
-import { mount, setDevMode, subscribeDiagnostics } from "./lime-csr.js";
+import { mount, setDevMode, subscribeDiagnostics } from "./lime-csr-0.6.4.js";
 import { adaptLegacyHandlers } from "./lime-compat.js";
 import {
   bindBootActions,

@@ -7,7 +7,7 @@ async function sha256Hex(value: Uint8Array): Promise<string> {
   return Array.from(new Uint8Array(digest), (byte) => byte.toString(16).padStart(2, "0")).join("");
 }
 
-const runtimePath = "web/scripts/lime-csr.js";
+const runtimePath = "web/scripts/lime-csr-0.6.4.js";
 const runtime = await Deno.readFile(runtimePath);
 const actualSha256 = await sha256Hex(runtime);
 if (actualSha256 !== expectedSha256) {

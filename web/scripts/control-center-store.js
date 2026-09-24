@@ -5,7 +5,7 @@ import {
   CONTROL_CENTER_TABS,
   getActiveCapabilities,
 } from "./control-center-contract.js";
-import { createStore } from "./lime-csr.js";
+import { createStore } from "./lime-csr-0.6.4.js";
 import { formatDate } from "./control-center-common.js";
 import { getLocale, t, tp } from "./i18n.js";
 
