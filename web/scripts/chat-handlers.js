@@ -1,4 +1,5 @@
 import { store, CONFIG, coverStyleFor } from "./chat-store.js";
+import { safeUrl } from "./lime-csr.js";
 import { wsClient } from "./chat-socket.js";
 import { TOKENS, clearAuthenticatedState, onAuthLoss, STORAGE, registerAuthCleanup } from "./chat-auth.js";
 import { apiFetch, ToastService, makeClientError, refreshAccountSecurityState, submitSafetyReport } from "./chat-api.js";
@@ -143,31 +144,44 @@ export function showReactionUsersPopover(anchorEl, emoji, userIds) {
   const usersMap = store.get("users") || {};
   const currentUser = store.get("session.user");
 
-  const avatarList = userIds.map((uid) => {
-    const userSummary = usersMap[uid];
-    const displayName = HELPERS.sanitize(userSummary ? userSummary.displayName : "Unknown");
-    const isMe = currentUser && currentUser.id === uid;
-    const avatarUrl = userSummary?.avatarUrl || HELPERS.dicebearUrl(uid);
-    return `
-      <div class="reaction-user-row" data-user-id="${uid}" style="cursor:pointer;">
-        <img src="${avatarUrl}" alt="" class="reaction-user-avatar">
-        <span class="reaction-user-name">${displayName}${
-      isMe ? ' <span class="reaction-you-badge">you</span>' : ""
-    }</span>
-        <i class="bi bi-chevron-right reaction-user-chevron"></i>
-      </div>
-    `;
-  }).join("");
-
   const popover = document.createElement("div");
   popover.id = "reactionUsersPopover";
   popover.className = "reaction-users-popover";
-  popover.innerHTML = `
-    <div class="reaction-popover-header">${HELPERS.sanitize(emoji)} · ${userIds.length} reaction${
-    userIds.length > 1 ? "s" : ""
-  }</div>
-    <div class="reaction-popover-list">${avatarList}</div>
-  `;
+  const header = document.createElement("div");
+  header.className = "reaction-popover-header";
+  header.textContent = `${emoji} · ${userIds.length} reaction${userIds.length > 1 ? "s" : ""}`;
+  const list = document.createElement("div");
+  list.className = "reaction-popover-list";
+
+  for (const uid of userIds) {
+    const userSummary = usersMap[uid];
+    const row = document.createElement("div");
+    row.className = "reaction-user-row";
+    row.dataset.userId = uid;
+    row.style.cursor = "pointer";
+
+    const avatar = document.createElement("img");
+    avatar.src = safeUrl(userSummary?.avatarUrl || HELPERS.dicebearUrl(uid));
+    avatar.alt = "";
+    avatar.className = "reaction-user-avatar";
+
+    const name = document.createElement("span");
+    name.className = "reaction-user-name";
+    name.textContent = userSummary?.displayName || "Unknown";
+    if (currentUser && currentUser.id === uid) {
+      const badge = document.createElement("span");
+      badge.className = "reaction-you-badge";
+      badge.textContent = "you";
+      name.append(" ", badge);
+    }
+
+    const chevron = document.createElement("i");
+    chevron.className = "bi bi-chevron-right reaction-user-chevron";
+    row.append(avatar, name, chevron);
+    list.append(row);
+  }
+
+  popover.append(header, list);
 
   document.body.appendChild(popover);
 

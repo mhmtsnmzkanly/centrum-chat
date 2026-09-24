@@ -1,4 +1,5 @@
 import { createStore } from "./lime-csr.js";
+import { safeStyleUrl } from "./lime-csr.js";
 import { getLocale, t } from "./i18n.js";
 
 // Configuration (avatar seeds + cover gradients ported from the original UI)
@@ -149,7 +150,10 @@ export const store = createStore({
 });
 
 export function coverStyleFor(coverUrl, coverIndex) {
-  if (coverUrl) return `url('${coverUrl}') center/cover no-repeat`;
+  if (coverUrl) {
+    const safeCover = safeStyleUrl(coverUrl);
+    if (safeCover) return `${safeCover} center/cover no-repeat`;
+  }
   const gradients = CONFIG.coverGradients;
   return gradients[(coverIndex || 0) % gradients.length];
 }
@@ -164,7 +168,8 @@ function computedMatch(target, dep, value, whenTrue, whenFalse = "") {
 function computedAvatarStyle(target, dep) {
   store.computed(target, [dep], () => {
     const url = store.get(dep);
-    return url ? `url('${url}') center/cover no-repeat` : "";
+    const safeAvatar = url ? safeStyleUrl(url) : "";
+    return safeAvatar ? `${safeAvatar} center/cover no-repeat` : "";
   });
 }
 
